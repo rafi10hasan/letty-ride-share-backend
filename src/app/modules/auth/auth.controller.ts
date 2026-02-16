@@ -10,7 +10,7 @@ const loginWithCredential = asyncHandler(async (req: Request, res: Response) => 
   const isVerificationRequired = result.status === 'UNVERIFIED' || result.status === '2FA_REQUIRED';
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.OK,
-    success: true,
+    success: isVerificationRequired ? false :true,
     message: isVerificationRequired ? result.message : 'Welcome back! You have successfully logged in.',
     data: isVerificationRequired ? null : result,
   });

@@ -12,14 +12,16 @@ const createAccountIntoDb = asyncHandler(async (req: Request, res: Response) => 
   const userPayload = req.body;
   const result = await userService.createAccount(userPayload);
   // console.log(result);
+  const isVerificationRequired = result.status === 'UNVERIFIED';
   sendResponse(res, {
-    statusCode: StatusCodes.CREATED,
-    success: true,
-    message: 'User has been registered successfully.Check your email to verify your Account',
+    statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.CREATED,
+    success: isVerificationRequired ? false :true,
+    message: isVerificationRequired ? result.message : 'User has been registered successfully.Check your email to verify your Account',
     data: result,
   });
 });
 
+// create rider profile
 const createRiderProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
 
   const result = await userService.createRiderProfile(req.user, req.body);

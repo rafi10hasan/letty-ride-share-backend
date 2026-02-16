@@ -5,6 +5,7 @@ import { randomUserImage } from '../../../utilities/randomUserImage';
 import sendMail from '../../../utilities/sendEmail';
 import { BadRequestError } from '../../errors/request/apiError';
 
+import { sendVerificationOtp } from '../auth/auth.utils';
 import { TGender, TUserRole, USER_ROLE } from './user.constant';
 import { IUser, registerPayload } from './user.interface';
 import { userRepository } from './user.repository';
@@ -16,11 +17,19 @@ const createAccount = async (payload: registerPayload) => {
   const existingUser = await userRepository.findByEmail(payload.email);
 
   if (existingUser && existingUser.isDeleted) {
-    throw new BadRequestError('this Email was previously deleted. Please contact support to reactivate.');
+    throw new BadRequestError('this email is blocked. Please contact support to reactivate.');
   }
 
-  if (existingUser) {
-    throw new BadRequestError('user already exist with this email!');
+  if (existingUser && !existingUser.isEmailVerified) {
+    await sendVerificationOtp(existingUser, payload.email);
+        return {
+          status: 'UNVERIFIED',
+          message: 'Your Account is not verified. Please verify your email to complete registration',
+        };
+  }
+
+   if (existingUser && existingUser.isEmailVerified) {
+    throw new BadRequestError('this email is already exist.');
   }
 
   // 3. Generate OTP
