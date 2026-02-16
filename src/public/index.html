@@ -1,0 +1,86 @@
+<html>
+  <head>
+    <style>
+      #root {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root">
+      <!-- Custom call invitation dialog -->
+      <div id="confirmDialog" style="display: none">
+        <!-- Caller info -->
+        <div id="caller"></div>
+        <!-- Buttons -->
+        <button id="acceptButton">Accept</button>
+        <button id="refuseButton">Refuse</button>
+      </div>
+    </div>
+
+    <!-- SDK Scripts -->
+    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
+    <script src="https://unpkg.com/zego-zim-web@2.9.0/index.js"></script>
+
+    <script>
+      // ==== CONFIG ====
+      const appID = 1686278503;
+      const serverSecret = "ae26e9fd74460a880d6f02fb7cae0caf";
+
+      // ✅ Use a short alphanumeric userID (no spaces/special chars)
+      const userID = "rafi123"; 
+      const userName = "rafi";
+       
+      /*
+
+  04AAAAAGigXD0ADAeGeQiSLUlxtSJ4RgCu84wUhiivC9JaID7eBzVHPrp9peQxT8k9Qvtu5pMFjF6OB2T8Qq8dzw6/7kygaaaz4Li9fj4CLTbliV7XQbmGuN3q6NvMc2ApS8R3vOGWDOHn0ShQqa8oAHlvAS44rW6zfQHou4GvjKdPYWQi701l2Is3DMjLrSUEDoOCDoiq2gFYLX+pOQBq4ME+crA+48ZT58Y9jrP8V67ss+G2wfnqN6PhV9teEtMicXCdrdnpAQ==
+      */
+      // ✅ Must be non-null string
+      const roomID = `room_${userID}`; 
+
+      const TOKEN = ZegoUIKitPrebuilt.generateKitTokenForTest(
+        appID,
+        serverSecret,
+        roomID,   // ✅ valid room ID
+        userID,
+        userName
+      );
+
+      // Create UIKit instance
+      const zp = ZegoUIKitPrebuilt.create(TOKEN);
+      zp.addPlugins({ ZIM });
+
+      // Call invitation config
+      zp.setCallInvitationConfig({
+        enableCustomCallInvitationDialog: true,
+
+        // Custom call invitation UI
+        onConfirmDialogWhenReceiving: (callType, caller, refuse, accept, data) => {
+          const confirmDialogDom = document.querySelector('#confirmDialog');
+          confirmDialogDom.style.display = 'block';
+
+          // Show caller name
+          document.querySelector('#caller').innerHTML = caller.userName;
+
+          // Accept button
+          document.querySelector('#acceptButton').onclick = () => { 
+            accept();          
+            confirmDialogDom.style.display = 'none';
+          };
+
+          // Refuse button
+          document.querySelector('#refuseButton').onclick = () => { 
+            refuse();          
+            confirmDialogDom.style.display = 'none';
+          };
+        },
+
+        // Hide custom dialog when call ends
+        onCallInvitationEnded: (reason) => {
+          document.querySelector('#confirmDialog').style.display = 'none';
+        }
+      });
+    </script>
+  </body>
+</html>
