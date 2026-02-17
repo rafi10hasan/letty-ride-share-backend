@@ -1,7 +1,7 @@
 import { Server, Socket } from 'socket.io';
+import Conversation from '../../app/modules/conversation/conversation.model';
+import Message from '../../app/modules/Message/message.model';
 
-import Message from '../../modules/Message/message.model';
-import Conversation from '../../modules/conversation/conversation.model';
 
 export const handleSeenMessage = async (
   io: Server,

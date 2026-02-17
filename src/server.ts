@@ -2,8 +2,9 @@ import { Server as HTTPServer } from 'http';
 import mongoose from 'mongoose';
 import app from './app';
 import config from './config';
-import { initializeSocket } from './socket/socketconn';
+
 import seedingAdmin from './utilities/seeding';
+import { connectSocket } from './socket/connectSocket';
 
 let server: HTTPServer;
 
@@ -23,7 +24,7 @@ const runServer = async () => {
 
   seedingAdmin();
   // initialize socket after server is created
-  initializeSocket(server);
+  connectSocket(server);
 };
 
 // handle unhandled rejection

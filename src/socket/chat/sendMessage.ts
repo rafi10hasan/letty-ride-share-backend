@@ -1,13 +1,14 @@
 import { Types } from 'mongoose';
 import type { Express } from 'express';
 import { Server, Socket } from 'socket.io';
-import Auth from '../../modules/Auth/auth.model';
-import Conversation from '../../modules/conversation/conversation.model';
-import Message from '../../modules/Message/message.model';
-import { SOCKET_EVENTS } from '../../socket/socket.constant';
-import getUnreadMessageCount from '../../utils/getUnreadMessageCount';
-import { uploadToCloudinary } from '../../utils/uploadFileToCloudinary';
-import { deleteImageFromCloudinary } from '../../utils/deleteImageFromCloudinary';
+import User from '../../app/modules/user/user.model';
+import Conversation from '../../app/modules/conversation/conversation.model';
+import { uploadToCloudinary } from '../../app/cloudinary/uploadImageToCLoudinary';
+import Message from '../../app/modules/Message/message.model';
+import { deleteImageFromCloudinary } from '../../app/cloudinary/deleteImageFromCloudinary';
+import getUnreadMessageCount from '../../helpers/getUnreadMessageCount';
+import { SOCKET_EVENTS } from '../socket.constant';
+
 
 interface SendMessageData {
   receiverId: string;
@@ -28,7 +29,7 @@ export const handleSendMessage = async (
     });
   }
 
-  const receiver = await Auth.findById(
+  const receiver = await User.findById(
     new Types.ObjectId(data.receiverId),
   ).select('_id');
 
@@ -76,7 +77,7 @@ export const handleSendMessage = async (
           originalname: 'socket-image',
         } as unknown as Express.Multer.File;
 
-        return uploadToCloudinary(file, 'folder_images');
+        return uploadToCloudinary(file, 'chat_images');
       }),
     );
 

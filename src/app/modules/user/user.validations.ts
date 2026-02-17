@@ -13,12 +13,21 @@ const createAuthSchema = z.object({
     .max(30, 'Full name cannot exceed 30 characters')
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces'),
 
-  phone: z.string({
-    error: (issue) => {
-      if (issue.input === undefined) return 'Phone is required';
-      if (typeof issue.input !== 'string') return 'Phone must be a string';
-    },
-  }),
+
+  phone:  z.string().refine((val) => {
+
+  const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
+  return jordanRegex.test(val.replace(/\s+/g, "")); // Removes spaces before testing
+}, {
+  message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
+}),
+
+  // phone: z.string({
+  //   error: (issue) => {
+  //     if (issue.input === undefined) return 'Phone is required';
+  //     if (typeof issue.input !== 'string') return 'Phone must be a string';
+  //   },
+  // }),
 
   email: z
     .email({

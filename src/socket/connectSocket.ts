@@ -3,12 +3,13 @@ import { Server as HTTPServer } from 'http';
 import httpStatus from 'http-status';
 import mongoose from 'mongoose';
 import { Server as ChatServer, Socket } from 'socket.io';
-import Auth from '../modules/Auth/auth.model';
-import Conversation from '../modules/conversation/conversation.model';
-import { AppError } from '../utils';
-import getUnreadMessageCount from '../utils/getUnreadMessageCount';
+
 import handleChatEvents from './handleChatEvents';
 import { SOCKET_EVENTS } from './socket.constant';
+import User from '../app/modules/user/user.model';
+import Conversation from '../app/modules/conversation/conversation.model';
+import { BadRequestError } from '../app/errors/request/apiError';
+import getUnreadMessageCount from '../helpers/getUnreadMessageCount';
 
 let io: ChatServer;
 
@@ -50,7 +51,7 @@ const connectSocket = (server: HTTPServer) => {
     // Safe: userId is now a valid ObjectId
     let currentUser;
     try {
-      currentUser = await Auth.findById(userId);
+      currentUser = await User.findById(userId);
     } catch (err) {
       console.error('Auth lookup failed:', err);
       socket.emit('error', 'Failed to load user');
@@ -104,8 +105,7 @@ const connectSocket = (server: HTTPServer) => {
 
 const getSocketIO = () => {
   if (!io) {
-    throw new AppError(
-      httpStatus.INTERNAL_SERVER_ERROR,
+    throw new BadRequestError(
       'Socket.io is not initialized!',
     );
   }

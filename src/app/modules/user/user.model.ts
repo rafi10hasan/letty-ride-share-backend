@@ -55,6 +55,14 @@ export const userSchema = new mongoose.Schema<IUser>(
         message: (props: { value: string }) => `${props.value} is not a valid email!`,
       },
     },
+
+      phone: {
+      type: String,
+      unique: [true, 'phone number is already used!'],
+      sparse: true,
+      required: false,
+    },
+
     password: {
       type: String,
       trim: true,
@@ -83,7 +91,7 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: String,
       default: null,
     },
-    location: { type: locationSchema, required: [true, 'location is required'] },
+    location: { type: locationSchema },
     fcmToken: {
       type: String,
       default: null,

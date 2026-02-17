@@ -1,12 +1,13 @@
-import QueryBuilder from 'mongoose-query-builders';
-import { Socket } from 'socket.io';
-import { IAuth } from '../../modules/Auth/auth.interface';
-import Message from '../../modules/Message/message.model';
-import { getSocketIO, onlineUsers } from '../connectSocket';
 
-import Conversation from '../../modules/conversation/conversation.model';
-import getUnreadMessageCount from '../../utils/getUnreadMessageCount';
+import { Socket } from 'socket.io';
+
 import { SOCKET_EVENTS } from '../socket.constant';
+import Conversation from '../../app/modules/conversation/conversation.model';
+import { IUser } from '../../app/modules/user/user.interface';
+import { getSocketIO, onlineUsers } from '../connectSocket';
+import QueryBuilder from '../../builder/QueryBuilder';
+import Message from '../../app/modules/Message/message.model';
+import getUnreadMessageCount from '../../helpers/getUnreadMessageCount';
 
 export const handleMessagePage = async (
   socket: Socket,
@@ -21,7 +22,7 @@ export const handleMessagePage = async (
   const { conversationId, page = 1, limit = 15, search = '' } = data;
 
   const conversation = await Conversation.findById(conversationId).populate<{
-    participants: IAuth[];
+    participants: IUser[];
   }>('participants', '-password -refreshToken');
 
   if (!conversation) {
@@ -45,7 +46,7 @@ export const handleMessagePage = async (
   const payload = {
     receiverId: otherUser._id,
     name: otherUser.fullName,
-    profileImage: otherUser.image,
+    profileImage: otherUser.avatar,
     online: onlineUsers.has(otherUser._id.toString()),
   };
 

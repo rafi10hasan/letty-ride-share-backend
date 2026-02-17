@@ -2,7 +2,8 @@ import { Server as IOServer, Socket } from 'socket.io';
 import { handleMessagePage } from './chat/getMessages';
 import { handleSendMessage } from './chat/sendMessage';
 import { SOCKET_EVENTS } from './socket.constant';
-import { getConversationList } from '../helper/getConversationLIst';
+import { getConversationList } from '../helpers/getConversationLIst';
+
 
 const handleChatEvents = async (
   io: IOServer,

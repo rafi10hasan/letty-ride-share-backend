@@ -3,7 +3,7 @@ import streamifier from 'streamifier';
 
 export const uploadToCloudinary = (
   file: Express.Multer.File,
-  folderName: 'profile_images' | 'car_images' | 'kyc_images',
+  folderName: 'profile_images' | 'car_images' | 'kyc_images' | 'chat_images',
 ): Promise<{ secure_url: string; public_id: string }> => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
