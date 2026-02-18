@@ -39,8 +39,7 @@ const loginWithCredential = async (credential: loginPayload) => {
   if (!user.isEmailVerified) {
     await sendVerificationOtp(user, email);
     return {
-      status: 'UNVERIFIED',
-      message: 'Your Account is not verified. Please verify your email to login',
+      status: 'UNVERIFIED'
     };
   }
 

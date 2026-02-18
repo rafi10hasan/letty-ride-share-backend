@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import { uploadFile } from '../../../helpers/fileuploader';
 import authMiddleware from '../../middlewares/auth.middleware';
-import { validateRequest } from '../../middlewares/request.validator';
+import { validateFormDataRequest, validateRequest } from '../../middlewares/request.validator';
 import { validateFileSizes } from '../../middlewares/validateFileSize';
 import { USER_ROLE } from '../user/user.constant';
 import { driverController } from './driver.controller';
@@ -15,10 +15,19 @@ driverRouter.post(
   authMiddleware(USER_ROLE.NORMAL_USER, USER_ROLE.RIDER),
   uploadFile(),
   validateFileSizes,
-  validateRequest({
-    body: driverValidationZodSchema.createDriverProfileSchema,
-  }),
+  validateFormDataRequest(
+    driverValidationZodSchema.createDriverProfileSchema,
+  ),
   driverController.createDriverProfileIntoDb,
+);
+
+driverRouter.patch(
+  '/update-profile',
+  authMiddleware(USER_ROLE.DRIVER),
+  validateRequest({
+    body: driverValidationZodSchema.updateDriverProfileSchema
+  }),
+  driverController.updateDriverProfileIntoDb,
 );
 
 export default driverRouter;

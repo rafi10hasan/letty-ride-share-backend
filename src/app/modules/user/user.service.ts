@@ -23,8 +23,7 @@ const createAccount = async (payload: registerPayload) => {
   if (existingUser && !existingUser.isEmailVerified) {
     await sendVerificationOtp(existingUser, payload.email);
         return {
-          status: 'UNVERIFIED',
-          message: 'Your Account is not verified. Please verify your email to complete registration',
+          status: 'UNVERIFIED'
         };
   }
 

@@ -7,12 +7,12 @@ import { userAuthService } from './auth.service';
 // login
 const loginWithCredential = asyncHandler(async (req: Request, res: Response) => {
   const result = await userAuthService.loginWithCredential(req.body);
-  const isVerificationRequired = result.status === 'UNVERIFIED' || result.status === '2FA_REQUIRED';
+  const isVerificationRequired = result.status === 'UNVERIFIED';
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.OK,
     success: isVerificationRequired ? false :true,
-    message: isVerificationRequired ? result.message : 'Welcome back! You have successfully logged in.',
-    data: isVerificationRequired ? null : result,
+    message: isVerificationRequired ? 'Your Account is not verified. Please verify your email to login' : 'Welcome back! You have successfully logged in.',
+    data: result,
   });
 });
 

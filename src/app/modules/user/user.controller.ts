@@ -16,7 +16,7 @@ const createAccountIntoDb = asyncHandler(async (req: Request, res: Response) => 
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.CREATED,
     success: isVerificationRequired ? false :true,
-    message: isVerificationRequired ? result.message : 'User has been registered successfully.Check your email to verify your Account',
+    message: isVerificationRequired ? 'Your Account is not verified. Please verify your email to complete registration' : 'User has been registered successfully.Check your email to verify your Account',
     data: result,
   });
 });
@@ -34,20 +34,9 @@ const createRiderProfileIntoDb = asyncHandler(async (req: Request, res: Response
   });
 });
 
-const createDriverProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
-  const { role } = req.body;
-  const result = await userService.createRiderProfile(req.user, role);
-  // console.log(result);
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: 'driver Profile has been created successfully',
-    data: result,
-  });
-});
+
 
 export const userController = {
   createAccountIntoDb,
   createRiderProfileIntoDb,
-  createDriverProfileIntoDb
 };

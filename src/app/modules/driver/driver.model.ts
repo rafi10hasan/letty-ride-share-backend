@@ -21,15 +21,31 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       },
     },
 
-    dateOfBirth: {
+    email: {
       type: String,
-      required: [true, 'date of birth is required!'],
+      required: [true, 'Email is required!'],
       lowercase: true,
       trim: true,
       validate: {
         validator: (value: string) => validator.isEmail(value),
         message: (props: { value: string }) => `${props.value} is not a valid email!`,
       },
+    },
+
+    phone: {
+      type: String,
+      unique: [true, 'phone number is already used!'],
+      sparse: true,
+      required: false,
+    },
+
+    bio: {
+      type: String,
+    },
+
+    dateOfBirth: {
+      type: String,
+      required: [true, 'date of birth is required!'],
     },
     avatar: {
       type: String,

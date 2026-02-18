@@ -1,5 +1,4 @@
 import { Types } from 'mongoose';
-import { TGender } from '../user/user.constant';
 import { TGovernorate, TVehicleType } from './driver.constant';
 
 export type TDriverImages = {
@@ -14,6 +13,9 @@ export type TProfileImage = {
 export interface IDriver extends Document {
   user: Types.ObjectId;
   fullName: string;
+  email: string;
+  phone: string;
+  bio: string;
   dateOfBirth: string;
   languages: string[];
   governorate: TGovernorate;

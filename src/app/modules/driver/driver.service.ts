@@ -5,7 +5,7 @@ import { IUser } from '../user/user.interface';
 import { generateUserId } from '../user/user.utils';
 import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
-import { TDriverProfilePayload } from './driver.zod';
+import { TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
 
 
 // create driver profile
@@ -64,6 +64,51 @@ const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, 
     await session.endSession();
   }
 };
+
+const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePayload) => {
+
+  const driver = await driverRepository.findDriverByUserId(user._id, '_id');
+
+  if (!driver) {
+    throw new BadRequestError('driver profile not found');
+  }
+  console.log(payload)
+  // 2. Start Transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+
+    const updatedDriver = await driverRepository.updateDriverProfile(driver._id, payload, session);
+    console.log({updatedDriver})
+    if (!updatedDriver) {
+      throw new BadRequestError('Failed to update driver profile. Try again');
+    }
+
+    if (payload.phone || payload.fullName) {
+      user.phone = payload.phone ? payload.phone : user.phone;
+      user.fullName = payload.fullName ? payload.fullName : user.fullName;
+      await user.save({ session });
+    }
+    
+    await session.commitTransaction();
+
+    return {
+      fullName: payload.fullName ? updatedDriver.fullName : undefined,
+      phone: payload.phone ? updatedDriver.phone : undefined,
+      bio: payload.bio ? updatedDriver?.bio : undefined,
+      languages: payload.languages ? updatedDriver?.languages : undefined,
+      governorate: payload.governorate ? updatedDriver?.governorate : undefined
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+};
+
 export const driverService = {
   createDriverProfile,
+  updateDriverProfile
 };

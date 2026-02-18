@@ -4,6 +4,7 @@ import adminRouter from '../modules/admin/admin.routes';
 import userRouter from '../modules/user/user.route';
 import authRouter from '../modules/auth/auth.route';
 import adminAuthRouter from '../modules/admin-auth/admin.auth.route';
+import driverRouter from '../modules/driver/driver.route';
 
 const routersVersionOne = express.Router();
 
@@ -11,6 +12,10 @@ const appRouters = [
   {
     path: '/user',
     router: userRouter,
+  },
+  {
+    path: '/driver',
+    router: driverRouter,
   },
   {
     path: '/auth',
