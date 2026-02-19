@@ -14,13 +14,13 @@ const createAuthSchema = z.object({
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces'),
 
 
-  phone:  z.string().refine((val) => {
+  phone: z.string().refine((val) => {
 
-  const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
-  return jordanRegex.test(val.replace(/\s+/g, "")); // Removes spaces before testing
-}, {
-  message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
-}),
+    const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
+    return jordanRegex.test(val.replace(/\s+/g, "")); // Removes spaces before testing
+  }, {
+    message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
+  }),
 
   // phone: z.string({
   //   error: (issue) => {
@@ -82,6 +82,19 @@ const createSocialAuthSchema = z.object({
   }),
 });
 
+
+
+const updateUserLocationSchema = z.object({
+  address: z.string().max(100, 'Address cannot exceed 100 characters'),
+  geo: z.object({
+    type: z.literal('Point'),
+    coordinates: z.tuple([
+      z.number().refine((lat) => lat >= -90 && lat <= 90, 'Latitude must be between -90 and 90'),
+      z.number().refine((lng) => lng >= -180 && lng <= 180, 'Longitude must be between -180 and 180')
+    ])
+  })
+})
+
 const createRiderProfileSchema = z.object({
   gender: z.enum(['male', 'female', 'other'], {
     message: 'gender must be male or female or other',
@@ -97,10 +110,14 @@ export type TRiderProfilePayload = z.infer<
   typeof createRiderProfileSchema
 >;
 
+export type TUserLocationPayload = z.infer<
+  typeof updateUserLocationSchema
+>;
 const userValidationZodSchema = {
   createAuthSchema,
   createSocialAuthSchema,
-  createRiderProfileSchema
+  createRiderProfileSchema,
+  updateUserLocationSchema
 };
 
 export default userValidationZodSchema;

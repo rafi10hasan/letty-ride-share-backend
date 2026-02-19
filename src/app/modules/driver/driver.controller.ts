@@ -28,7 +28,20 @@ const updateDriverProfileIntoDb = asyncHandler(async (req: Request, res: Respons
     data: result,
   });
 });
+
+
+const updateDriverCarInfoIntoDb = asyncHandler(async (req: Request, res: Response) => {
+  const result = await driverService.updateDriverVehicle(req.user, req.body, req.files as TDriverImages);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Driver car info has been updated successfully',
+    data: result,
+  });
+});
+
 export const driverController = {
   createDriverProfileIntoDb,
   updateDriverProfileIntoDb,
+  updateDriverCarInfoIntoDb
 };

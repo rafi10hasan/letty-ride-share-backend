@@ -1,11 +1,12 @@
 import mongoose from 'mongoose';
+import { deleteImageFromCloudinary } from '../../cloudinary/deleteImageFromCloudinary';
 import { uploadToCloudinary } from '../../cloudinary/uploadImageToCLoudinary';
-import { BadRequestError } from '../../errors/request/apiError';
+import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { IUser } from '../user/user.interface';
 import { generateUserId } from '../user/user.utils';
 import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
-import { TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
+import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
 
 
 // create driver profile
@@ -65,12 +66,13 @@ const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, 
   }
 };
 
+// updated driver profile
 const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePayload) => {
 
   const driver = await driverRepository.findDriverByUserId(user._id, '_id');
 
   if (!driver) {
-    throw new BadRequestError('driver profile not found');
+    throw new NotFoundError('driver profile not found');
   }
   console.log(payload)
   // 2. Start Transaction
@@ -80,7 +82,7 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
   try {
 
     const updatedDriver = await driverRepository.updateDriverProfile(driver._id, payload, session);
-    console.log({updatedDriver})
+    console.log({ updatedDriver })
     if (!updatedDriver) {
       throw new BadRequestError('Failed to update driver profile. Try again');
     }
@@ -90,7 +92,7 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
       user.fullName = payload.fullName ? payload.fullName : user.fullName;
       await user.save({ session });
     }
-    
+
     await session.commitTransaction();
 
     return {
@@ -108,7 +110,67 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
   }
 };
 
+// updated driver vehicle info
+const updateDriverVehicle = async (user: IUser, payload: TDriverCarUpdatePayload, files: TDriverImages) => {
+
+  const driver = await driverRepository.findDriverByUserId(user._id);
+  if (!driver) {
+    throw new NotFoundError('driver profile not found');
+  }
+
+  const keptImages: string[] = payload.keptCarImages || [];
+  const removedImages = driver.carGalleries.filter((img) => !keptImages.includes(img));
+  if (removedImages.length > 0) {
+    await Promise.all(removedImages.map((img) => deleteImageFromCloudinary(img)));
+  }
+
+  let uploadedImages: string[] = [];
+  if (files?.car_images?.length) {
+    const uploads = await Promise.all(files.car_images.map((file) => uploadToCloudinary(file, 'car_images')));
+    uploadedImages = uploads.map((img) => img.secure_url);
+  }
+  const updatedGallery = [...keptImages, ...uploadedImages];
+
+  // 2. Start Transaction
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const driverPayload = {
+      ...payload,
+      carGalleries: updatedGallery,
+    };
+    const updatedDriver = await driverRepository.updateDriverCarInfo(driver._id, driverPayload, session);
+
+    if (!updatedDriver) {
+      throw new BadRequestError('Failed to updated driver vehicle info. Try again');
+    }
+    await session.commitTransaction();
+    return {
+      carModel: payload.carModel ? updatedDriver.carModel : undefined,
+      vehicleType: payload.vehicleType ? updatedDriver.vehicleType : undefined,
+      numberOfSeats: payload.numberOfSeats ? updatedDriver.numberOfSeats : undefined,
+      trunkSize: payload.trunkSize ? updatedDriver.trunkSize : undefined,
+      carGalleries: updatedGallery.length ? updatedDriver.carGalleries : undefined,
+      hasAc: Object.hasOwn(payload, 'hasAc') ? updatedDriver.hasAc : undefined,
+      hasUsbPort: Object.hasOwn(payload, 'hasUsbPort') ? updatedDriver.hasUsbPort : undefined,
+      hasWifi: Object.hasOwn(payload, 'hasWifi') ? updatedDriver.hasWifi : undefined,
+      isSmokingAllowed: Object.hasOwn(payload, 'isSmokingAllowed') ? updatedDriver.isSmokingAllowed : undefined,
+      hasMusic: Object.hasOwn(payload, 'hasMusic') ? updatedDriver.hasMusic : undefined
+    };
+
+  } catch (error) {
+    await session.abortTransaction();
+    if (uploadedImages.length > 0) await Promise.all(uploadedImages.map((img) => deleteImageFromCloudinary(img)));
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+};
+
+
 export const driverService = {
   createDriverProfile,
-  updateDriverProfile
+  updateDriverProfile,
+  updateDriverVehicle
 };

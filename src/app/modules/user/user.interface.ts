@@ -35,7 +35,6 @@ export interface IUser extends Document {
   fullName: string;
   phone: string;
   avatar?: string;
-  address?: string;
   location?: ILocation;
   password: string;
   passwordChangedAt?: Date;

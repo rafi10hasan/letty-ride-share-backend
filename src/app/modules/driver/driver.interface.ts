@@ -1,4 +1,4 @@
-import { Types } from 'mongoose';
+import { Types, Document } from 'mongoose';
 import { TGovernorate, TVehicleType } from './driver.constant';
 
 export type TDriverImages = {
@@ -10,7 +10,18 @@ export type TProfileImage = {
   profile_image: Express.Multer.File[];
 };
 
+export interface IGeoPoint {
+  type: 'Point';
+  coordinates: [number, number];
+}
+
+export interface IDriverLocation {
+  address: string;
+  geo: IGeoPoint;
+}
+
 export interface IDriver extends Document {
+  _id: Types.ObjectId;
   user: Types.ObjectId;
   fullName: string;
   email: string;
@@ -18,6 +29,7 @@ export interface IDriver extends Document {
   bio: string;
   dateOfBirth: string;
   languages: string[];
+  location: IDriverLocation;
   governorate: TGovernorate;
   licenseNumber: string;
   avatar: string;

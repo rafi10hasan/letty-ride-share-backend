@@ -7,10 +7,10 @@ const dateOfBirthSchema = z
   .refine(
     (value) => {
       const [day, month, year] = value.split('/').map(Number);
-      console.log(day,month,year)
+      console.log(day, month, year)
       const dob = new Date(year, month - 1, day);
       console.log(dob)
-      
+
       if (dob.getFullYear() !== year || dob.getMonth() !== month - 1 || dob.getDate() !== day) {
         return false;
       }
@@ -167,23 +167,23 @@ const createDriverProfileSchema = z.object({
 const updateDriverProfileSchema = z.object({
   bio: z.string().optional(),
   fullName: z
-      .string({
-        error: (issue) => {
-          if (issue.input === undefined) return 'Full name is required';
-          if (typeof issue.input !== 'string') return 'Full name must be a string';
-          return 'Invalid full name format';
-        },
-      })
-      .min(3, 'Full name must be at least 3 characters long')
-      .max(30, 'Full name cannot exceed 30 characters')
-      .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces').optional(),
-  phone:  z.string().refine((val) => {
-      
-        const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
-        return jordanRegex.test(val.replace(/\s+/g, "")); 
-      }, {
-        message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
-      }).optional(),
+    .string({
+      error: (issue) => {
+        if (issue.input === undefined) return 'Full name is required';
+        if (typeof issue.input !== 'string') return 'Full name must be a string';
+        return 'Invalid full name format';
+      },
+    })
+    .min(3, 'Full name must be at least 3 characters long')
+    .max(30, 'Full name cannot exceed 30 characters')
+    .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces').optional(),
+  phone: z.string().refine((val) => {
+
+    const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
+    return jordanRegex.test(val.replace(/\s+/g, ""));
+  }, {
+    message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
+  }).optional(),
   languages: z
     .array(
       z.string({
@@ -204,9 +204,87 @@ const updateDriverProfileSchema = z.object({
     .min(1, 'At least one language is required').optional(),
 
   governorate: z.enum(Object.values(GOVERNORATE) as [string, ...string[]]).optional(),
-}).superRefine((data,ctx)=>{
-  if(!Object.keys(data).length){
-     ctx.addIssue({
+}).superRefine((data, ctx) => {
+  if (!Object.keys(data).length) {
+    ctx.addIssue({
+      code: "custom",
+      maximum: 1,
+      origin: "superRefine",
+      inclusive: true,
+      path: ["error"],
+      message: "At least one field must be provided for update",
+    });
+  }
+});
+
+
+const updateDriverCarSchema = z.object({
+  carModel: z
+    .string({
+      error: (issue) => {
+        if (issue.input === undefined) return 'Car model is required';
+        if (typeof issue.input !== 'string') return 'Car model must be a string';
+        return 'Invalid car model';
+      },
+    })
+    .min(2, 'Car model must be at least 2 characters').optional(),
+
+  vehicleType: z.enum(Object.values(VEHICLE_TYPE) as [string, ...string[]], {
+    error: (issue) => {
+      if (issue.input === undefined) return 'vehicle type is required';
+      return 'Invalid vehicle type format';
+    },
+  }).optional(),
+
+  numberOfSeats: z
+    .number({
+      error: (issue) => {
+        if (issue.input === undefined) return 'Number of seats is required';
+        if (typeof issue.input !== 'number') return 'Number of seats must be a number';
+        return 'Invalid number of seats';
+      },
+    })
+    .int('Number of seats must be an integer')
+    .min(1, 'Vehicle must have at least 1 seat').optional(),
+
+  trunkSize: z.enum(['S', 'M', 'L'], {
+    error: () => 'Trunk size must be S, M, or L',
+  }).optional(),
+
+  keptCarImages: z.array(z.string()).optional(),
+
+  hasAc: z
+    .boolean({
+      error: () => 'hasAc must be a boolean',
+    })
+    .optional(),
+
+  hasUsbPort: z
+    .boolean({
+      error: () => 'hasUsbPort must be a boolean',
+    })
+    .optional(),
+
+  hasWifi: z
+    .boolean({
+      error: () => 'hasWifi must be a boolean',
+    })
+    .optional(),
+
+  isSmokingAllowed: z
+    .boolean({
+      error: () => 'isSmokingAllowed must be a boolean',
+    })
+    .optional(),
+
+  hasMusic: z
+    .boolean({
+      error: () => 'hasMusic must be a boolean',
+    })
+    .optional(),
+}).superRefine((data, ctx) => {
+  if (!Object.keys(data).length) {
+    ctx.addIssue({
       code: "custom",
       maximum: 1,
       origin: "superRefine",
@@ -223,14 +301,19 @@ export type TDriverProfilePayload = z.infer<
   typeof createDriverProfileSchema
 >;
 
+export type TDriverCarUpdatePayload = z.infer<
+  typeof updateDriverCarSchema
+>;
+
 export type TDriverUpdatedProfilePayload = z.infer<
   typeof updateDriverProfileSchema
 >;
 
 
 const driverValidationZodSchema = {
- createDriverProfileSchema,
- updateDriverProfileSchema
+  createDriverProfileSchema,
+  updateDriverProfileSchema,
+  updateDriverCarSchema
 };
 
 

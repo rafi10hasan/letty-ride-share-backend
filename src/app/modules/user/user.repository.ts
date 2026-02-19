@@ -1,3 +1,4 @@
+import { Types } from 'mongoose';
 import { registerPayload, registerSocialPayload } from './user.interface';
 import User from './user.model';
 
@@ -23,19 +24,8 @@ const findByEmail = async (email: string, fields?: FieldSelection) => {
   return query;
 };
 
-const findByReferralCode = async (referralCode: string, fields?: FieldSelection) => {
-  const query = User.findOne({ referralCode:referralCode });
-  if (fields && (Array.isArray(fields) ? fields.length > 0 : true)) {
-    query.select(fields);
-  }
-  return query;
-};
 
-const addRewardPoints = async (userId: string, points: number) => {
-  return User.updateOne({ _id: userId }, { $inc: { rewardPoints: points } });
-};
-
-const updateUser = async (id: string, payload: any) => {
+const updateUser = async (id: Types.ObjectId, payload: any) => {
   return User.findByIdAndUpdate(id, payload, { new: true });
 };
 
@@ -43,7 +33,5 @@ export const userRepository = {
   createUser,
   findById,
   findByEmail,
-  findByReferralCode,
-  addRewardPoints,
   updateUser
 };

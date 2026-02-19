@@ -6,10 +6,12 @@ import sendMail from '../../../utilities/sendEmail';
 import { BadRequestError } from '../../errors/request/apiError';
 
 import { sendVerificationOtp } from '../auth/auth.utils';
+import { driverRepository } from '../driver/driver.repository';
 import { TGender, TUserRole, USER_ROLE } from './user.constant';
-import { IUser, registerPayload } from './user.interface';
+import { ILocation, IUser, registerPayload } from './user.interface';
 import { userRepository } from './user.repository';
 import { generateUserId } from './user.utils';
+import { TUserLocationPayload } from './user.validations';
 
 // register Account
 const createAccount = async (payload: registerPayload) => {
@@ -22,12 +24,12 @@ const createAccount = async (payload: registerPayload) => {
 
   if (existingUser && !existingUser.isEmailVerified) {
     await sendVerificationOtp(existingUser, payload.email);
-        return {
-          status: 'UNVERIFIED'
-        };
+    return {
+      status: 'UNVERIFIED'
+    };
   }
 
-   if (existingUser && existingUser.isEmailVerified) {
+  if (existingUser && existingUser.isEmailVerified) {
     throw new BadRequestError('this email is already exist.');
   }
 
@@ -76,7 +78,50 @@ const createRiderProfile = async (user: IUser, payload: { gender: TGender; role:
   };
 };
 
+const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) => {
+
+  console.log({payload})
+
+  if (user.currentRole === USER_ROLE.DRIVER) {
+    const driver = await driverRepository.findDriverByUserId(user._id);
+    if (!driver) {
+      throw new BadRequestError('Driver profile not found');
+    }
+    driver.location = payload;
+    await driver.save();
+  }
+  user.location = payload;
+  await user.save();
+  return {
+    userId: user._id,
+    location: user.location
+  }
+}
+
+// switch user role
+const switchUserRole = async (user: IUser) => {
+  if(user.currentRole === USER_ROLE.DRIVER){
+    user.currentRole = USER_ROLE.RIDER;
+  }
+  else if(user.currentRole === USER_ROLE.RIDER){
+    if(!user.isDriverProfileCompleted && !user.driverId){
+      return {
+        status: 'INCOMPLETE_PROFILE'
+      }
+    }
+    user.currentRole = USER_ROLE.DRIVER;
+  }
+
+  const updatedUser = await userRepository.updateUser(user._id, { currentRole: user.currentRole });
+  return {
+    userId: updatedUser?._id,
+    currentRole: updatedUser?.currentRole
+  };
+}
+
 export const userService = {
   createAccount,
   createRiderProfile,
+  updateUserLocation,
+  switchUserRole
 };

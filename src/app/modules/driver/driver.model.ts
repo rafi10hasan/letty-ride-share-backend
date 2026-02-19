@@ -3,6 +3,32 @@ import validator from 'validator';
 import { GOVERNORATE, VEHICLE_TYPE } from './driver.constant';
 import { IDriver } from './driver.interface';
 
+
+const geoSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ['Point'],
+      required: true,
+      default: 'Point',
+    },
+    coordinates: {
+      type: [Number], 
+      required: true,
+    },
+  },
+  { _id: false },
+);
+
+
+const locationSchema = new Schema(
+  {
+    address: { type: String, required: [true, 'address is required'] },
+    geo: geoSchema,
+  },
+  { _id: false },
+);
+
 export const driverSchema = new mongoose.Schema<IDriver>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
@@ -42,6 +68,8 @@ export const driverSchema = new mongoose.Schema<IDriver>(
     bio: {
       type: String,
     },
+    
+    location: { type: locationSchema },
 
     dateOfBirth: {
       type: String,

@@ -30,4 +30,16 @@ driverRouter.patch(
   driverController.updateDriverProfileIntoDb,
 );
 
+driverRouter.patch(
+  '/update-car-info',
+  authMiddleware(USER_ROLE.DRIVER),
+  uploadFile(),
+  validateFileSizes,
+  validateFormDataRequest(
+    driverValidationZodSchema.updateDriverCarSchema
+  ),
+  driverController.updateDriverCarInfoIntoDb,
+);
+
+
 export default driverRouter;

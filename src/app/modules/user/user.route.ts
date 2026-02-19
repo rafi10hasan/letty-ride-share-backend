@@ -25,4 +25,19 @@ userRouter.post(
   userController.createRiderProfileIntoDb,
 );
 
+userRouter.patch(
+  '/change-location',
+  authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
+  validateRequest({
+    body: userValidationZodSchema.updateUserLocationSchema,
+  }),
+  userController.updateUserLocationIntoDb,
+);
+
+userRouter.patch(
+  '/switch-mode',
+  authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
+  userController.switchUserRoleIntoDb,
+);
+
 export default userRouter;

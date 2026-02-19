@@ -1,7 +1,6 @@
 import mongoose, { Types } from 'mongoose';
-import { IDriver } from './driver.interface';
 import Driver from './driver.model';
-import { TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
+import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
 
 type FieldSelection = string | string[] | Record<string, 0 | 1>;
 
@@ -26,7 +25,7 @@ const createDriverProfile = async (driverData: Partial<TDriverProfilePayload>, s
 };
 
 const findDriverByUserId = async (userId: Types.ObjectId, fields?: FieldSelection) => {
-  const query = Driver.findOne({user: userId});
+  const query = Driver.findOne({ user: userId });
   if (fields && (Array.isArray(fields) ? fields.length > 0 : true)) {
     query.select(fields);
   }
@@ -41,7 +40,18 @@ const findByDriverId = async (driverId: Types.ObjectId, fields?: FieldSelection)
   return query;
 };
 
-const updateDriverProfile = async (driverId: Types.ObjectId, updatedData: TDriverUpdatedProfilePayload,session?: mongoose.ClientSession) => {
+const updateDriverProfile = async (driverId: Types.ObjectId, updatedData: TDriverUpdatedProfilePayload, session?: mongoose.ClientSession) => {
+
+  const updatedDriver = Driver.findByIdAndUpdate(
+    driverId,
+    { $set: { ...updatedData } },
+    { new: true, session }
+  );
+
+  return updatedDriver;
+};
+
+const updateDriverCarInfo = async (driverId: Types.ObjectId, updatedData: TDriverCarUpdatePayload, session?: mongoose.ClientSession) => {
 
   const updatedDriver = Driver.findByIdAndUpdate(
     driverId,
@@ -56,5 +66,6 @@ export const driverRepository = {
   createDriverProfile,
   findByDriverId,
   updateDriverProfile,
-  findDriverByUserId
+  findDriverByUserId,
+  updateDriverCarInfo
 };
