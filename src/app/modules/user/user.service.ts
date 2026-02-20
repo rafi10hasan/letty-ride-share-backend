@@ -78,8 +78,9 @@ const createRiderProfile = async (user: IUser, payload: { gender: TGender; role:
   };
 };
 
+// update user location
 const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) => {
-
+  
   console.log({payload})
 
   if (user.currentRole === USER_ROLE.DRIVER) {

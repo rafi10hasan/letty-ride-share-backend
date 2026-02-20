@@ -89,8 +89,8 @@ const updateUserLocationSchema = z.object({
   geo: z.object({
     type: z.literal('Point'),
     coordinates: z.tuple([
+      z.number().refine((lng) => lng >= -180 && lng <= 180, 'Longitude must be between -180 and 180'),
       z.number().refine((lat) => lat >= -90 && lat <= 90, 'Latitude must be between -90 and 90'),
-      z.number().refine((lng) => lng >= -180 && lng <= 180, 'Longitude must be between -180 and 180')
     ])
   })
 })
