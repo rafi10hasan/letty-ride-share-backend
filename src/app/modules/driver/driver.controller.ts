@@ -41,19 +41,11 @@ const updateDriverCarInfoIntoDb = asyncHandler(async (req: Request, res: Respons
 });
 
 // publish ride into db
-const publishRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
-  const result = await driverService.updateDriverVehicle(req.user, req.body, req.files as TDriverImages);
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: 'Driver ride has been published successfully',
-    data: result,
-  });
-});
+
 
 export const driverController = {
   createDriverProfileIntoDb,
   updateDriverProfileIntoDb,
   updateDriverCarInfoIntoDb,
-  publishRideIntoDb
+
 };

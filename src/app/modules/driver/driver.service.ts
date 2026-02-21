@@ -168,7 +168,9 @@ const updateDriverVehicle = async (user: IUser, payload: TDriverCarUpdatePayload
   }
 };
 
-
+const publishRide = async(user: IUser, payload:any) =>{
+  
+}
 export const driverService = {
   createDriverProfile,
   updateDriverProfile,
