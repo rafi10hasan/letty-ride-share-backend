@@ -17,9 +17,23 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             default: PUBLISH_STATUS.ACTIVE,
         },
 
-        departureTime: {
+        departureDate: {
             type: Date,
-            required: [true, 'departureTime is required'],
+            required: [true, 'Departure date is required'],
+        },
+        departureTimeMinutes: {
+            type: Number,   
+            required: [true, 'Departure time is required'],
+            min: [0, 'Min 0 minutes (12:00 AM)'],
+            max: [1439, 'Max 1439 minutes (11:59 PM)'],
+        },
+        departureTimeString: {
+            type: String,   
+            required: [true, 'Departure time is required'],
+            match: [
+                /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/,
+                'Format must be HH:MM AM/PM',
+            ],
         },
 
         // Pickup location (GeoJSON)
