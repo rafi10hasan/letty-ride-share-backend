@@ -1,11 +1,12 @@
 import express from 'express';
 
-import adminRouter from '../modules/admin/admin.routes';
-import userRouter from '../modules/user/user.route';
-import authRouter from '../modules/auth/auth.route';
 import adminAuthRouter from '../modules/admin-auth/admin.auth.route';
-import driverRouter from '../modules/driver/driver.route';
+import adminRouter from '../modules/admin/admin.routes';
+import authRouter from '../modules/auth/auth.route';
 import { contentRouter } from '../modules/Content/content.route';
+import driverRouter from '../modules/driver/driver.route';
+import rideRouter from '../modules/ride-publish/ride.publish.routes';
+import userRouter from '../modules/user/user.route';
 
 const routersVersionOne = express.Router();
 
@@ -25,6 +26,10 @@ const appRouters = [
   {
     path: '/admin',
     router: adminRouter,
+  },
+  {
+    path: '/driver-ride',
+    router: rideRouter,
   },
   {
     path: '/content',

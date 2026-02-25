@@ -6,15 +6,28 @@ import { ridePublishService } from "./ride.publish.service";
 
 // publish ride into db
 const publishRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    console.log(req.body)
     const result = await ridePublishService.publishRide(req.user, req.body);
     sendResponse(res, {
-        statusCode: StatusCodes.OK,
+        statusCode: StatusCodes.CREATED,
         success: true,
-        message: 'Driver ride has been published successfully',
+        message: 'Driver trip has been published successfully',
         data: result,
     });
 });
 
+const getMyPublishedRides = asyncHandler(async (req: Request, res: Response) => {
+    const result = await ridePublishService.getMyPublishedRides(req.user);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Driver trip has been retrieved successfully',
+        data: result,
+    });
+});
+
+
 export const ridePublishController = {
-    publishRideIntoDb
+    publishRideIntoDb,
+    getMyPublishedRides
 };

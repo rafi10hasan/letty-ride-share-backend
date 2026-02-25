@@ -10,14 +10,25 @@ interface IGeoPoint {
 // Ride Interface
 export interface IRidePublish extends Document {
     driver: Types.ObjectId;
+    driverInfo: {
+        name: string;
+        photo: string;
+        hasAc:Boolean;
+        rating: number,
+        totalReviews: number,
+    },
     status: TPublishStatus;
     departureDate: Date;
+    tripId: string;
     departureTimeMinutes: number;
     departureTimeString: string;
-    pickupLocation: IGeoPoint;
-    dropoffLocation: IGeoPoint;
+    pickUpLocation: IGeoPoint;
+    dropOffLocation: IGeoPoint;
     genderPreference?: TGenderPreference;
+    totalSeats: number;
+    totalDistance: string;
     availableSeats: number;
+    requestsCount: number;
     price: number;
     createdAt: Date;
     updatedAt: Date;

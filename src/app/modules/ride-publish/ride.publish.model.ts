@@ -10,7 +10,13 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             ref: 'Driver',
             required: [true, 'Driver is required'],
         },
-
+        driverInfo: {
+            name: { type: String, required: [true, 'Driver name is required'] },
+            photo: { type: String, required: [true, 'Driver photo is required'] },
+            hasAc: { type: Boolean, default: false},
+            rating: { type: Number, default: 0 },
+            totalReviews: { type: Number, default: 0 },
+        },
         status: {
             type: String,
             enum: Object.values(PUBLISH_STATUS),
@@ -22,22 +28,26 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             required: [true, 'Departure date is required'],
         },
         departureTimeMinutes: {
-            type: Number,   
+            type: Number,
             required: [true, 'Departure time is required'],
             min: [0, 'Min 0 minutes (12:00 AM)'],
             max: [1439, 'Max 1439 minutes (11:59 PM)'],
         },
         departureTimeString: {
-            type: String,   
+            type: String,
             required: [true, 'Departure time is required'],
             match: [
                 /^(0?[1-9]|1[0-2]):[0-5][0-9] (AM|PM)$/,
                 'Format must be HH:MM AM/PM',
             ],
         },
-
+        tripId: {
+            type: String,
+            required: [true, 'Trip Id is required'],
+            unique: true
+        },
         // Pickup location (GeoJSON)
-        pickupLocation: {
+        pickUpLocation: {
             type: {
                 type: String,
                 enum: ['Point'],
@@ -54,7 +64,7 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
         },
 
         // Dropoff location (GeoJSON)
-        dropoffLocation: {
+        dropOffLocation: {
             type: {
                 type: String,
                 enum: ['Point'],
@@ -76,17 +86,29 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             required: [true, 'genderPreference is required'],
         },
 
-        availableSeats: {
+        totalSeats: {
             type: Number,
-            required: [true, 'availableSeats is required'],
+            required: [true, 'totalSeats is required'],
             min: [1, 'At least 1 seat required'],
         },
 
+        availableSeats: {
+            type: Number,
+        },
+
+        requestsCount: {
+            type: Number,
+            default: 0
+        },
         price: {
             type: Number,
             required: [true, 'price is required'],
             min: [0, 'Price cannot be negative'],
         },
+        totalDistance:{
+            type: String,
+            required: [true, 'totalDistance is required'],
+        }
     },
     {
         timestamps: true,
@@ -95,15 +117,9 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
 );
 
 
-ridePublishSchema.index({ "pickupLocation": "2dsphere" })
-
-ridePublishSchema.index({ departureTime: 1, status: 1 })
-
-ridePublishSchema.index({
-    "pickupLocation": "2dsphere",
-    status: 1,
-    departureTime: 1
-})
+ridePublishSchema.index({ "pickUpLocation": "2dsphere" })
+ridePublishSchema.index({ "dropOffLocation": "2dsphere" })
+ridePublishSchema.index({ "driver": 1 })
 
 
 const RidePublish = mongoose.model<IRidePublish>('RidePublish', ridePublishSchema);

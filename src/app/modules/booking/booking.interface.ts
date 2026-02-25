@@ -16,6 +16,9 @@ export interface IBooking extends Document {
     seatsBooked: number;
     totalPrice: number;
 
+    userPickup: IGeoPoint;
+    userDropoff: IGeoPoint;    
+
     status: TBookingStatus;
     cancelledBy: 'rider' | 'driver';
     cancelReason: string | null;

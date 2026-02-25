@@ -10,16 +10,31 @@ export const PROVIDER = {
 } as const;
 
 
+export const SUBSCRIPTION_PLAN = {
+  FREE: 'free',
+  PREMIUM: 'premium',
+  ALL_ACCESS: 'all-access',
+  PREMIUM_PLUS: 'premium_plus'
+} as const;
+
+export const SUBSCRIPTION_MODE = {
+  MONTHLY: 'monthly',
+  YEARLY: 'yearly',
+  LIFE_TIME: 'lifetime'
+} as const;
+
 export const GENDER = {
   MALE: 'male',
   FEMALE: 'female',
   OTHER: 'other',
 } as const;
 
-export type TProvider = (typeof PROVIDER)[keyof typeof PROVIDER];
 
+export type TProvider = (typeof PROVIDER)[keyof typeof PROVIDER];
 export type TUserRole = (typeof USER_ROLE)[keyof typeof USER_ROLE];
 export type TGender = (typeof GENDER)[keyof typeof GENDER];
+export type TSubscriptionPlan = (typeof SUBSCRIPTION_PLAN)[keyof typeof SUBSCRIPTION_PLAN];
+export type TSubscriptionMode = (typeof SUBSCRIPTION_MODE)[keyof typeof SUBSCRIPTION_MODE];
 
 export const defaultUserImage: string[] = [
   'https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg',

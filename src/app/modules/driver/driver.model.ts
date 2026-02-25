@@ -13,7 +13,7 @@ const geoSchema = new Schema(
       default: 'Point',
     },
     coordinates: {
-      type: [Number], 
+      type: [Number],
       required: true,
     },
   },
@@ -68,7 +68,7 @@ export const driverSchema = new mongoose.Schema<IDriver>(
     bio: {
       type: String,
     },
-    
+
     location: { type: locationSchema },
 
     dateOfBirth: {
@@ -121,6 +121,15 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: String,
       enum: ['S', 'M', 'L'],
       required: true,
+    },
+
+    avgRating: {
+      type: Number,
+      default: 0
+    },
+    reviews: {
+      type: Number,
+      default: 0,
     },
     hasAc: {
       type: Boolean,

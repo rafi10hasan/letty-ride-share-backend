@@ -1,4 +1,4 @@
-import { Types, Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { TGovernorate, TVehicleType } from './driver.constant';
 
 export type TDriverImages = {
@@ -40,6 +40,8 @@ export interface IDriver extends Document {
   vehicleType: TVehicleType;
   numberOfSeats: number;
   trunkSize: 'S' | 'M' | 'L';
+  avgRating: number;
+  reviews: number;
   hasAc: boolean;
   hasUsbPort: boolean;
   hasWifi: boolean;
