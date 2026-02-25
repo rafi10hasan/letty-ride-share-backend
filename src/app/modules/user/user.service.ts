@@ -48,7 +48,7 @@ const createAccount = async (payload: registerPayload) => {
 
   // 5. Create user in DB
   const newUser = await userRepository.createUser(userPayload);
-  if (!newUser) throw new BadRequestError('Failed to create user. Try again.');
+  if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
 
   const mailOptions = {
     from: config.gmail_app_user,
