@@ -95,20 +95,7 @@ const updateUserLocationSchema = z.object({
   })
 })
 
-const createRiderProfileSchema = z.object({
-  gender: z.enum(['male', 'female', 'other'], {
-    message: 'gender must be male or female or other',
-  }),
-  role: z.enum(['rider'], {
-    message: 'role must be rider',
-  }),
-});
 
-
-
-export type TRiderProfilePayload = z.infer<
-  typeof createRiderProfileSchema
->;
 
 export type TUserLocationPayload = z.infer<
   typeof updateUserLocationSchema
@@ -116,7 +103,6 @@ export type TUserLocationPayload = z.infer<
 const userValidationZodSchema = {
   createAuthSchema,
   createSocialAuthSchema,
-  createRiderProfileSchema,
   updateUserLocationSchema
 };
 

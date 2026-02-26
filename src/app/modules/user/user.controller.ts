@@ -21,19 +21,6 @@ const createAccountIntoDb = asyncHandler(async (req: Request, res: Response) => 
   });
 });
 
-// create rider profile
-const createRiderProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
-
-  const result = await userService.createRiderProfile(req.user, req.body);
-  // console.log(result);
-  sendResponse(res, {
-    statusCode: StatusCodes.OK,
-    success: true,
-    message: 'Rider Profile has been created successfully',
-    data: result,
-  });
-});
-
 
 const updateUserLocationIntoDb = asyncHandler(async (req: Request, res: Response) => {
   const result = await userService.updateUserLocation(req.user, req.body);
@@ -60,7 +47,6 @@ const switchUserRoleIntoDb = asyncHandler(async (req: Request, res: Response) =>
 
 export const userController = {
   createAccountIntoDb,
-  createRiderProfileIntoDb,
   updateUserLocationIntoDb,
   switchUserRoleIntoDb
 };

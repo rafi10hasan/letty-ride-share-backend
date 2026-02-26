@@ -1,8 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { GOVERNORATE, VEHICLE_TYPE } from './driver.constant';
-import { IDriver } from './driver.interface';
-
+import { GENDER } from './rider.constant';
+import { IRider } from './rider.interface';
+import { BADGE } from '../user/user.constant';
 
 const geoSchema = new Schema(
   {
@@ -29,7 +29,7 @@ const locationSchema = new Schema(
   { _id: false },
 );
 
-export const driverSchema = new mongoose.Schema<IDriver>(
+export const riderSchema = new mongoose.Schema<IRider>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 
@@ -69,6 +69,15 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: String,
     },
 
+    badge: {
+      type: String,
+      enum: Object.values(BADGE),
+    },
+
+    riderId: {
+      type: String,
+      default: null, 
+    },
     location: { type: locationSchema },
 
     dateOfBirth: {
@@ -79,82 +88,15 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: String,
       required: false,
     },
-    driverId: {
-      type: String,
-      default: null,
-    },
     languages: {
       type: [String],
       required: true,
     },
-    governorate: {
+    gender: {
       type: String,
-      enum: Object.values(GOVERNORATE),
+      enum: Object.values(GENDER),
       required: true,
-    },
-    licenseNumber: {
-      type: String,
-      required: true,
-    },
-    carGalleries: {
-      type: [String],
-      required: true,
-    },
-    verificationImage: {
-      type: String,
-      required: true,
-    },
-    carModel: {
-      type: String,
-      required: true,
-    },
-    licensePlate: {
-      type: String,
-      required: true,
-    },
-    vehicleType: {
-      type: String,
-      enum: Object.values(VEHICLE_TYPE),
-      required: true,
-    },
-    numberOfSeats: {
-      type: Number,
-      required: true,
-    },
-    trunkSize: {
-      type: String,
-      enum: ['S', 'M', 'L'],
-      required: true,
-    },
-
-    avgRating: {
-      type: Number,
-      default: 0
-    },
-    reviews: {
-      type: Number,
-      default: 0,
-    },
-    hasAc: {
-      type: Boolean,
-      default: false,
-    },
-    hasUsbPort: {
-      type: Boolean,
-      default: false,
-    },
-    hasWifi: {
-      type: Boolean,
-      default: false,
-    },
-    isSmokingAllowed: {
-      type: Boolean,
-      default: false,
-    },
-    hasMusic: {
-      type: Boolean,
-      default: false,
-    },
+    }
   },
   {
     timestamps: true,
@@ -162,5 +104,9 @@ export const driverSchema = new mongoose.Schema<IDriver>(
   },
 );
 
-const Driver = mongoose.model<IDriver>('Driver', driverSchema);
-export default Driver;
+riderSchema.index({ "location.geo": "2dsphere" })
+riderSchema.index({ "user": 1 })
+riderSchema.index({ "riderId": 1 })
+
+const Rider = mongoose.model<IRider>('Rider', riderSchema);
+export default Rider;

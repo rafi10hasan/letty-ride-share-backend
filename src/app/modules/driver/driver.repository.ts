@@ -1,6 +1,7 @@
 import mongoose, { Types } from 'mongoose';
 import Driver from './driver.model';
 import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
+import { TUserLocationPayload } from '../user/user.validations';
 
 type FieldSelection = string | string[] | Record<string, 0 | 1>;
 
@@ -51,6 +52,17 @@ const updateDriverProfile = async (driverId: Types.ObjectId, updatedData: TDrive
   return updatedDriver;
 };
 
+const updateDriverLocation = async (userId: Types.ObjectId, location: TUserLocationPayload, session?: mongoose.ClientSession) => {
+
+  const updatedDriver = Driver.findOneAndUpdate(
+    { user: userId },
+    { $set: { location } },
+    { new: true, session }
+  );
+  
+  return updatedDriver;
+};
+
 const updateDriverCarInfo = async (driverId: Types.ObjectId, updatedData: TDriverCarUpdatePayload, session?: mongoose.ClientSession) => {
 
   const updatedDriver = Driver.findByIdAndUpdate(
@@ -66,6 +78,7 @@ export const driverRepository = {
   createDriverProfile,
   findByDriverId,
   updateDriverProfile,
+  updateDriverLocation,
   findDriverByUserId,
   updateDriverCarInfo
 };

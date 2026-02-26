@@ -1,5 +1,5 @@
 {
-  "name": "dating-app-backend",
+  "name": "ride-share-app-backend",
   "version": "1.0.0",
   "main": "src/server.js",
   "scripts": {

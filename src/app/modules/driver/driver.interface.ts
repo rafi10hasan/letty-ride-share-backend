@@ -30,6 +30,7 @@ export interface IDriver extends Document {
   dateOfBirth: string;
   languages: string[];
   location: IDriverLocation;
+  driverId: string;
   governorate: TGovernorate;
   licenseNumber: string;
   avatar: string;

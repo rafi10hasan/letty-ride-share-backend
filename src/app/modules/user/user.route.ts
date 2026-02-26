@@ -16,15 +16,6 @@ userRouter.post(
   userController.createAccountIntoDb,
 );
 
-userRouter.post(
-  '/create-rider-profile',
-  authMiddleware(USER_ROLE.RIDER, USER_ROLE.NORMAL_USER),
-  validateRequest({
-    body: userValidationZodSchema.createRiderProfileSchema,
-  }),
-  userController.createRiderProfileIntoDb,
-);
-
 userRouter.patch(
   '/change-location',
   authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),

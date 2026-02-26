@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import config from '../../../config';
 import registrationEmailTemplate from '../../../mailTemplate/registrationTemplate';
 import { generateOTP } from '../../../utilities/generateOtp';
@@ -7,10 +8,11 @@ import { BadRequestError } from '../../errors/request/apiError';
 
 import { sendVerificationOtp } from '../auth/auth.utils';
 import { driverRepository } from '../driver/driver.repository';
-import { TGender, TUserRole, USER_ROLE } from './user.constant';
-import { ILocation, IUser, registerPayload } from './user.interface';
+import { riderRepository } from '../rider/rider.repository';
+import { USER_ROLE } from './user.constant';
+import { IUser, registerPayload } from './user.interface';
+import User from './user.model';
 import { userRepository } from './user.repository';
-import { generateUserId } from './user.utils';
 import { TUserLocationPayload } from './user.validations';
 
 // register Account
@@ -62,50 +64,63 @@ const createAccount = async (payload: registerPayload) => {
   return { id: newUser._id, email: newUser.email };
 };
 
-// create rider profile
-const createRiderProfile = async (user: IUser, payload: { gender: TGender; role: TUserRole }) => {
-  if (user.isRiderProfileCompleted) {
-    throw new BadRequestError('rider profile already completed');
-  }
-  const riderId = await generateUserId(payload.role);
-  user.gender = payload.gender;
-  user.currentRole = payload.role;
-  user.isRiderProfileCompleted = true;
-  user.riderId = riderId;
-  await user.save();
-  return {
-    userId: user._id,
-  };
-};
 
 // update user location
 const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) => {
-  
-  console.log({payload})
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  if (user.currentRole === USER_ROLE.DRIVER) {
-    const driver = await driverRepository.findDriverByUserId(user._id);
-    if (!driver) {
-      throw new BadRequestError('Driver profile not found');
+  try {
+    let locationData;
+
+    if (user.currentRole === USER_ROLE.DRIVER) {
+
+      locationData = await driverRepository.updateDriverLocation(user._id, payload, session);
+    } else {
+      locationData = await riderRepository.updateRiderLocation(user._id, payload, session);
     }
-    driver.location = payload;
-    await driver.save();
+
+    if (!locationData) {
+      throw new BadRequestError(`${user.currentRole} profile not found`);
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: user._id },
+      { $set: { location: payload } },
+      { session, new: true }
+    );
+    
+    await session.commitTransaction();
+
+    return {
+      userId: updatedUser?._id,
+      location: updatedUser?.location
+    };
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    session.endSession();
   }
-  user.location = payload;
-  await user.save();
-  return {
-    userId: user._id,
-    location: user.location
-  }
-}
+};
 
 // switch user role
 const switchUserRole = async (user: IUser) => {
-  if(user.currentRole === USER_ROLE.DRIVER){
+  if (user.currentRole === USER_ROLE.DRIVER) {
+
+    const rider = await riderRepository.findRiderByUserId(user._id);
+    if (!rider) {
+      return {
+        status: 'INCOMPLETE_PROFILE'
+      }
+    }
     user.currentRole = USER_ROLE.RIDER;
   }
-  else if(user.currentRole === USER_ROLE.RIDER){
-    if(!user.isDriverProfileCompleted && !user.driverId){
+  else if (user.currentRole === USER_ROLE.RIDER) {
+
+    const driver = await driverRepository.findDriverByUserId(user._id);
+
+    if (!driver) {
       return {
         status: 'INCOMPLETE_PROFILE'
       }
@@ -122,7 +137,6 @@ const switchUserRole = async (user: IUser) => {
 
 export const userService = {
   createAccount,
-  createRiderProfile,
   updateUserLocation,
   switchUserRole
 };

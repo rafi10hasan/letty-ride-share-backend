@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { GENDER, PROVIDER, SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, USER_ROLE } from './user.constant';
+import { BADGE, GENDER, PROVIDER, USER_ROLE } from './user.constant';
 import { IUser, IUserModel } from './user.interface';
 
 const geoSchema = new Schema(
@@ -13,7 +13,7 @@ const geoSchema = new Schema(
       default: 'Point',
     },
     coordinates: {
-      type: [Number], 
+      type: [Number],
       required: true,
     },
   },
@@ -56,7 +56,7 @@ export const userSchema = new mongoose.Schema<IUser>(
       },
     },
 
-      phone: {
+    phone: {
       type: String,
       unique: [true, 'phone number is already used!'],
       sparse: true,
@@ -83,22 +83,11 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: false,
     },
-    riderId: {
-      type: String,
-      default: null,
-    },
-    driverId: {
-      type: String,
-      default: null,
-    },
+   
     location: { type: locationSchema },
     fcmToken: {
       type: String,
       default: null,
-    },
-    gender: {
-      type: String,
-      enum: Object.values(GENDER),
     },
     provider: {
       type: String,
@@ -128,29 +117,12 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: String,
       enum: Object.values(USER_ROLE),
     },
-    isRiderProfileCompleted: {
-      type: Boolean,
-      default: false,
-    },
-    isDriverProfileCompleted: {
-      type: Boolean,
-      default: false,
-    },
     isActive: {
       type: Boolean,
       default: true,
     },
-    subscriptionPlan: {
-      type: String,
-      enum: Object.values(SUBSCRIPTION_PLAN),
-      default: SUBSCRIPTION_PLAN.FREE
-    },
-     subscriptionMode: {
-      type: String,
-      enum: Object.values(SUBSCRIPTION_MODE),
-    },
-    subscriptionExpiryDate: {
-      type: Date,
+    subscription: {
+      type: Schema.Types.ObjectId, 
     },
     lastReadAt: {
       type: Date,

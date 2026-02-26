@@ -1,5 +1,5 @@
 import { Document, Model, Types } from 'mongoose';
-import { TGender, TProvider, TSubscriptionMode, TSubscriptionPlan, TUserRole } from './user.constant';
+import { TBadge, TGender, TProvider,TUserRole } from './user.constant';
 
 export interface registerPayload {
   email: string;
@@ -39,25 +39,16 @@ export interface IUser extends Document {
   password: string;
   passwordChangedAt?: Date;
   fcmToken?: string | null;
-  signature?: string;
   passwordResetOtp?: string;
   passwordResetExpiry?: Date;
   isOtpVerified?: boolean;
   isEmailVerified: boolean;
-  gender: TGender;
   verificationOtp?: string;
   verificationOtpExpiry?: Date;
-  subscriptionPlan: TSubscriptionPlan;
-  subscriptionMode: TSubscriptionMode;
-  subscriptionExpiryDate: Date;
+  subscription: Types.ObjectId | null; 
   currentRole: TUserRole;
-  isRiderProfileCompleted: boolean;
-  isDriverProfileCompleted: boolean;
-  riderId: string;
-  driverId: string;
   provider?: TProvider;
   isSocialLogin: boolean;
-  isProfileCompleted: boolean;
   isActive: boolean;
   isDeleted: boolean;
   lastReadAt: Date | null;
