@@ -10,7 +10,7 @@ import { USER_ROLE } from '../user/user.constant';
 const subscriptionRouter = Router();
 
 subscriptionRouter.post(
-  '/create',
+  '/send-request',
   authMiddleware(USER_ROLE.DRIVER,USER_ROLE.RIDER),
   validateRequest({
     body: subsCriptionValidationZodSchema.subscriptionRequestPayload,
