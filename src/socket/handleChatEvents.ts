@@ -3,13 +3,15 @@ import { handleMessagePage } from './chat/getMessages';
 import { handleSendMessage } from './chat/sendMessage';
 import { SOCKET_EVENTS } from './socket.constant';
 import { getConversationList } from '../helpers/getConversationLIst';
+import NodeCache from 'node-cache';
+
 
 
 const handleChatEvents = async (
   io: IOServer,
   socket: Socket,
   currentUserId: string,
-  onlineUsers: Map<string, string>
+  onlineUsers: NodeCache
 ): Promise<void> => {
   // join conversation
   socket.on(SOCKET_EVENTS.JOIN_CONVERSATION, async (conversationId: string) => {

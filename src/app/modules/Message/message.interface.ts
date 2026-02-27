@@ -2,10 +2,8 @@ import { Types } from 'mongoose';
 
 export interface IMessage {
   text: string;
-  imageUrl: string[];
-  audioUrl: string;
-  seen: boolean;
-  msgByUser: Types.ObjectId;
+  images: string[];
+  senderId: Types.ObjectId;
   conversationId: Types.ObjectId;
 }
 

@@ -12,6 +12,7 @@ import { IUser } from '../user/user.interface';
 import { userRepository } from '../user/user.repository';
 import { jwtPayload, loginPayload, socialLoginPayload } from './auth.interface';
 import { sendVerificationOtp } from './auth.utils';
+import { onlineUsers } from '../../../socket/connectSocket';
 
 const googleClient = new OAuth2Client();
 
@@ -55,7 +56,6 @@ const loginWithCredential = async (credential: loginPayload) => {
     responseData.isProfileCompleted = false;
     responseData.userId = user._id;
   }
-
   return responseData;
 };
 

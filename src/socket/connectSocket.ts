@@ -1,8 +1,8 @@
 /* eslint-disable no-console */
 import { Server as HTTPServer } from 'http';
-import httpStatus from 'http-status';
 import mongoose from 'mongoose';
 import { Server as ChatServer, Socket } from 'socket.io';
+import NodeCache from 'node-cache';
 
 import handleChatEvents from './handleChatEvents';
 import { SOCKET_EVENTS } from './socket.constant';
@@ -13,13 +13,48 @@ import getUnreadMessageCount from '../helpers/getUnreadMessageCount';
 
 let io: ChatServer;
 
-const onlineUsers = new Map<string, string>();
 
+const onlineUsers = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
+const participantCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
+
+// socket Auth Middleware
+const socketAuthMiddleware = async (
+  socket: Socket,
+  next: (err?: Error) => void,
+) => {
+  try {
+    const userId = socket.handshake.query.id as string;
+
+    if (!userId || typeof userId !== 'string') {
+      return next(new Error('User ID is missing'));
+    }
+
+    if (!mongoose.isValidObjectId(userId)) {
+      return next(new Error('Invalid User ID format'));
+    }
+
+    const currentUser = await User.findById(userId).lean();
+
+    if (!currentUser) {
+      return next(new Error('User not found'));
+    }
+
+    socket.data.userId = currentUser._id.toString();
+    socket.data.user = currentUser;
+
+    next();
+  } catch (err) {
+    console.error('Socket auth error:', err);
+    next(new Error('Authentication failed'));
+  }
+};
+
+// socket connection
 const connectSocket = (server: HTTPServer) => {
   if (!io) {
     io = new ChatServer(server, {
       cors: {
-        origin: '*',
+        origin: process.env.CLIENT_URL || '*',
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
         allowedHeaders: ['Authorization', 'Content-Type'],
       },
@@ -29,74 +64,78 @@ const connectSocket = (server: HTTPServer) => {
     });
   }
 
+  // Middleware register
+  io.use(socketAuthMiddleware);
+
   io.on(SOCKET_EVENTS.CONNECTION, async (socket: Socket) => {
-    console.log(
-      'New connection attempt. Handshake query:',
-      socket.handshake.query,
-    );
-    const userId = socket.handshake.query.id as string;
+    const currentUserId: string = socket.data.userId;
 
-    if (!userId || typeof userId !== 'string') {
-      socket.emit('error', 'User ID is missing');
-      socket.disconnect();
-      return;
-    }
+    console.log(`User connected: ${currentUserId}`);
 
-    if (!mongoose.isValidObjectId(userId)) {
-      socket.emit('error', 'Invalid User ID format');
-      socket.disconnect();
-      return;
-    }
-
-    // Safe: userId is now a valid ObjectId
-    let currentUser;
-    try {
-      currentUser = await User.findById(userId);
-    } catch (err) {
-      console.error('Auth lookup failed:', err);
-      socket.emit('error', 'Failed to load user');
-      socket.disconnect();
-      return;
-    }
-
-    if (!currentUser) {
-      socket.emit('error', 'User not found');
-      socket.disconnect();
-      return;
-    }
-
-    const currentUserId = currentUser._id.toString();
     socket.join(currentUserId);
     onlineUsers.set(currentUserId, socket.id);
 
-    const unreadCount = await getUnreadMessageCount(currentUserId);
-    io.to(currentUserId).emit(SOCKET_EVENTS.UNREAD_MESSAGE_COUNT, {
-      unreadCount,
-    });
+    try {
+      const unreadCount = await getUnreadMessageCount(currentUserId);
+      socket.emit(SOCKET_EVENTS.UNREAD_MESSAGE_COUNT, { unreadCount });
+    } catch (err) {
+      console.error('Failed to get unread count for:', currentUserId, err);
+    }
 
-    io.emit(SOCKET_EVENTS.USER_STATUS, {
-      userId: currentUserId,
-      online: true,
-    });
+ 
+    try {
+      const userConversations = await Conversation.find({
+        participants: currentUserId,
+      })
+        .select('_id participants')
+        .lean();
 
-    // Conversations
-    const userConversations = await Conversation.find({
-      participants: currentUserId,
-    }).select('_id');
+      const participantIds = new Set<string>();
 
-    userConversations.forEach((conv) => {
-      socket.join(conv._id.toString());
-    });
+      userConversations.forEach((conv) => {
+        socket.join(conv._id.toString());
+
+        conv.participants.forEach((pId: mongoose.Types.ObjectId) => {
+          const pid = pId.toString();
+          if (pid !== currentUserId) participantIds.add(pid);
+        });
+      });
+
+
+      participantCache.set(currentUserId, Array.from(participantIds));
+
+      participantIds.forEach((pid) => {
+        io.to(pid).emit(SOCKET_EVENTS.USER_STATUS, {
+          userId: currentUserId,
+          online: true,
+        });
+      });
+    } catch (err) {
+      console.error('Conversation join failed:', err);
+    }
 
     handleChatEvents(io, socket, currentUserId, onlineUsers);
-
+    
+    // Disconnect socket 
     socket.on(SOCKET_EVENTS.DISCONNECT, () => {
-      onlineUsers.delete(currentUserId);
+      console.log(`User disconnected: ${currentUserId}`);
 
-      io.emit(SOCKET_EVENTS.USER_STATUS, {
-        userId: currentUserId,
-        online: false,
-      });
+      onlineUsers.del(currentUserId);
+
+      const cachedParticipants =
+        participantCache.get<string[]>(currentUserId);
+
+      if (cachedParticipants) {
+        cachedParticipants.forEach((pid) => {
+          io.to(pid).emit(SOCKET_EVENTS.USER_STATUS, {
+            userId: currentUserId,
+            online: false,
+          });
+        });
+
+        // Cache clean 
+        participantCache.del(currentUserId);
+      }
     });
   });
 
@@ -105,9 +144,7 @@ const connectSocket = (server: HTTPServer) => {
 
 const getSocketIO = () => {
   if (!io) {
-    throw new BadRequestError(
-      'Socket.io is not initialized!',
-    );
+    throw new BadRequestError('Socket.io is not initialized!');
   }
   return io;
 };
