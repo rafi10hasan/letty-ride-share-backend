@@ -1,9 +1,10 @@
+import NodeCache from 'node-cache';
 import { Server as IOServer, Socket } from 'socket.io';
+import { createConversation } from '../helpers/createConversation';
+import { getConversationList } from '../helpers/getConversationLIst';
 import { handleMessagePage } from './chat/getMessages';
 import { handleSendMessage } from './chat/sendMessage';
 import { SOCKET_EVENTS } from './socket.constant';
-import { getConversationList } from '../helpers/getConversationLIst';
-import NodeCache from 'node-cache';
 
 
 
@@ -13,6 +14,20 @@ const handleChatEvents = async (
   currentUserId: string,
   onlineUsers: NodeCache
 ): Promise<void> => {
+
+  // create conversation
+  socket.on(SOCKET_EVENTS.CREATE_CONVERSATION, async (data) => {
+    try {
+      const conversationId = await createConversation(io, socket, currentUserId, data);
+      socket.join(conversationId.toString());
+      socket.data.currentConversationId = conversationId.toString();
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      socket.emit('socket-error', { errorMessage });
+    }
+
+  });
+ console.log('🎯 Listening for event:', SOCKET_EVENTS.CREATE_CONVERSATION);
   // join conversation
   socket.on(SOCKET_EVENTS.JOIN_CONVERSATION, async (conversationId: string) => {
     socket.join(conversationId);
@@ -31,16 +46,12 @@ const handleChatEvents = async (
   socket.on(SOCKET_EVENTS.GET_CONVERSATIONS, async (query) => {
     try {
       const conversations = await getConversationList(currentUserId, query);
-
       socket.emit('conversation-list', conversations);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       socket.emit('socket-error', { errorMessage });
     }
   });
-
-  const conversations = await getConversationList(currentUserId);
-  socket.emit('conversation-list', conversations);
 
   socket.on(SOCKET_EVENTS.MESSAGE_PAGE, (data) => {
     handleMessagePage(socket, currentUserId, data);

@@ -5,16 +5,15 @@ export interface IMessage {
   images: string[];
   senderId: Types.ObjectId;
   conversationId: Types.ObjectId;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface NewMessagePayload {
-  receiverId: string;
+  conversationId: string;
   text: string;
-  imageUrl?: string[];
-  audioUrl?: string;
 }
+export type TChatImages = {
+  images: Express.Multer.File[];
+};
 
-export interface MulterRequest extends Request {
-  files?: Express.Multer.File[]; // or a dictionary if using `.fields()`
-  file?: Express.Multer.File; // for single file via `.single()`
-}

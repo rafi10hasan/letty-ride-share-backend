@@ -33,6 +33,7 @@ export interface IConversationPopulated {
   updatedAt: Date;
 }
 
+// get conversation list
 export const getConversationList = async (
   userId: string,
   query?: ConversationQuery
@@ -94,14 +95,14 @@ export const getConversationList = async (
       let unreadCount = 0;
       if (userLastSeen) {
         unreadCount = await Message.countDocuments({
-          conversation_id: conv._id,
+          conversationId: conv._id,
           _id: { $gt: userLastSeen },
-          sender_id: { $ne: userObjectId },
+          senderId: { $ne: userObjectId },
         });
       } else {
         unreadCount = await Message.countDocuments({
-          conversation_id: conv._id,
-          sender_id: { $ne: userObjectId },
+          conversationId: conv._id,
+          senderId: { $ne: userObjectId },
         });
       }
 

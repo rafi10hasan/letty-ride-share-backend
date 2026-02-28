@@ -3,10 +3,11 @@ import httpStatus from 'http-status';
 
 import asyncHandler from '../../../shared/asynchandler';
 import sendResponse from '../../../shared/sendResponse';
+import { TChatImages } from './message.interface';
 import { MessageServices } from './message.service';
 
 const newMessage: RequestHandler = asyncHandler(async (req, res) => {
-  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+  const files = req.files as TChatImages
   const result = await MessageServices.newMessageIntoDb(
     req.user,
     req.body,
@@ -15,7 +16,7 @@ const newMessage: RequestHandler = asyncHandler(async (req, res) => {
 
   sendResponse(res, {
     statusCode: httpStatus.CREATED,
-    success: true, 
+    success: true,
     message: 'Successfully Send By The Message',
     data: result,
   });
@@ -23,7 +24,7 @@ const newMessage: RequestHandler = asyncHandler(async (req, res) => {
 
 const updateMessageById: RequestHandler = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
-  const files = req.files as { [fieldname: string]: Express.Multer.File[] };
+  const files = req.files as TChatImages;
   const result = await MessageServices.updateMessageByIdIntoDb(
     messageId,
     req.body,
@@ -32,7 +33,7 @@ const updateMessageById: RequestHandler = asyncHandler(async (req, res) => {
 
   sendResponse(res, {
     statusCode: httpStatus.OK,
-        success: true,
+    success: true,
     message: 'Message updated successfully',
     data: result,
   });
@@ -44,7 +45,7 @@ const deleteMessageById: RequestHandler = asyncHandler(async (req, res) => {
   );
   sendResponse(res, {
     statusCode: httpStatus.OK,
-        success: true,
+    success: true,
     message: 'Successfully Delete Message',
     data: result,
   });

@@ -35,6 +35,7 @@ const conversationSchema = new Schema<IConversation>(
       createdAt: {
         type: Date,
       },
+      default: {}
     },
   },
   {

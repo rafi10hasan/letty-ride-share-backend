@@ -3,13 +3,14 @@ import { TUserRole } from "../app/modules/user/user.constant";
 
 
 export const SOCKET_EVENTS = {
+  CREATE_CONVERSATION: 'create-conversation',
   JOIN_CONVERSATION: 'join-conversation',
   LEAVE_CONVERSATION: 'leave-conversation',
   GET_CONVERSATIONS: 'get-conversations',
   GET_USER_STATUS: 'get-user-status',
   MESSAGE_PAGE: 'message-page',
   SEND_MESSAGE: 'send-message',
-  ERROR: 'error',
+  SOCKET_ERROR: 'socket-error',
   NOTIFICATION: 'notification',
   CONNECTION: 'connection',
   DISCONNECT: 'disconnect',

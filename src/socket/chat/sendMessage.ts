@@ -1,168 +1,292 @@
 import { Types } from 'mongoose';
-import type { Express } from 'express';
 import { Server, Socket } from 'socket.io';
-import User from '../../app/modules/user/user.model';
 import Conversation from '../../app/modules/conversation/conversation.model';
-import { uploadToCloudinary } from '../../app/cloudinary/uploadImageToCLoudinary';
+
 import Message from '../../app/modules/Message/message.model';
-import { deleteImageFromCloudinary } from '../../app/cloudinary/deleteImageFromCloudinary';
-import getUnreadMessageCount from '../../helpers/getUnreadMessageCount';
-import { SOCKET_EVENTS } from '../socket.constant';
 
 
 interface SendMessageData {
-  receiverId: string;
+  conversationId: string,
   text?: string;
-  imageBase64?: string[];
 }
 
-export const handleSendMessage = async (
+// handle send message
+export async function handleSendMessage(
   io: Server,
   socket: Socket,
-  currentUserId: string,
-  data: SendMessageData,
-) => {
-  if (currentUserId === data.receiverId) {
-    return socket.emit('socket-error', {
-      event: 'new-message',
-      message: `You can't chat with yourself`,
-    });
-  }
+  senderId: string,
+  messageData: SendMessageData,
 
-  const receiver = await User.findById(
-    new Types.ObjectId(data.receiverId),
-  ).select('_id');
+) {
+  const senderObjectId = new Types.ObjectId(senderId);
+  const conversationObjectId = new Types.ObjectId(messageData.conversationId);
 
-  if (!receiver) {
-    return socket.emit('socket-error', {
-      event: 'new-message',
-      message: 'Receiver ID not found!',
-    });
-  }
-
-  let isNewConversation = false;
-
-  let conversation = await Conversation.findOne({
-    participants: { $all: [currentUserId, data.receiverId], $size: 2 },
+  // 1️⃣ Create message
+  const saveMessage = await Message.create({
+    text: messageData.text || '',
+    senderId: senderObjectId,
+    conversationId: conversationObjectId,
   });
 
+  // Get conversation
+  const conversation = await Conversation.findById(conversationObjectId).lean();
+
   if (!conversation) {
-    conversation = await Conversation.create({
-      participants: [currentUserId, data.receiverId],
-    });
-    isNewConversation = true;
+    throw new Error('Conversation not found');
   }
 
-  const conversationIdString = conversation._id.toString();
+  // Find receiver
+  const receiverId = conversation.participants
+    .find((id) => id.toString() !== senderId)
+    ?.toString();
 
-  socket.join(conversationIdString);
-  socket.data.currentConversationId = conversationIdString;
-
-  const normalizeBase64 = (value: string) => {
-    const trimmed = value.trim();
-    const match = trimmed.match(/^data:.*?;base64,(.*)$/);
-    return match ? match[1] : trimmed;
+  // Update sender's lastSeen
+  const lastSeenUpdates: Record<string, Types.ObjectId> = {
+    [senderId]: saveMessage._id,
   };
 
-  const uploadedUrls: string[] = [];
-  if (Array.isArray(data.imageBase64) && data.imageBase64.length) {
-    const uploads = await Promise.all(
-      data.imageBase64.map(async (b64) => {
-        const normalized = normalizeBase64(b64);
-        const buffer = Buffer.from(normalized, 'base64');
-
-        const file = {
-          buffer,
-          mimetype: 'image/*',
-          originalname: 'socket-image',
-        } as unknown as Express.Multer.File;
-
-        return uploadToCloudinary(file, 'chat_images');
-      }),
-    );
-
-    uploadedUrls.push(...uploads.map((u) => u.secure_url));
-  }
-
-  const finalText = (data.text ?? '').toString();
-
-  if (!finalText.trim() && uploadedUrls.length === 0) {
-    return socket.emit('socket-error', {
-      event: 'new-message',
-      message: 'Either text or image is required',
-    });
-  }
-
-  const messageData = {
-    text: finalText,
-    imageUrl: uploadedUrls,
-    msgByUser: currentUserId,
-    conversationId: conversation._id,
-  };
-
-  let saveMessage;
-  try {
-    saveMessage = await Message.create(messageData);
-  } catch (err) {
-    if (uploadedUrls.length) {
-      await Promise.all(uploadedUrls.map((u) => deleteImageFromCloudinary(u)));
-    }
-    throw err;
-  }
-
-  await Conversation.updateOne(
-    { _id: conversation._id },
-    { lastMessage: saveMessage._id },
-  );
-
-  // auto-seen logic
+  // Auto-seen logic
+  const conversationIdString = messageData.conversationId.toString();
   const room = io.sockets.adapter.rooms.get(conversationIdString);
 
-  if (room && room.size > 1) {
+  let receiverIsSeen = false;
+
+  if (room && room.size > 1 && receiverId) {
     for (const socketId of room) {
       const s = io.sockets.sockets.get(socketId);
 
       if (
         s &&
+        s.data?.userId === receiverId &&
         s.data?.currentConversationId === conversationIdString &&
-        s.id !== socket.id
+        socketId !== socket.id
       ) {
-        await Message.updateOne(
-          { _id: saveMessage._id },
-          { $set: { seen: true } },
-        );
+        // Receiver is viewing → Mark as seen
+        lastSeenUpdates[receiverId] = saveMessage._id;
+        receiverIsSeen = true;
 
-        io.to(conversationIdString).emit('messages-seen', {
-          conversationId: conversationIdString,
-          seenBy: currentUserId,
-          messageIds: [saveMessage._id.toString()],
-        });
-
+        console.log(`✅ Auto-seen: Receiver ${receiverId} is viewing`);
         break;
       }
     }
   }
 
-  const updatedMsg = await Message.findById(saveMessage._id);
-  io.to(conversationIdString).emit('new-message', updatedMsg);
+  // Update conversation
+  const updateFields: any = {
+    lastMessage: {
+      messageId: saveMessage._id,
+      text: saveMessage.text,
+      senderId: senderObjectId,
+      createdAt: saveMessage.createdAt,
+    },
+    updatedAt: new Date(),
+  };
 
-  const receiverIdString = data.receiverId.toString();
-  const receiverUnread = await getUnreadMessageCount(receiverIdString);
-  io.to(receiverIdString).emit(SOCKET_EVENTS.UNREAD_MESSAGE_COUNT, {
-    unreadCount: receiverUnread,
+  // Add lastSeen updates
+  Object.entries(lastSeenUpdates).forEach(([userId, messageId]) => {
+    updateFields[`lastSeen.${userId}`] = messageId;
   });
 
-  if (isNewConversation) {
-    io.to(data.receiverId.toString()).emit('conversation-created', {
-      conversationId: conversation._id,
-      lastMessage: updatedMsg,
-    });
+  await Conversation.updateOne(
+    { _id: conversationObjectId },
+    { $set: updateFields }
+  );
 
-    io.to(data.receiverId.toString()).emit('new-message', updatedMsg);
+  // Populate sender
+  await saveMessage.populate('senderId', 'fullName avatar');
 
-    socket.emit('conversation-created', {
-      conversationId: conversation._id,
-      message: updatedMsg,
+  // Broadcast message
+  const messagePayload = {
+    _id: saveMessage._id.toString(),
+    text: saveMessage.text,
+    images: saveMessage.images,
+    senderId: {
+      _id: (saveMessage.senderId as any)._id.toString(),
+      fullName: (saveMessage.senderId as any).fullName,
+      image: (saveMessage.senderId as any).avatar || '',
+    },
+    createdAt: saveMessage.createdAt,
+    isSeen: receiverIsSeen,
+  };
+
+  io.to(conversationIdString).emit('new-message', {
+    conversationId: conversationIdString,
+    message: messagePayload,
+  });
+
+  // If auto-seen, notify sender
+  if (receiverIsSeen && receiverId) {
+    io.to(senderId).emit('messages-seen', {
+      conversationId: conversationIdString,
+      seenBy: receiverId,
+      lastSeenMessageId: saveMessage._id.toString(),
     });
   }
-};
+
+  // Update conversation list
+  conversation.participants.forEach((participantId) => {
+    io.to(participantId.toString()).emit('conversation-updated', {
+      conversationId: conversationIdString,
+      lastMessage: {
+        text: saveMessage.text,
+        sender: senderId,
+        createdAt: saveMessage.createdAt,
+      },
+    });
+  });
+
+  return saveMessage;
+}
+
+// export const handleSendMessage = async (
+//   io: Server,
+//   socket: Socket,
+//   currentUserId: string,
+//   data: SendMessageData,
+// ) => {
+//   if (currentUserId === data.receiverId) {
+//     return socket.emit('socket-error', {
+//       event: 'new-message',
+//       message: `You can't chat with yourself`,
+//     });
+//   }
+
+//   const receiver = await User.findById(
+//     new Types.ObjectId(data.receiverId),
+//   ).select('_id');
+
+//   if (!receiver) {
+//     return socket.emit('socket-error', {
+//       event: 'new-message',
+//       message: 'Receiver ID not found!',
+//     });
+//   }
+
+//   let isNewConversation = false;
+
+//   let conversation = await Conversation.findOne({
+//     participants: { $all: [currentUserId, data.receiverId], $size: 2 },
+//   });
+
+//   if (!conversation) {
+//     conversation = await Conversation.create({
+//       participants: [currentUserId, data.receiverId],
+//     });
+//     isNewConversation = true;
+//   }
+
+//   const conversationIdString = conversation._id.toString();
+
+//   socket.join(conversationIdString);
+//   socket.data.currentConversationId = conversationIdString;
+
+//   const normalizeBase64 = (value: string) => {
+//     const trimmed = value.trim();
+//     const match = trimmed.match(/^data:.*?;base64,(.*)$/);
+//     return match ? match[1] : trimmed;
+//   };
+
+//   const uploadedUrls: string[] = [];
+//   if (Array.isArray(data.imageBase64) && data.imageBase64.length) {
+//     const uploads = await Promise.all(
+//       data.imageBase64.map(async (b64) => {
+//         const normalized = normalizeBase64(b64);
+//         const buffer = Buffer.from(normalized, 'base64');
+
+//         const file = {
+//           buffer,
+//           mimetype: 'image/*',
+//           originalname: 'socket-image',
+//         } as unknown as Express.Multer.File;
+
+//         return uploadToCloudinary(file, 'chat_images');
+//       }),
+//     );
+
+//     uploadedUrls.push(...uploads.map((u) => u.secure_url));
+//   }
+
+//   const finalText = (data.text ?? '').toString();
+
+//   if (!finalText.trim() && uploadedUrls.length === 0) {
+//     return socket.emit('socket-error', {
+//       event: 'new-message',
+//       message: 'Either text or image is required',
+//     });
+//   }
+
+//   const messageData = {
+//     text: finalText,
+//     imageUrl: uploadedUrls,
+//     msgByUser: currentUserId,
+//     conversationId: conversation._id,
+//   };
+
+//   let saveMessage;
+//   try {
+//     saveMessage = await Message.create(messageData);
+//   } catch (err) {
+//     if (uploadedUrls.length) {
+//       await Promise.all(uploadedUrls.map((u) => deleteImageFromCloudinary(u)));
+//     }
+//     throw err;
+//   }
+
+//   await Conversation.updateOne(
+//     { _id: conversation._id },
+//     { lastMessage: saveMessage._id },
+//   );
+
+//   // auto-seen logic
+//   const room = io.sockets.adapter.rooms.get(conversationIdString);
+
+//   if (room && room.size > 1) {
+//     for (const socketId of room) {
+//       const s = io.sockets.sockets.get(socketId);
+
+//       if (
+//         s &&
+//         s.data?.currentConversationId === conversationIdString &&
+//         s.id !== socket.id
+//       ) {
+//         await Message.updateOne(
+//           { _id: saveMessage._id },
+//           { $set: { seen: true } },
+//         );
+
+//         io.to(conversationIdString).emit('messages-seen', {
+//           conversationId: conversationIdString,
+//           seenBy: currentUserId,
+//           messageIds: [saveMessage._id.toString()],
+//         });
+
+//         break;
+//       }
+//     }
+//   }
+
+//   const updatedMsg = await Message.findById(saveMessage._id);
+//   io.to(conversationIdString).emit('new-message', updatedMsg);
+
+//   const receiverIdString = data.receiverId.toString();
+//   const receiverUnread = await getUnreadMessageCount(receiverIdString);
+//   io.to(receiverIdString).emit(SOCKET_EVENTS.UNREAD_MESSAGE_COUNT, {
+//     unreadCount: receiverUnread,
+//   });
+
+//   if (isNewConversation) {
+//     io.to(data.receiverId.toString()).emit('conversation-created', {
+//       conversationId: conversation._id,
+//       lastMessage: updatedMsg,
+//     });
+
+//     io.to(data.receiverId.toString()).emit('new-message', updatedMsg);
+
+//     socket.emit('conversation-created', {
+//       conversationId: conversation._id,
+//       message: updatedMsg,
+//     });
+//   }
+// };
+
+

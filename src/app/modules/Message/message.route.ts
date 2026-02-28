@@ -12,7 +12,7 @@ import { MessageValidationSchema } from './message.validation';
 const router = Router();
 
 router.post(
-  '/new_message',
+  '/new-message',
   authMiddleware(USER_ROLE.DRIVER, USER_ROLE.RIDER),
   uploadFile(),
   validateFileSizes,
@@ -21,7 +21,7 @@ router.post(
 );
 
 router.patch(
-  '/update_message_by_Id/:messageId',
+  '/update-message/:messageId',
   authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
   uploadFile(),
   validateFileSizes,
@@ -30,7 +30,7 @@ router.patch(
 );
 
 router.delete(
-  '/delete_message/:messageId',
+  '/delete-message/:messageId',
   authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
   MessageController.deleteMessageById
 );
