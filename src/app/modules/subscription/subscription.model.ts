@@ -1,8 +1,7 @@
 
 import mongoose, { Schema } from 'mongoose';
 import { ISubscription } from './subscription.interface';
-import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN } from './subscription.constant';
-
+import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from './subscription.constant';
 
 
 export const subscriptionSchema = new mongoose.Schema<ISubscription>(
@@ -22,9 +21,10 @@ export const subscriptionSchema = new mongoose.Schema<ISubscription>(
             enum: Object.values(SUBSCRIPTION_MODE),
             default: SUBSCRIPTION_MODE.MONTHLY
         },
-        subscriptionPurchaseDate: {
-            type:Date,
-            default: Date.now
+        status: {
+            type: String,
+            enum: Object.values(SUBSCRIPTION_STATUS),
+            default: SUBSCRIPTION_STATUS.PENDING
         },
         subscriptionExpiryDate: {
             type:Date,

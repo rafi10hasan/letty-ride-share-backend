@@ -65,7 +65,7 @@ export async function handleSendMessage(
         lastSeenUpdates[receiverId] = saveMessage._id;
         receiverIsSeen = true;
 
-        console.log(`✅ Auto-seen: Receiver ${receiverId} is viewing`);
+        console.log(`Auto-seen: Receiver ${receiverId} is viewing`);
         break;
       }
     }
@@ -100,11 +100,11 @@ export async function handleSendMessage(
     _id: saveMessage._id.toString(),
     text: saveMessage.text,
     images: saveMessage.images,
-    senderId: {
-      _id: (saveMessage.senderId as any)._id.toString(),
-      fullName: (saveMessage.senderId as any).fullName,
-      image: (saveMessage.senderId as any).avatar || '',
-    },
+
+    senderId: (saveMessage.senderId as any)._id.toString(),
+    fullName: (saveMessage.senderId as any).fullName,
+    image: (saveMessage.senderId as any).avatar || '',
+
     createdAt: saveMessage.createdAt,
     isSeen: receiverIsSeen,
   };

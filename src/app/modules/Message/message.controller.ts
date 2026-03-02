@@ -8,6 +8,7 @@ import { MessageServices } from './message.service';
 
 const newMessage: RequestHandler = asyncHandler(async (req, res) => {
   const files = req.files as TChatImages
+  console.log(files)
   const result = await MessageServices.newMessageIntoDb(
     req.user,
     req.body,
@@ -24,11 +25,10 @@ const newMessage: RequestHandler = asyncHandler(async (req, res) => {
 
 const updateMessageById: RequestHandler = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
-  const files = req.files as TChatImages;
+  console.log(req.body)
   const result = await MessageServices.updateMessageByIdIntoDb(
     messageId,
-    req.body,
-    files
+    req.body.text,
   );
 
   sendResponse(res, {
@@ -41,7 +41,8 @@ const updateMessageById: RequestHandler = asyncHandler(async (req, res) => {
 
 const deleteMessageById: RequestHandler = asyncHandler(async (req, res) => {
   const result = await MessageServices.deleteMessageByIdIntoDb(
-    req.params.messageId
+    req.params.messageId,
+    req.body
   );
   sendResponse(res, {
     statusCode: httpStatus.OK,

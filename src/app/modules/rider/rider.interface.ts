@@ -24,6 +24,7 @@ export interface IRider extends Document {
   email: string;
   phone: string;
   badge: TBadge;
+  subscription: Types.ObjectId | null; 
   riderId: string;
   bio: string;
   gender: TGender; 

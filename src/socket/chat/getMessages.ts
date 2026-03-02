@@ -1,9 +1,9 @@
 
 import { Socket } from 'socket.io';
 
-import { SOCKET_EVENTS } from '../socket.constant';
 import Conversation from '../../app/modules/conversation/conversation.model';
 import Message from '../../app/modules/Message/message.model';
+import { SOCKET_EVENTS } from '../socket.constant';
 
 
 
@@ -80,7 +80,7 @@ export async function handleMessagePage(
     );
 
     let otherUserLastSeen: any = null;
-    
+
     if (otherUser && conversation.lastSeen) {
       // Check if it's a Map or plain object
       if (conversation.lastSeen instanceof Map) {
@@ -92,14 +92,13 @@ export async function handleMessagePage(
     }
 
     const messagesWithStatus = messages.map((msg: any) => ({
-      _id: msg._id.toString(),
+      messageId: msg._id.toString(),
       text: msg.text,
       images: msg.images,
-      senderId: {
-        _id: msg.senderId._id.toString(),
-        fullName: msg.senderId.fullName,
-        image: msg.senderId.image || '',
-      },
+      senderId: msg.senderId._id.toString(),
+      fullName: msg.senderId.fullName,
+      profileImage: msg.senderId.avatar || '',
+
       createdAt: msg.createdAt,
       isSeen:
         msg.senderId._id.toString() === currentUserId

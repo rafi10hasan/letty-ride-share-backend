@@ -14,6 +14,6 @@ export interface NewMessagePayload {
   text: string;
 }
 export type TChatImages = {
-  images: Express.Multer.File[];
+  chat_images: Express.Multer.File[];
 };
 

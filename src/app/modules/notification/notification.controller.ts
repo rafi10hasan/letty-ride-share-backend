@@ -11,7 +11,7 @@ const getNotifications = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'Driver profile has been created successfully',
+    message: 'user notification has been retrieved successfully',
     data: data,
   });
 });
@@ -22,7 +22,7 @@ const markAsSeen = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'Driver profile has been created successfully',
+    message: 'user notification marked succesfully',
     data: data,
   });
 });
@@ -34,7 +34,7 @@ const getUnseenNotificationCount = asyncHandler(async (req: Request, res: Respon
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
     success: true,
-    message: 'Driver profile has been created successfully',
+    message: 'notification unseen count successfully',
     data: count,
   });
 });

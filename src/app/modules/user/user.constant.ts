@@ -1,9 +1,10 @@
-import e from "express";
 
 export const USER_ROLE = {
   NORMAL_USER: 'normal-user',
   RIDER: 'rider',
   DRIVER: 'driver',
+  ADMIN: 'admin',
+  SUPER_ADMIN: 'super-admin',
 } as const;
 
 export const PROVIDER = {

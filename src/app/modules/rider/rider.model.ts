@@ -1,8 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
+import { BADGE } from '../user/user.constant';
 import { GENDER } from './rider.constant';
 import { IRider } from './rider.interface';
-import { BADGE } from '../user/user.constant';
 
 const geoSchema = new Schema(
   {
@@ -73,10 +73,12 @@ export const riderSchema = new mongoose.Schema<IRider>(
       type: String,
       enum: Object.values(BADGE),
     },
-
+    subscription: {
+      type: Schema.Types.ObjectId,
+    },
     riderId: {
       type: String,
-      default: null, 
+      default: null,
     },
     location: { type: locationSchema },
 

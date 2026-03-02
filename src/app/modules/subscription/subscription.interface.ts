@@ -1,6 +1,6 @@
 
 import { Document, Types } from 'mongoose';
-import { TSubscriptionMode, TSubscriptionPlan } from './subscription.constant';
+import { TSubscriptionMode, TSubscriptionPlan, TSubscriptionStatus } from './subscription.constant';
 
 // Instance methods
 export interface ISubscription extends Document {
@@ -8,7 +8,7 @@ export interface ISubscription extends Document {
     user: Types.ObjectId;
     subscriptionPlan: TSubscriptionPlan;
     subscriptionMode: TSubscriptionMode;
-    subscriptionPurchaseDate: Date;
+    status: TSubscriptionStatus;
     subscriptionExpiryDate: Date;
     createdAt: Date;
     updatedAt: Date;

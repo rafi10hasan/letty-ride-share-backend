@@ -1,5 +1,5 @@
 import { Document, Model, Types } from 'mongoose';
-import { TBadge, TGender, TProvider,TUserRole } from './user.constant';
+import { TProvider,TUserRole } from './user.constant';
 
 export interface registerPayload {
   email: string;

@@ -5,6 +5,7 @@ import adminRouter from '../modules/admin/admin.routes';
 import authRouter from '../modules/auth/auth.route';
 import { contentRouter } from '../modules/Content/content.route';
 import driverRouter from '../modules/driver/driver.route';
+import { messageRouter } from '../modules/Message/message.route';
 import rideRouter from '../modules/ride-publish/ride.publish.routes';
 import riderRouter from '../modules/rider/rider.route';
 import subscriptionRouter from '../modules/subscription/subscription.routes';
@@ -28,6 +29,11 @@ const appRouters = [
   {
     path: '/auth',
     router: authRouter,
+  },
+
+  {
+    path: '/messages',
+    router: messageRouter,
   },
   {
     path: '/subscription',
