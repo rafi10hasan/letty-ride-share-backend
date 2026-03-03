@@ -14,5 +14,5 @@ export const generateRiderId = async () => {
     nextNumber = parseInt(lastNumber, 10) + 1;
   }
 
-  return `#RIDER${nextNumber.toString().padStart(6, '0')}`;
+  return `RIDER${nextNumber.toString().padStart(6, '0')}`;
 };

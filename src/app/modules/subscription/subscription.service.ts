@@ -8,37 +8,50 @@ import { NOTIFICATION_TYPE } from "../notification/notification.constant";
 import Notification from "../notification/notification.model";
 import { IUser } from "../user/user.interface";
 import User from "../user/user.model";
-import Subscription from "./subscription.model";
+
 import { TSubscriptionRequestPayload } from "./subscription.zod";
+import { riderRepository } from "../rider/rider.repository";
+import { driverRepository } from "../driver/driver.repository";
+import { SUBSCRIPTION_STATUS } from "../user/user.constant";
 
 // send subscription request
 const sendSubscriptionPurchaseRequest = async (
     user: IUser,
     payload: TSubscriptionRequestPayload
 ) => {
-    const { subscriptionPlan, subscriptionMode } = payload;
+    const { plan, mode } = payload;
 
     const session = await mongoose.startSession();
 
     try {
         session.startTransaction();
+        
+        let currentProfile;
 
-      
-        const isSubscriptionExist = await Subscription.findOne(
-            { user: user._id, subscriptionPlan },
-            null,
-            { session }
-        );
-
-        if (isSubscriptionExist) {
-            throw new BadRequestError('You already sent a request with this plan');
+        if(user.currentRole === 'rider'){
+            currentProfile = await riderRepository.findRiderByUserId(user._id, "subscription");
         }
 
-        // ── 2. Create subscription ──────────────────────────────────────
-        const [subscription] = await Subscription.create(
-            [{ user: user._id, ...payload }],
-            { session }
-        );
+        else if(user.currentRole === 'driver'){
+             currentProfile = await driverRepository.findDriverByUserId(user._id, "subscription");
+        }
+
+        if(!currentProfile){
+            throw new BadRequestError('current profile not found');
+        }
+        console.log({currentProfile})
+        if(currentProfile.subscription.status === SUBSCRIPTION_STATUS.PENDING){
+            throw new BadRequestError('You already sent a pending request with this plan');
+        }
+      
+        
+        currentProfile.subscription.plan = plan;
+        currentProfile.subscription.mode = mode;
+        currentProfile.subscription.requestedAt = new Date();
+        currentProfile.subscription.status =  SUBSCRIPTION_STATUS.PENDING;
+
+        await currentProfile.save({ session });
+
 
         // ── 3. Find super admin ─────────────────────────────────────────
         const superAdmin = await User.findOne(
@@ -54,7 +67,7 @@ const sendSubscriptionPurchaseRequest = async (
         // ── 4. Create notification ──────────────────────────────────────
         const notificationPayload = {
             title: 'Subscription Request',
-            message: `${user.fullName} sent a subscription request to purchase ${subscriptionPlan} plan with ${subscriptionMode} mode`,
+            message: `${user.fullName} sent a subscription request to purchase ${plan} plan with ${mode} mode`,
             receiver: superAdmin._id,
             type: NOTIFICATION_TYPE.SUBSCRIPTION_REQUEST,
         };
@@ -83,8 +96,8 @@ const sendSubscriptionPurchaseRequest = async (
             html: subscriptionRequestEmailTemplate(
                 user.fullName,
                 user.email,
-                subscriptionPlan,
-                subscriptionMode,
+                plan,
+                mode,
                 'ride share'
             ),
         };
@@ -94,7 +107,7 @@ const sendSubscriptionPurchaseRequest = async (
             console.error('Failed to send subscription request email:', err);
         });
 
-        return subscription;
+        return currentProfile.subscription;
 
     } catch (error) {
         await session.abortTransaction();

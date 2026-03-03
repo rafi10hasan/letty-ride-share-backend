@@ -1,5 +1,5 @@
 import { Document, Model, Types } from 'mongoose';
-import { TProvider,TUserRole } from './user.constant';
+import { TProvider, TSubscriptionMode, TSubscriptionPlan, TSubscriptionStatus, TUserRole } from './user.constant';
 
 export interface registerPayload {
   email: string;
@@ -28,6 +28,15 @@ export interface ILocation {
   geo: IGeoPoint;
 }
 
+export interface ISubscription {
+  plan: TSubscriptionPlan;
+  mode: TSubscriptionMode;
+  requestedAt: Date;
+  status: TSubscriptionStatus;
+  expirydate: Date
+}
+
+
 // Instance methods
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -45,7 +54,6 @@ export interface IUser extends Document {
   isEmailVerified: boolean;
   verificationOtp?: string;
   verificationOtpExpiry?: Date;
-  subscription: Types.ObjectId | null; 
   currentRole: TUserRole;
   provider?: TProvider;
   isSocialLogin: boolean;

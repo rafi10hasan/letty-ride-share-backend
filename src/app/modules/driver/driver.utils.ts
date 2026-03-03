@@ -14,5 +14,5 @@ export const generateDriverId = async () => {
     nextNumber = parseInt(lastNumber, 10) + 1;
   }
 
-  return `#DRIVER${nextNumber.toString().padStart(6, '0')}`;
+  return `DRIVER${nextNumber.toString().padStart(6, '0')}`;
 };

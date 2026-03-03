@@ -10,15 +10,15 @@ import { SessionModel } from '../session/session.model';
 import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
 import { userRepository } from '../user/user.repository';
-import { jwtPayload, loginPayload, socialLoginPayload } from './auth.interface';
+import { jwtPayload, socialLoginPayload } from './auth.interface';
 import { sendVerificationOtp } from './auth.utils';
-import { onlineUsers } from '../../../socket/connectSocket';
+import { TLoginPayload } from './auth.validation';
 
 const googleClient = new OAuth2Client();
 
 // login with credential
-const loginWithCredential = async (credential: loginPayload) => {
-  const { email, password } = credential;
+const loginWithCredential = async (credential: TLoginPayload) => {
+  const { email, password, fcmToken } = credential;
 
   const user = await userRepository.findByEmail(email);
   if (!user) throw new UnauthorizedError('user not found with this email');
@@ -43,6 +43,9 @@ const loginWithCredential = async (credential: loginPayload) => {
       status: 'UNVERIFIED'
     };
   }
+  
+  user.fcmToken = fcmToken;
+  await user.save()
 
   const JwtPayload: jwtPayload = {
     id: user._id.toString(),

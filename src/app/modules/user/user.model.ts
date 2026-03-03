@@ -121,9 +121,6 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: true,
     },
-    subscription: {
-      type: Schema.Types.ObjectId, 
-    },
     lastReadAt: {
       type: Date,
       default: null

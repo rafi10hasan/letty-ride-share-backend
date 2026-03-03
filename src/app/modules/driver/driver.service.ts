@@ -3,15 +3,15 @@ import { deleteImageFromCloudinary } from '../../cloudinary/deleteImageFromCloud
 import { uploadToCloudinary } from '../../cloudinary/uploadImageToCLoudinary';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { IUser } from '../user/user.interface';
-import { generateUserId } from '../user/user.utils';
 import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
+import { generateDriverId } from './driver.utils';
 import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
 
 
 // create driver profile
 const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, files: TDriverImages) => {
-  if (user.driverId && user.isDriverProfileCompleted) {
+  if (user.currentRole === 'driver') {
     throw new BadRequestError('Driver profile already completed');
   }
 
@@ -33,25 +33,24 @@ const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, 
   session.startTransaction();
 
   try {
-    const { gender, role, ...rest } = payload;
+    const { role, ...rest } = payload;
+    const driverId = await generateDriverId();
 
     const driverPayload = {
       ...rest,
       user: user._id,
       fullName: user.fullName,
+      email: user.email,
+      phone: user.phone,
       avatar: user.avatar,
       verificationImage,
+      driverId: driverId,
       carGalleries: uploadedCarImages,
     };
 
     const driver = await driverRepository.createDriverProfile(driverPayload, session);
 
-    const driverId = await generateUserId(payload.role);
-
     user.currentRole = payload.role;
-    user.gender = payload.gender;
-    user.isDriverProfileCompleted = true;
-    user.driverId = driverId;
 
     await user.save({ session });
 
@@ -168,9 +167,7 @@ const updateDriverVehicle = async (user: IUser, payload: TDriverCarUpdatePayload
   }
 };
 
-const publishRide = async(user: IUser, payload:any) =>{
-  
-}
+
 export const driverService = {
   createDriverProfile,
   updateDriverProfile,

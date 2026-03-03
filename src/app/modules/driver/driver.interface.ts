@@ -1,4 +1,5 @@
 import { Document, Types } from 'mongoose';
+import { ISubscription } from '../user/user.interface';
 import { TGovernorate, TVehicleType } from './driver.constant';
 
 export type TDriverImages = {
@@ -33,9 +34,12 @@ export interface IDriver extends Document {
   driverId: string;
   governorate: TGovernorate;
   licenseNumber: string;
+  subscription: ISubscription;
   avatar: string;
   carGalleries: string[];
   verificationImage: string;
+  totalTripCompleted: number;
+  isActive: boolean;
   carModel: string;
   licensePlate: string;
   vehicleType: TVehicleType;

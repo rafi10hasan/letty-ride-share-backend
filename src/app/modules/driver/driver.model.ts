@@ -2,6 +2,7 @@ import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
 import { GOVERNORATE, VEHICLE_TYPE } from './driver.constant';
 import { IDriver } from './driver.interface';
+import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
 
 
 const geoSchema = new Schema(
@@ -68,7 +69,10 @@ export const driverSchema = new mongoose.Schema<IDriver>(
     bio: {
       type: String,
     },
-
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
     location: { type: locationSchema },
 
     dateOfBirth: {
@@ -83,6 +87,29 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: String,
       default: null,
     },
+    subscription: {
+      plan: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_PLAN),
+        default: SUBSCRIPTION_PLAN.FREE
+      },
+      mode: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_MODE),
+        default: SUBSCRIPTION_MODE.MONTHLY
+      },
+      requestedAt: {
+        type: Date,
+      },
+      status: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_STATUS),
+      },
+      expiryDate: {
+        type: Date,
+      }
+    },
+
     languages: {
       type: [String],
       required: true,
@@ -132,6 +159,10 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       default: 0
     },
     reviews: {
+      type: Number,
+      default: 0,
+    },
+     totalTripCompleted: {
       type: Number,
       default: 0,
     },

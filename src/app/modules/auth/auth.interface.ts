@@ -6,12 +6,6 @@ export interface jwtPayload {
   role: string;
 }
 
-
-export interface loginPayload {
-  email: string;
-  password: string;
-}
-
 export interface socialLoginPayload {
   provider: TProvider;
   token: string;

@@ -1,8 +1,9 @@
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { BADGE } from '../user/user.constant';
+import { BADGE, SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
 import { GENDER } from './rider.constant';
 import { IRider } from './rider.interface';
+
 
 const geoSchema = new Schema(
   {
@@ -20,7 +21,7 @@ const geoSchema = new Schema(
   { _id: false },
 );
 
-
+// location schema
 const locationSchema = new Schema(
   {
     address: { type: String, required: [true, 'address is required'] },
@@ -29,6 +30,7 @@ const locationSchema = new Schema(
   { _id: false },
 );
 
+// ride schema
 export const riderSchema = new mongoose.Schema<IRider>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
@@ -73,15 +75,39 @@ export const riderSchema = new mongoose.Schema<IRider>(
       type: String,
       enum: Object.values(BADGE),
     },
+
     subscription: {
-      type: Schema.Types.ObjectId,
+      plan: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_PLAN),
+        default: SUBSCRIPTION_PLAN.FREE
+      },
+      mode: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_MODE),
+      },
+      requestedAt: {
+        type: Date,
+        default: null,
+      },
+      status: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_STATUS),
+      },
+      expiryDate: {
+        type: Date,
+      }
     },
+
     riderId: {
       type: String,
       default: null,
     },
     location: { type: locationSchema },
-
+    isActive: {
+      type: Boolean,
+      default: true,
+    },
     dateOfBirth: {
       type: String,
       required: [true, 'date of birth is required!'],

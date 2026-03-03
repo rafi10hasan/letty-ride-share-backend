@@ -22,6 +22,22 @@ const loginAuthSchema = z.object({
       return 'Invalid password format';
     },
   }),
+
+  fcmToken: z.string({
+    error: (issue) => {
+      switch (true) {
+        case issue.input === undefined:
+          return 'fcm token is required';
+        case issue.input === null:
+          return 'fcm token can not be null';
+        case typeof issue.input !== 'string':
+          return 'fcm token must be string';
+        default:
+          return 'Please provide a valid fcm token';
+      }
+    },
+  }),
+
 });
 
 const verifyEmailByOtpSchema = z.object({
@@ -171,6 +187,11 @@ const changePasswordSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number')
     .regex(/[@$!%*?&#]/, 'Password must contain at least one special character'),
 });
+
+
+export type TLoginPayload = z.infer<
+  typeof loginAuthSchema
+>;
 
 export const authValidationZodSchema = {
   loginAuthSchema,
