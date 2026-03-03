@@ -2,6 +2,7 @@ import { PipelineStage } from "mongoose";
 import Driver from "../../driver/driver.model";
 import Rider from "../../rider/rider.model";
 import User from "../../user/user.model";
+import { BadRequestError } from "../../../errors/request/apiError";
 
 
 type TUserQuery = {
@@ -179,6 +180,8 @@ const getAllUsers = async (query: TUserQuery) => {
     }
 };
 
+
+// get user detals
 const getUserDetails = async (id: string) => {
     try {
         const user = await User.findById(id).select('email currentRole isActive fullName phone').lean();
@@ -191,16 +194,16 @@ const getUserDetails = async (id: string) => {
 
         if (user.currentRole === 'driver') {
             profileData = await Driver.findOne({ user: user._id })
-                .select('driverId carModel completedRides location subscription rating createdAt')
+                .select('driverId carModel totalTripCompleted vehicleType location subscription avgRating createdAt')
                 .lean();
         } else {
             profileData = await Rider.findOne({ user: user._id })
-                .select('riderId location subscription rating createdAt')
+                .select('riderId location subscription createdAt')
                 .lean();
         }
 
         if (!profileData) {
-            throw new Error(`${user.currentRole} profile not found`);
+            throw new BadRequestError(`${user.currentRole} profile not found`);
         }
 
         return {
