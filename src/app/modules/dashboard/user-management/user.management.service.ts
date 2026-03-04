@@ -1,8 +1,10 @@
 import { PipelineStage } from "mongoose";
+import { BadRequestError } from "../../../errors/request/apiError";
+import { IDriver } from "../../driver/driver.interface";
 import Driver from "../../driver/driver.model";
+import { IRider } from "../../rider/rider.interface";
 import Rider from "../../rider/rider.model";
 import User from "../../user/user.model";
-import { BadRequestError } from "../../../errors/request/apiError";
 
 
 type TUserQuery = {
@@ -107,14 +109,14 @@ const getAllUsers = async (query: TUserQuery) => {
         const { searchTerm, plan, status, isActive } = query;
         const filter: Record<string, any> = {};
 
-    
+
         if (searchTerm) {
             filter.$or = [
                 { fullName: { $regex: searchTerm, $options: 'i' } },
                 { email: { $regex: searchTerm, $options: 'i' } },
                 { phone: { $regex: searchTerm, $options: 'i' } },
                 { riderId: { $regex: searchTerm, $options: 'i' } },
-                { driverId: { $regex: searchTerm, $options: 'i' } }  
+                { driverId: { $regex: searchTerm, $options: 'i' } }
             ];
         }
 
@@ -152,7 +154,7 @@ const getAllUsers = async (query: TUserQuery) => {
         const driverPipeline: PipelineStage[] = [
             { $match: filter },
             { $sort: { createdAt: -1 } },
-            { $project: { ...commonProject, accountId: "$driverId" } }, 
+            { $project: { ...commonProject, accountId: "$driverId" } },
             { $facet: { metadata: [{ $count: "total" }], data: [{ $skip: skip }, { $limit: limit }] } }
         ];
 
@@ -190,15 +192,16 @@ const getUserDetails = async (id: string) => {
             throw new Error('User not found');
         }
 
-        let profileData:any = null;
+        let profileData: Partial<IRider | IDriver> | null = null;
+
 
         if (user.currentRole === 'driver') {
             profileData = await Driver.findOne({ user: user._id })
-                .select('driverId carModel totalTripCompleted vehicleType location subscription avgRating createdAt')
+                .select('driverId carModel totalTripCompleted totalEarning vehicleType location subscription reviews avgRating createdAt vehicleType')
                 .lean();
         } else {
             profileData = await Rider.findOne({ user: user._id })
-                .select('riderId location subscription createdAt')
+                .select('riderId location subscription avgRating totalSpent totalRides createdAt')
                 .lean();
         }
 
@@ -216,15 +219,81 @@ const getUserDetails = async (id: string) => {
             address: profileData.location?.address || 'N/A',
             subscription: profileData.subscription,
             joinDate: profileData.createdAt,
-            
+            avgRating: profileData.avgRating,
+
             ...(user.currentRole === 'driver' && {
-                carModel: profileData.carModel || 'Unknown',
-                driverId: profileData.driverId,
-                completedRides: profileData.totalTripCompleted || 0,
+                carModel: (profileData as Partial<IDriver>).carModel || 'Unknown',
+                vehicleType: (profileData as Partial<IDriver>).vehicleType || 'Unknown',
+                driverId: (profileData as Partial<IDriver>).driverId,
+                completedRides: (profileData as Partial<IDriver>).totalTripCompleted || 0,
+                totalEarning: (profileData as Partial<IDriver>).totalEarning || 0,
+                totalReveiws: (profileData as Partial<IDriver>).reviews || 0,
             }),
 
             ...(user.currentRole === 'rider' && {
-                riderId: profileData.riderId
+                riderId: (profileData as Partial<IRider>).riderId,
+                totalSpent: (profileData as Partial<IRider>).totalSpent,
+                totalRides: (profileData as Partial<IRider>).totalRides
+            })
+        };
+
+    } catch (error) {
+        console.error("Error fetching details:", error);
+        throw error;
+    }
+};
+
+
+const changeUserSubscriptionAndStatus = async (id: string) => {
+    try {
+        const user = await User.findById(id).select('email currentRole isActive fullName phone').lean();
+
+        if (!user) {
+            throw new Error('User not found');
+        }
+
+        let profileData: Partial<IRider | IDriver> | null = null;
+
+
+        if (user.currentRole === 'driver') {
+            profileData = await Driver.findOne({ user: user._id })
+                .select('driverId carModel totalTripCompleted totalEarning vehicleType location subscription reviews avgRating createdAt vehicleType')
+                .lean();
+        } else {
+            profileData = await Rider.findOne({ user: user._id })
+                .select('riderId location subscription avgRating totalSpent totalRides createdAt')
+                .lean();
+        }
+
+        if (!profileData) {
+            throw new BadRequestError(`${user.currentRole} profile not found`);
+        }
+
+        return {
+            userId: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            phone: user.phone,
+            role: user.currentRole,
+            isActive: user.isActive,
+            address: profileData.location?.address || 'N/A',
+            subscription: profileData.subscription,
+            joinDate: profileData.createdAt,
+            avgRating: profileData.avgRating,
+
+            ...(user.currentRole === 'driver' && {
+                carModel: (profileData as Partial<IDriver>).carModel || 'Unknown',
+                vehicleType: (profileData as Partial<IDriver>).vehicleType || 'Unknown',
+                driverId: (profileData as Partial<IDriver>).driverId,
+                completedRides: (profileData as Partial<IDriver>).totalTripCompleted || 0,
+                totalEarning: (profileData as Partial<IDriver>).totalEarning || 0,
+                totalReveiws: (profileData as Partial<IDriver>).reviews || 0,
+            }),
+
+            ...(user.currentRole === 'rider' && {
+                riderId: (profileData as Partial<IRider>).riderId,
+                totalSpent: (profileData as Partial<IRider>).totalSpent,
+                totalRides: (profileData as Partial<IRider>).totalRides
             })
         };
 
@@ -237,5 +306,6 @@ const getUserDetails = async (id: string) => {
 export const adminUserService = {
     getUserActivities,
     getAllUsers,
-    getUserDetails
+    getUserDetails,
+    changeUserSubscriptionAndStatus
 };

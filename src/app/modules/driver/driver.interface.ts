@@ -45,6 +45,7 @@ export interface IDriver extends Document {
   vehicleType: TVehicleType;
   numberOfSeats: number;
   trunkSize: 'S' | 'M' | 'L';
+  totalEarning: number;
   avgRating: number;
   reviews: number;
   hasAc: boolean;
@@ -52,4 +53,6 @@ export interface IDriver extends Document {
   hasWifi: boolean;
   isSmokingAllowed: boolean;
   hasMusic: boolean;
+  createdAt: Date;
+  updatedAt: Date;
 }

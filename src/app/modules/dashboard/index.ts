@@ -1,5 +1,3 @@
-
-
 import { Router } from 'express';
 import userManagementRouter from './user-management/user.management.routes';
 

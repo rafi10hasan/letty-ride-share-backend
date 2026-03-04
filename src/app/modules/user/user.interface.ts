@@ -31,9 +31,9 @@ export interface ILocation {
 export interface ISubscription {
   plan: TSubscriptionPlan;
   mode: TSubscriptionMode;
-  requestedAt: Date;
+  requestedAt: Date | null;
   status: TSubscriptionStatus;
-  expirydate: Date
+  expirydate: Date | null
 }
 
 

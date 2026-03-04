@@ -1,8 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
+import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
 import { GOVERNORATE, VEHICLE_TYPE } from './driver.constant';
 import { IDriver } from './driver.interface';
-import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
 
 
 const geoSchema = new Schema(
@@ -162,7 +162,11 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: Number,
       default: 0,
     },
-     totalTripCompleted: {
+    totalEarning: {
+      type: Number,
+      default: 0,
+    },
+    totalTripCompleted: {
       type: Number,
       default: 0,
     },

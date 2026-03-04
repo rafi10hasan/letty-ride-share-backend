@@ -98,7 +98,10 @@ export const riderSchema = new mongoose.Schema<IRider>(
         type: Date,
       }
     },
-
+    avatar: {
+      type: String,
+      required: false,
+    },
     riderId: {
       type: String,
       default: null,
@@ -112,10 +115,20 @@ export const riderSchema = new mongoose.Schema<IRider>(
       type: String,
       required: [true, 'date of birth is required!'],
     },
-    avatar: {
-      type: String,
-      required: false,
+    avgRating: {
+      type: Number,
+      default: 0
     },
+    totalRides: {
+      type: Number,
+      default: 0,
+    },
+
+    totalSpent: {
+      type: Number,
+      default: 0,
+    },
+
     languages: {
       type: [String],
       required: true,
