@@ -70,19 +70,18 @@ export const checkSubscription = async (
 
         // free plan হলে 3 trip limit check
         if (subscription.plan === SUBSCRIPTION_PLAN.FREE) {
-            const usedTrips = user.currentRole === 'rider' ? profile.totalRides : profile.totalTripCompleted//;
 
             if (user.currentRole === 'rider' && profile.totalRides >= 2) {
                 return res.status(403).json({
                     success: false,
-                    message: 'You have used all 3 free trips this month. Please upgrade.',
+                    message: 'You have used all 2 free rides this month. Please upgrade your plan.',
                     upgradeOptions: PAID_PLANS,
                 });
             }
-            if (usedTrips >= 3) {
+            if (user.currentRole === 'driver' && profile.totalTripCompleted >= 1) {
                 return res.status(403).json({
                     success: false,
-                    message: 'You have used all 3 free trips this month. Please upgrade.',
+                    message: 'You have used all 1 free trips this month. Please upgrade your plan.',
                     upgradeOptions: PAID_PLANS,
                 });
             }
