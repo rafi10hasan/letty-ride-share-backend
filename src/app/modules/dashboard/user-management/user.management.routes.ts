@@ -24,4 +24,10 @@ userManagementRouter.get(
   adminUserController.getUserInfoIntoDb,
 );
 
+userManagementRouter.get(
+  '/change-status/:userId',
+  authMiddleware(USER_ROLE.SUPER_ADMIN),
+  adminUserController.updateUserSubscriptionAndStatusIntoDb,
+);
+
 export default userManagementRouter

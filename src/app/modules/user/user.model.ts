@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { BADGE, GENDER, PROVIDER, USER_ROLE } from './user.constant';
+import { PROVIDER, SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS, USER_ROLE } from './user.constant';
 import { IUser, IUserModel } from './user.interface';
 
 const geoSchema = new Schema(
@@ -83,7 +83,7 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: false,
     },
-   
+
     location: { type: locationSchema },
     fcmToken: {
       type: String,
@@ -104,6 +104,51 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: Date,
     },
 
+    subscription: {
+      currentPlan: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_PLAN),
+        default: SUBSCRIPTION_PLAN.FREE
+      },
+      currentMode: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_MODE),
+      },
+      status: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_STATUS),
+        default: SUBSCRIPTION_STATUS.APPROVED
+      },
+      price: {
+        type: Number,
+        default: 0
+      },
+      expiryDate: {
+        type: Date,
+        default: null
+      },
+
+      requestedPlan: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_PLAN),
+        default: null
+      },
+      requestedMode: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_MODE),
+        default: null
+      },
+      requestedStatus: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_MODE),
+        default: null
+      },
+      requestedAt: {
+        type: String,
+        enum: Object.values(SUBSCRIPTION_STATUS),
+        default: null
+      },
+    },
     passwordResetOtp: {
       type: String,
     },

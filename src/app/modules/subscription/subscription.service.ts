@@ -3,16 +3,14 @@ import config from "../../../config";
 import subscriptionRequestEmailTemplate from "../../../mailTemplate/subscriptionTemplate";
 import { getSocketIO, onlineUsers } from "../../../socket/connectSocket";
 import sendMail from "../../../utilities/sendEmail";
-import { BadRequestError, NotFoundError } from "../../errors/request/apiError";
+import { NotFoundError } from "../../errors/request/apiError";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
 import Notification from "../notification/notification.model";
 import { IUser } from "../user/user.interface";
 import User from "../user/user.model";
 
+import { SUBSCRIPTION_MODE, SUBSCRIPTION_STATUS, USER_ROLE } from "../user/user.constant";
 import { TSubscriptionRequestPayload } from "./subscription.zod";
-import { riderRepository } from "../rider/rider.repository";
-import { driverRepository } from "../driver/driver.repository";
-import { SUBSCRIPTION_STATUS } from "../user/user.constant";
 
 // send subscription request
 const sendSubscriptionPurchaseRequest = async (
@@ -25,37 +23,18 @@ const sendSubscriptionPurchaseRequest = async (
 
     try {
         session.startTransaction();
-        
-        let currentProfile;
 
-        if(user.currentRole === 'rider'){
-            currentProfile = await riderRepository.findRiderByUserId(user._id, "subscription");
+        if (user.subscription) {
+            user.subscription.requestedPlan = plan;
+            user.subscription.requestedMode = mode;
+            user.subscription.requestedAt = new Date();
+            user.subscription.requestedStatus = SUBSCRIPTION_STATUS.PENDING;
+            await user.save({ session });
         }
-
-        else if(user.currentRole === 'driver'){
-             currentProfile = await driverRepository.findDriverByUserId(user._id, "subscription");
-        }
-
-        if(!currentProfile){
-            throw new BadRequestError('current profile not found');
-        }
-        console.log({currentProfile})
-        if(currentProfile.subscription.status === SUBSCRIPTION_STATUS.PENDING){
-            throw new BadRequestError('You already sent a pending request with this plan');
-        }
-      
-        
-        currentProfile.subscription.plan = plan;
-        currentProfile.subscription.mode = mode;
-        currentProfile.subscription.requestedAt = new Date();
-        currentProfile.subscription.status =  SUBSCRIPTION_STATUS.PENDING;
-
-        await currentProfile.save({ session });
-
 
         // ── 3. Find super admin ─────────────────────────────────────────
         const superAdmin = await User.findOne(
-            { currentRole: 'super-admin' },
+            { currentRole: USER_ROLE.SUPER_ADMIN },
             null,
             { session }
         );
@@ -107,7 +86,7 @@ const sendSubscriptionPurchaseRequest = async (
             console.error('Failed to send subscription request email:', err);
         });
 
-        return currentProfile.subscription;
+        return user.subscription;
 
     } catch (error) {
         await session.abortTransaction();

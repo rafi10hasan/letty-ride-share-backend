@@ -1,9 +1,11 @@
 import { NextFunction, Request, Response } from 'express';
+import { StatusCodes } from 'http-status-codes';
+import sendResponse from '../../shared/sendResponse';
 import Driver from '../modules/driver/driver.model';
 import Rider from '../modules/rider/rider.model';
 import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../modules/user/user.constant';
 
-/*
+/**
  * Plan rules:
  *
  * FREE         → max 3 trips/month, only one mode (rider OR driver)
@@ -21,126 +23,147 @@ const PAID_PLANS = [
 ];
 
 // ─────────────────────────────────────────────────────────────
-
+//  1. checkSubscription
+//     সব protected route এ লাগাও।
+//     - paid plan → approved + not expired হতে হবে
+//     - free plan → 3 trip limit check
 // ─────────────────────────────────────────────────────────────
 
 export const checkSubscription = async (
     req: Request,
     res: Response,
     next: NextFunction
-) => {
+): Promise<void> => {
     try {
         const user = req.user;
 
         let profile: any;
         if (user.currentRole === 'rider') {
-            profile = await Rider.findById(user.id).select('subscription totalRides');
+            profile = await Rider.findOne({ user: user._id }).select('subscription totalRides');
         } else {
-            profile = await Driver.findById(user.id).select('subscription totalTrips');
+            profile = await Driver.findOne({ user: user._id }).select('subscription totalTripCompleted');
         }
-
+        console.log({ profile })
         const subscription = profile?.subscription;
 
+        console.log({ subscription })
+
         if (!subscription || !subscription.plan) {
-            return res.status(403).json({
+            sendResponse(res, {
+                statusCode: StatusCodes.FORBIDDEN,
                 success: false,
                 message: 'No subscription found.',
             });
+            return;
         }
 
         // paid plan হলে active কিনা check
         if (PAID_PLANS.includes(subscription.plan)) {
             if (subscription.status !== SUBSCRIPTION_STATUS.APPROVED) {
-                return res.status(403).json({
+                sendResponse(res, {
+                    statusCode: StatusCodes.FORBIDDEN,
                     success: false,
                     message:
                         subscription.status === SUBSCRIPTION_STATUS.PENDING
-                            ? 'Your subscription is pending approval.'
+                            ? 'Your subscription is pending approval.when it will be approved by admin you can use this feature'
                             : 'Your subscription was rejected.',
                 });
+                return;
             }
 
             if (subscription.expiryDate && new Date() > new Date(subscription.expiryDate)) {
-                return res.status(403).json({
+                sendResponse(res, {
+                    statusCode: StatusCodes.FORBIDDEN,
                     success: false,
                     message: 'Your subscription has expired. Please renew.',
                 });
+                return;
             }
         }
 
         // free plan হলে 3 trip limit check
         if (subscription.plan === SUBSCRIPTION_PLAN.FREE) {
-
             if (user.currentRole === 'rider' && profile.totalRides >= 2) {
-                return res.status(403).json({
+
+                sendResponse(res, {
+                    statusCode: StatusCodes.FORBIDDEN,
                     success: false,
                     message: 'You have used all 2 free rides this month. Please upgrade your plan.',
-                    upgradeOptions: PAID_PLANS,
+                    data: {
+                        upgradeOptions: PAID_PLANS,
+                    },
                 });
+                return;
+
             }
             if (user.currentRole === 'driver' && profile.totalTripCompleted >= 1) {
-                return res.status(403).json({
+
+                sendResponse(res, {
+                    statusCode: StatusCodes.FORBIDDEN,
                     success: false,
                     message: 'You have used all 1 free trips this month. Please upgrade your plan.',
-                    upgradeOptions: PAID_PLANS,
+                    data: {
+                        upgradeOptions: PAID_PLANS,
+                    },
                 });
+                return;
             }
         }
 
         req.subscription = subscription;
         next();
     } catch (error) {
-        return res.status(500).json({ success: false, message: 'Something went wrong.' });
+        sendResponse(res, {
+            statusCode: StatusCodes.INTERNAL_SERVER_ERROR,
+            success: false,
+            message: 'Something went wrong.',
+        });
     }
 };
 
 // ─────────────────────────────────────────────────────────────
-//  2. requireBothModes
-//     ALL_ACCESS এবং PREMIUM_PLUS ছাড়া block করে।
-//     checkSubscription এর পরে লাগাও।
+
 // ─────────────────────────────────────────────────────────────
 
 export const requireBothModes = (
     req: Request,
     res: Response,
     next: NextFunction
-) => {
+): void => {
     const subscription = req.subscription;
 
     if (!BOTH_MODES_PLANS.includes(subscription.plan)) {
-        return res.status(403).json({
+        sendResponse(res, {
+            statusCode: StatusCodes.FORBIDDEN,
             success: false,
-            message:
-                'This feature requires Full Access or Premium Plus plan to use both driver and passenger modes.',
-            currentPlan: subscription.plan,
-            upgradeOptions: BOTH_MODES_PLANS,
+            message: 'This feature requires Full Access or Premium Plus plan to use both driver and passenger modes.',
+            data: { currentPlan: subscription.plan, upgradeOptions: BOTH_MODES_PLANS },
         });
+        return;
     }
 
     next();
 };
 
 // ─────────────────────────────────────────────────────────────
-//  3. requirePaidPlan
-//     FREE plan কে block করে।
-//     In-app calls সহ যেসব feature free plan এ নেই
-//     সেখানে checkSubscription এর পরে লাগাও।
+
 // ─────────────────────────────────────────────────────────────
 
 export const requirePaidPlan = (
     req: Request,
     res: Response,
     next: NextFunction
-) => {
+): void => {
     const subscription = req.subscription;
 
     if (!PAID_PLANS.includes(subscription.plan)) {
-        return res.status(403).json({
+        sendResponse(res, {
+            statusCode: StatusCodes.FORBIDDEN,
             success: false,
             message: 'This feature is not available on the Free plan. Please upgrade.',
-            currentPlan: subscription.plan,
-            upgradeOptions: PAID_PLANS,
+            data: { currentPlan: subscription.plan, upgradeOptions: PAID_PLANS },
         });
+        return;
     }
 
     next();

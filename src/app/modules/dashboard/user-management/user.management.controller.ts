@@ -44,7 +44,7 @@ const getUserInfoIntoDb = asyncHandler(async (req: Request, res: Response) => {
 
 const updateUserSubscriptionAndStatusIntoDb = asyncHandler(async (req: Request, res: Response) => {
   const { userId } = req.params
-  const result = await adminUserService.getUserDetails(userId);
+  const result = await adminUserService.changeUserSubscriptionAndStatus(userId, req.body);
   // console.log(result);
   sendResponse(res, {
     statusCode: StatusCodes.OK,

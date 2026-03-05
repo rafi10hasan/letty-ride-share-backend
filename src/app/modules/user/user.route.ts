@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
+import { checkSubscription, requireBothModes } from '../../middlewares/subscription.middleware';
 import { USER_ROLE } from './user.constant';
 import { userController } from './user.controller';
 import userValidationZodSchema from './user.validations';
@@ -28,6 +29,8 @@ userRouter.patch(
 userRouter.patch(
   '/switch-mode',
   authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
+  checkSubscription,
+  requireBothModes,
   userController.switchUserRoleIntoDb,
 );
 

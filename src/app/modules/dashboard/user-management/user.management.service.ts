@@ -1,10 +1,11 @@
-import { PipelineStage } from "mongoose";
+import mongoose, { PipelineStage } from "mongoose";
 import { BadRequestError } from "../../../errors/request/apiError";
 import { IDriver } from "../../driver/driver.interface";
 import Driver from "../../driver/driver.model";
 import { IRider } from "../../rider/rider.interface";
 import Rider from "../../rider/rider.model";
 import User from "../../user/user.model";
+import { TUserStatusPayload} from "./user.management.zod";
 
 
 type TUserQuery = {
@@ -23,7 +24,7 @@ const getUserActivities = async () => {
             {
 
                 $match: {
-                    currentRole: { $nin: ['admin', 'super-admin'] }
+                    currentRole: { $nin: ['admin', 'super-admin', 'normal-user'] }
                 }
             },
             {
@@ -134,8 +135,8 @@ const getAllUsers = async (query: TUserQuery) => {
             fullName: 1,
             email: 1,
             phone: 1,
-            address: { $ifNull: ["$location.address", "N/A"] },
             "subscription.plan": 1,
+            "subscription.mode": 1,
             "subscription.status": 1,
             "subscription.expiryDate": 1,
             isActive: 1,
@@ -145,7 +146,7 @@ const getAllUsers = async (query: TUserQuery) => {
 
         const riderPipeline: PipelineStage[] = [
             { $match: filter },
-            { $sort: { createdAt: -1 } },
+            { $sort: { createdAt: -1,  } },
             { $project: { ...commonProject, accountId: "$riderId" } },
             { $facet: { metadata: [{ $count: "total" }], data: [{ $skip: skip }, { $limit: limit }] } }
         ];
@@ -153,7 +154,7 @@ const getAllUsers = async (query: TUserQuery) => {
 
         const driverPipeline: PipelineStage[] = [
             { $match: filter },
-            { $sort: { createdAt: -1 } },
+            { $sort: { createdAt: -1,  } },
             { $project: { ...commonProject, accountId: "$driverId" } },
             { $facet: { metadata: [{ $count: "total" }], data: [{ $skip: skip }, { $limit: limit }] } }
         ];
@@ -244,65 +245,67 @@ const getUserDetails = async (id: string) => {
 };
 
 
-const changeUserSubscriptionAndStatus = async (id: string) => {
+const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusPayload) => {
+    const session = await mongoose.startSession();
     try {
-        const user = await User.findById(id).select('email currentRole isActive fullName phone').lean();
+        session.startTransaction();
 
-        if (!user) {
-            throw new Error('User not found');
+        const user = await User.findById(id).session(session);
+        if (!user) throw new Error('User not found');
+
+        if (payload.status !== undefined) {
+            user.isActive = payload.status;
+            await user.save({ session });
+        }
+
+        const updateFields: Record<string, any> = {};
+
+        if (payload.plan) {
+            updateFields['subscription.plan'] = payload.plan;
+        }
+
+        if (payload.subscriptionStatus) {
+            updateFields['subscription.status'] = payload.subscriptionStatus;
+        }
+
+        if (payload.expirationDate) {
+            updateFields['subscription.expiryDate'] = payload.expirationDate;
+        }
+      
+        if (payload.status) {
+            updateFields['isActive'] = payload.status;
         }
 
         let profileData: Partial<IRider | IDriver> | null = null;
 
-
         if (user.currentRole === 'driver') {
-            profileData = await Driver.findOne({ user: user._id })
-                .select('driverId carModel totalTripCompleted totalEarning vehicleType location subscription reviews avgRating createdAt vehicleType')
-                .lean();
-        } else {
-            profileData = await Rider.findOne({ user: user._id })
-                .select('riderId location subscription avgRating totalSpent totalRides createdAt')
-                .lean();
+            profileData = await Driver.findOneAndUpdate(
+                { user: user._id },
+                { $set: updateFields },
+                { new: true, session, runValidators: true }
+            ).lean();
+        } else if (user.currentRole === 'rider') {
+            profileData = await Rider.findOneAndUpdate(
+                { user: user._id },
+                { $set: updateFields },
+                { new: true, session, runValidators: true }
+            ).lean();
         }
 
-        if (!profileData) {
-            throw new BadRequestError(`${user.currentRole} profile not found`);
-        }
+        if (!profileData) throw new Error(`${user.currentRole} profile not found`);
 
-        return {
-            userId: user._id,
-            fullName: user.fullName,
-            email: user.email,
-            phone: user.phone,
-            role: user.currentRole,
-            isActive: user.isActive,
-            address: profileData.location?.address || 'N/A',
-            subscription: profileData.subscription,
-            joinDate: profileData.createdAt,
-            avgRating: profileData.avgRating,
+        await session.commitTransaction();
 
-            ...(user.currentRole === 'driver' && {
-                carModel: (profileData as Partial<IDriver>).carModel || 'Unknown',
-                vehicleType: (profileData as Partial<IDriver>).vehicleType || 'Unknown',
-                driverId: (profileData as Partial<IDriver>).driverId,
-                completedRides: (profileData as Partial<IDriver>).totalTripCompleted || 0,
-                totalEarning: (profileData as Partial<IDriver>).totalEarning || 0,
-                totalReveiws: (profileData as Partial<IDriver>).reviews || 0,
-            }),
+        return {...profileData.subscription};
 
-            ...(user.currentRole === 'rider' && {
-                riderId: (profileData as Partial<IRider>).riderId,
-                totalSpent: (profileData as Partial<IRider>).totalSpent,
-                totalRides: (profileData as Partial<IRider>).totalRides
-            })
-        };
-
-    } catch (error) {
-        console.error("Error fetching details:", error);
+    } catch (error: any) {
+        await session.abortTransaction();
+        console.error("Update failed:", error.message);
         throw error;
+    } finally {
+        await session.endSession();
     }
 };
-
 export const adminUserService = {
     getUserActivities,
     getAllUsers,

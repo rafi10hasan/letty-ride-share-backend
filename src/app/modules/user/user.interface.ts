@@ -28,14 +28,21 @@ export interface ILocation {
   geo: IGeoPoint;
 }
 
-export interface ISubscription {
-  plan: TSubscriptionPlan;
-  mode: TSubscriptionMode;
-  requestedAt: Date | null;
-  status: TSubscriptionStatus;
-  expirydate: Date | null
-}
 
+export interface ISubscription {
+  // Active
+  currentPlan: TSubscriptionPlan;
+  currentMode: TSubscriptionMode | null;
+  status: TSubscriptionStatus;
+  price: number;      
+  expiryDate: Date | null;
+
+  // Requested
+  requestedPlan: TSubscriptionPlan | null;
+  requestedMode: TSubscriptionMode | null;
+  requestedAt: Date | null;
+  requestedStatus: TSubscriptionStatus | null;
+}
 
 // Instance methods
 export interface IUser extends Document {
@@ -56,6 +63,7 @@ export interface IUser extends Document {
   verificationOtpExpiry?: Date;
   currentRole: TUserRole;
   provider?: TProvider;
+  subscription?: ISubscription;
   isSocialLogin: boolean;
   isActive: boolean;
   isDeleted: boolean;
