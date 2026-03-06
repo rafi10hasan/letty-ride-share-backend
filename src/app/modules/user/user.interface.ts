@@ -31,10 +31,10 @@ export interface ILocation {
 
 export interface ISubscription {
   // Active
-  currentPlan: TSubscriptionPlan;
+  currentPlan: TSubscriptionPlan | null;
   currentMode: TSubscriptionMode | null;
   status: TSubscriptionStatus;
-  price: number;      
+  price: number;
   expiryDate: Date | null;
 
   // Requested
@@ -42,6 +42,7 @@ export interface ISubscription {
   requestedMode: TSubscriptionMode | null;
   requestedAt: Date | null;
   requestedStatus: TSubscriptionStatus | null;
+   requestedPrice: number
 }
 
 // Instance methods
@@ -51,6 +52,7 @@ export interface IUser extends Document {
   fullName: string;
   phone: string;
   avatar?: string;
+  accountId?: string;
   location?: ILocation;
   password: string;
   passwordChangedAt?: Date;

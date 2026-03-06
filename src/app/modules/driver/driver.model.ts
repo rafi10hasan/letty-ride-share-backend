@@ -83,10 +83,6 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: String,
       required: false,
     },
-    driverId: {
-      type: String,
-      default: null,
-    },
     subscription: {
       plan: {
         type: String,

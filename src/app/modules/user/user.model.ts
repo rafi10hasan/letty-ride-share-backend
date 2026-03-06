@@ -79,6 +79,10 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: String,
       default: '',
     },
+    accountId: {
+      type: String,
+      default: '',
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,
@@ -140,12 +144,15 @@ export const userSchema = new mongoose.Schema<IUser>(
       },
       requestedStatus: {
         type: String,
-        enum: Object.values(SUBSCRIPTION_MODE),
+        enum: Object.values(SUBSCRIPTION_STATUS),
         default: null
       },
+      requestedPrice: {
+        type: Number,
+        default: 0
+      },
       requestedAt: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_STATUS),
+        type: Date,
         default: null
       },
     },
@@ -230,11 +237,12 @@ userSchema.set('toJSON', {
   },
 });
 
-userSchema.index({
-  firstName: 'text',
-  lastName: 'text',
-  email: 'text',
-});
+userSchema.index({ "accountId": 1 })
+userSchema.index({ "email": 1 })
+userSchema.index({ "phone": 1 })
+userSchema.index({ "fullName": 1 })
+userSchema.index({ "subscription.currentPlan": 1 })
+
 
 const User = mongoose.model<IUser, IUserModel>('User', userSchema);
 export default User;

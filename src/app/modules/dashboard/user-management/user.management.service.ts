@@ -1,11 +1,15 @@
-import mongoose, { PipelineStage } from "mongoose";
-import { BadRequestError } from "../../../errors/request/apiError";
-import { IDriver } from "../../driver/driver.interface";
+import { PipelineStage } from "mongoose";
+import config from "../../../../config";
+import subscriptionAcceptedEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
+import { getSocketIO, onlineUsers } from "../../../../socket/connectSocket";
+import sendMail from "../../../../utilities/sendEmail";
+import { BadRequestError, NotFoundError } from "../../../errors/request/apiError";
 import Driver from "../../driver/driver.model";
-import { IRider } from "../../rider/rider.interface";
+import { NOTIFICATION_TYPE } from "../../notification/notification.constant";
+import Notification from "../../notification/notification.model";
 import Rider from "../../rider/rider.model";
 import User from "../../user/user.model";
-import { TUserStatusPayload} from "./user.management.zod";
+import { TUserStatusPayload } from "./user.management.zod";
 
 
 type TUserQuery = {
@@ -19,12 +23,11 @@ type TUserQuery = {
 
 const getUserActivities = async () => {
     try {
-
-        const userStats = await User.aggregate([
+        const stats = await User.aggregate([
             {
 
                 $match: {
-                    currentRole: { $nin: ['admin', 'super-admin', 'normal-user'] }
+                    currentRole: { $nin: ['admin', 'super-admin'] }
                 }
             },
             {
@@ -32,63 +35,69 @@ const getUserActivities = async () => {
                     _id: null,
                     totalUsers: { $sum: 1 },
                     active: { $sum: { $cond: [{ $eq: ["$isActive", true] }, 1, 0] } },
-                    pending: { $sum: { $cond: [{ $eq: ["$isActive", false] }, 1, 0] } }
-                }
-            }
-        ]);
+                    pending: { $sum: { $cond: [{ $eq: ["$isActive", false] }, 1, 0] } },
 
-        const riderStats = await Rider.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    free: { $sum: { $cond: [{ $eq: ["$subscription.plan", "free"] }, 1, 0] } },
+
+                    free: {
+                        $sum: { $cond: [{ $eq: ["$subscription.currentPlan", "free"] }, 1, 0] }
+                    },
                     premium: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$subscription.plan", "premium"] }, { $eq: ["$subscription.status", "approved"] }] }, 1, 0] }
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $eq: ["$subscription.currentPlan", "premium"] },
+                                        { $eq: ["$subscription.status", "approved"] }
+                                    ]
+                                }, 1, 0
+                            ]
+                        }
                     },
                     premiumPlus: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$subscription.plan", "premium-plus"] }, { $eq: ["$subscription.status", "approved"] }] }, 1, 0] }
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $eq: ["$subscription.currentPlan", "premium-plus"] },
+                                        { $eq: ["$subscription.status", "approved"] }
+                                    ]
+                                }, 1, 0
+                            ]
+                        }
                     },
                     allAccess: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$subscription.plan", "all-access"] }, { $eq: ["$subscription.status", "approved"] }] }, 1, 0] }
+                        $sum: {
+                            $cond: [
+                                {
+                                    $and: [
+                                        { $eq: ["$subscription.currentPlan", "all-access"] },
+                                        { $eq: ["$subscription.status", "approved"] }
+                                    ]
+                                }, 1, 0
+                            ]
+                        }
                     }
                 }
             }
         ]);
 
 
-        const driverStats = await Driver.aggregate([
-            {
-                $group: {
-                    _id: null,
-                    free: { $sum: { $cond: [{ $eq: ["$subscription.plan", "free"] }, 1, 0] } },
-                    premium: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$subscription.plan", "premium"] }, { $eq: ["$subscription.status", "approved"] }] }, 1, 0] }
-                    },
-                    premiumPlus: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$subscription.plan", "premium-plus"] }, { $eq: ["$subscription.status", "approved"] }] }, 1, 0] }
-                    },
-                    allAccess: {
-                        $sum: { $cond: [{ $and: [{ $eq: ["$subscription.plan", "all-access"] }, { $eq: ["$subscription.status", "approved"] }] }, 1, 0] }
-                    }
-                }
-            }
-        ]);
-
-        const u = userStats[0] || { totalUsers: 0, active: 0, pending: 0 };
-        const r = riderStats[0] || {};
-        const d = driverStats[0] || {};
+        const result = stats[0] || {
+            totalUsers: 0, active: 0, pending: 0,
+            free: 0, premium: 0, premiumPlus: 0, allAccess: 0
+        };
 
         return {
             summary: {
-                totalUsers: u.totalUsers,
-                active: u.active,
-                pending: u.pending
+                totalUsers: result.totalUsers,
+                active: result.active,
+                pending: result.pending
             },
             plans: {
-                free: (r.free || 0) + (d.free || 0),
-                premium: (r.premium || 0) + (d.premium || 0),
-                premiumPlus: (r.premiumPlus || 0) + (d.premiumPlus || 0),
-                allAccess: (r.allAccess || 0) + (d.allAccess || 0)
+                free: result.free,
+                premium: result.premium,
+                premiumPlus: result.premiumPlus,
+                allAccess: result.allAccess
             }
         };
 
@@ -98,83 +107,85 @@ const getUserActivities = async () => {
     }
 };
 
-
 // get all users
 const getAllUsers = async (query: TUserQuery) => {
     try {
-
         const page = Number(query.page) || 1;
         const limit = Number(query.limit) || 10;
         const skip = (page - 1) * limit;
 
         const { searchTerm, plan, status, isActive } = query;
-        const filter: Record<string, any> = {};
+        const filter: Record<string, any> = {
+
+            currentRole: { $nin: ['admin', 'super-admin'] }
+        };
 
 
         if (searchTerm) {
+            const escapedSearch = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             filter.$or = [
-                { fullName: { $regex: searchTerm, $options: 'i' } },
-                { email: { $regex: searchTerm, $options: 'i' } },
-                { phone: { $regex: searchTerm, $options: 'i' } },
-                { riderId: { $regex: searchTerm, $options: 'i' } },
-                { driverId: { $regex: searchTerm, $options: 'i' } }
+                { fullName: { $regex: escapedSearch, $options: 'i' } },
+                { email: { $regex: escapedSearch, $options: 'i' } },
+                { phone: { $regex: escapedSearch, $options: 'i' } },
+                { accountId: { $regex: escapedSearch, $options: 'i' } }
             ];
         }
 
-        if (plan && plan !== 'all') filter['subscription.plan'] = plan;
+
+        if (plan && plan !== 'all') {
+            filter['subscription.plan'] = plan;
+        }
+
         if (status && status !== 'all') {
             filter['subscription.status'] = status;
         }
+
         if (isActive !== undefined && isActive !== 'all') {
             filter.isActive = isActive === 'true';
         }
 
-        const commonProject = {
-            _id: 1,
-            user: 1,
-            fullName: 1,
-            email: 1,
-            phone: 1,
-            "subscription.plan": 1,
-            "subscription.mode": 1,
-            "subscription.status": 1,
-            "subscription.expiryDate": 1,
-            isActive: 1,
-            createdAt: 1
-        };
 
-
-        const riderPipeline: PipelineStage[] = [
+        const pipeline: PipelineStage[] = [
             { $match: filter },
-            { $sort: { createdAt: -1,  } },
-            { $project: { ...commonProject, accountId: "$riderId" } },
-            { $facet: { metadata: [{ $count: "total" }], data: [{ $skip: skip }, { $limit: limit }] } }
+            { $sort: { createdAt: -1 } },
+            {
+                $project: {
+                    _id: 1,
+                    accountId: 1,
+                    fullName: 1,
+                    email: 1,
+                    phone: 1,
+                    // address: { $ifNull: ["$location.address", "N/A"] },
+                    "subscription.currentPlan": 1,
+                    "subscription.requestedPlan": { $ifNull: ["$subscription.requestedPlan", "N/A"] },
+                    "subscription.requestedMode": { $ifNull: ["$subscription.requestedMode", "N/A"] },
+                    "subscription.requestedStatus": { $ifNull: ["$subscription.requestedStatus", "N/A"] },
+                    "subscription.expiryDate": 1,
+                    isActive: 1,
+                    createdAt: 1
+                }
+            },
+            {
+                $facet: {
+                    metadata: [{ $count: "total" }],
+                    data: [{ $skip: skip }, { $limit: limit }]
+                }
+            }
         ];
 
+        const result = await User.aggregate(pipeline);
 
-        const driverPipeline: PipelineStage[] = [
-            { $match: filter },
-            { $sort: { createdAt: -1,  } },
-            { $project: { ...commonProject, accountId: "$driverId" } },
-            { $facet: { metadata: [{ $count: "total" }], data: [{ $skip: skip }, { $limit: limit }] } }
-        ];
-
-        const [ridersResult, driversResult] = await Promise.all([
-            Rider.aggregate(riderPipeline),
-            Driver.aggregate(driverPipeline)
-        ]);
-
-        const riders = ridersResult[0]?.data || [];
-        const drivers = driversResult[0]?.data || [];
-        const totalCount = (ridersResult[0]?.metadata[0]?.total || 0) + (driversResult[0]?.metadata[0]?.total || 0);
-
-        const combinedData = [...riders, ...drivers]
-            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-            .slice(0, limit);
+        const users = result[0]?.data || [];
+        const totalCount = result[0]?.metadata[0]?.total || 0;
 
         return {
-            meta: { page, limit, total: totalCount, totalPage: Math.ceil(totalCount / limit) },
-            data: combinedData
+            meta: {
+                page,
+                limit,
+                total: totalCount,
+                totalPages: Math.ceil(totalCount / limit)
+            },
+            data: users
         };
 
     } catch (error) {
@@ -187,55 +198,52 @@ const getAllUsers = async (query: TUserQuery) => {
 // get user detals
 const getUserDetails = async (id: string) => {
     try {
-        const user = await User.findById(id).select('email currentRole isActive fullName phone').lean();
+
+        const user = await User.findById(id)
+            .select('email isActive fullName phone accountId location subscription createdAt')
+            .lean();
 
         if (!user) {
             throw new Error('User not found');
         }
 
-        let profileData: Partial<IRider | IDriver> | null = null;
 
-
-        if (user.currentRole === 'driver') {
-            profileData = await Driver.findOne({ user: user._id })
-                .select('driverId carModel totalTripCompleted totalEarning vehicleType location subscription reviews avgRating createdAt vehicleType')
-                .lean();
-        } else {
-            profileData = await Rider.findOne({ user: user._id })
-                .select('riderId location subscription avgRating totalSpent totalRides createdAt')
-                .lean();
-        }
-
-        if (!profileData) {
-            throw new BadRequestError(`${user.currentRole} profile not found`);
-        }
+        const [riderProfile, driverProfile] = await Promise.all([
+            Rider.findOne({ user: user._id })
+                .select('avgRating totalSpent totalRides createdAt')
+                .lean(),
+            Driver.findOne({ user: user._id })
+                .select('carModel totalTripCompleted totalEarning vehicleType reviews avgRating createdAt')
+                .lean()
+        ]);
 
         return {
             userId: user._id,
             fullName: user.fullName,
             email: user.email,
             phone: user.phone,
-            role: user.currentRole,
             isActive: user.isActive,
-            address: profileData.location?.address || 'N/A',
-            subscription: profileData.subscription,
-            joinDate: profileData.createdAt,
-            avgRating: profileData.avgRating,
 
-            ...(user.currentRole === 'driver' && {
-                carModel: (profileData as Partial<IDriver>).carModel || 'Unknown',
-                vehicleType: (profileData as Partial<IDriver>).vehicleType || 'Unknown',
-                driverId: (profileData as Partial<IDriver>).driverId,
-                completedRides: (profileData as Partial<IDriver>).totalTripCompleted || 0,
-                totalEarning: (profileData as Partial<IDriver>).totalEarning || 0,
-                totalReveiws: (profileData as Partial<IDriver>).reviews || 0,
-            }),
+            address: user.location?.address || 'N/A',
+            subscription: user.subscription,
+            joinDate: user.createdAt,
 
-            ...(user.currentRole === 'rider' && {
-                riderId: (profileData as Partial<IRider>).riderId,
-                totalSpent: (profileData as Partial<IRider>).totalSpent,
-                totalRides: (profileData as Partial<IRider>).totalRides
-            })
+
+            riderData: riderProfile ? {
+                totalSpent: riderProfile.totalSpent || 0,
+                totalRides: riderProfile.totalRides || 0,
+                avgRating: riderProfile.avgRating || 0
+            } : null,
+
+
+            driverData: driverProfile ? {
+                carModel: driverProfile.carModel || 'Unknown',
+                vehicleType: driverProfile.vehicleType || 'Unknown',
+                completedRides: driverProfile.totalTripCompleted || 0,
+                totalEarning: driverProfile.totalEarning || 0,
+                totalReviews: driverProfile.reviews || 0,
+                avgRating: driverProfile.avgRating || 0
+            } : null
         };
 
     } catch (error) {
@@ -244,68 +252,117 @@ const getUserDetails = async (id: string) => {
     }
 };
 
-
+// change user subscription staus
 const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusPayload) => {
-    const session = await mongoose.startSession();
     try {
-        session.startTransaction();
+        const user = await User.findById(id).select("subscription isActive");
+        if (!user) throw new NotFoundError('User not found');
+        if (!user.subscription) throw new NotFoundError('User subscription not found');
 
-        const user = await User.findById(id).session(session);
-        if (!user) throw new Error('User not found');
+        let isSubscriptionChanged = false;
 
+        // ১. Subscription Request Check & Validation
+        if (payload.subscriptionStatus && user.subscription.requestedStatus === 'pending') {
+
+            if (payload.subscriptionStatus === 'approved') {
+
+                const now = new Date();
+                const selectedExpiry = new Date(payload.expirationDate as string);
+
+                // Date Validation logic
+                if (selectedExpiry <= now) {
+                    throw new BadRequestError('Expiration date must be a future date.');
+                }
+
+                const diffDays = Math.ceil((selectedExpiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                const mode = user.subscription.requestedMode;
+
+                // Mode validation
+                if (mode === 'monthly' && diffDays < 30) {
+                    throw new BadRequestError('For monthly plan, expiration date must be at least 30 days.');
+                }
+                if (mode === 'yearly' && diffDays < 365) {
+                    throw new BadRequestError('For yearly plan, expiration date must be at least 365 days.');
+                }
+
+                // Data Transfer: Request theke Current-e newa
+                user.subscription.currentPlan = user.subscription.requestedPlan;
+                user.subscription.currentMode = user.subscription.requestedMode;
+                user.subscription.status = 'approved';
+                user.subscription.expiryDate = selectedExpiry;
+                user.subscription.price = user.subscription.requestedPrice;
+
+                isSubscriptionChanged = true;
+            }
+            else if (payload.subscriptionStatus === 'rejected') {
+                user.subscription.status = 'rejected';
+                isSubscriptionChanged = true;
+            }
+
+            // ২. Request Fields Cleanup (Null/Undefined kora)
+            user.subscription.requestedPlan = null;
+            user.subscription.requestedMode = null;
+            user.subscription.requestedStatus = null;
+            user.subscription.requestedAt = null;
+        }
+
+        // ৩. Account Status Update (Active/Block)
         if (payload.status !== undefined) {
             user.isActive = payload.status;
-            await user.save({ session });
         }
 
-        const updateFields: Record<string, any> = {};
+        await user.save();
 
-        if (payload.plan) {
-            updateFields['subscription.plan'] = payload.plan;
+        // ৪. Notification ebong Email Logic
+        if (isSubscriptionChanged) {
+            const statusText = payload.subscriptionStatus === 'approved' ? 'Approved' : 'Rejected';
+            const notificationPayload = {
+                title: `Your Subscription Request ${statusText}`,
+                message: `Admin ${statusText} your subscription request ${user.subscription.requestedPlan} plan with ${user.subscription.requestedMode} mode`,
+                receiver: user._id,
+                type: statusText === 'Approved' ? NOTIFICATION_TYPE.SUBSCRIPTION_REQUEST_ACCEPTED : NOTIFICATION_TYPE.SUBSCRIPTION_REQUEST_REJECTED,
+            };
+
+            await Notification.create(notificationPayload);
+
+            const socketId = onlineUsers.get(user._id.toString());
+            if (socketId) {
+                const io = getSocketIO();
+                io.to(user._id.toString()).emit('receive-subscription-request', {
+                    title: notificationPayload.title,
+                });
+            }
+
+            // Send mail (non-critical, won't rollback DB)
+            const mailOptions = {
+                from: config.gmail_app_user,
+                to: user.email,
+                subject: `Subscription Request ${statusText}`,
+                html: subscriptionAcceptedEmailTemplate(
+                    user.fullName,
+                    user.subscription.requestedPlan,
+                    statusText
+                ),
+            };
+
+            await sendMail(mailOptions)
+            console.log(`Notification & Email sent to: ${user.email}`);
         }
 
-        if (payload.subscriptionStatus) {
-            updateFields['subscription.status'] = payload.subscriptionStatus;
-        }
-
-        if (payload.expirationDate) {
-            updateFields['subscription.expiryDate'] = payload.expirationDate;
-        }
-      
-        if (payload.status) {
-            updateFields['isActive'] = payload.status;
-        }
-
-        let profileData: Partial<IRider | IDriver> | null = null;
-
-        if (user.currentRole === 'driver') {
-            profileData = await Driver.findOneAndUpdate(
-                { user: user._id },
-                { $set: updateFields },
-                { new: true, session, runValidators: true }
-            ).lean();
-        } else if (user.currentRole === 'rider') {
-            profileData = await Rider.findOneAndUpdate(
-                { user: user._id },
-                { $set: updateFields },
-                { new: true, session, runValidators: true }
-            ).lean();
-        }
-
-        if (!profileData) throw new Error(`${user.currentRole} profile not found`);
-
-        await session.commitTransaction();
-
-        return {...profileData.subscription};
+        return {
+            userId: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            isActive: user.isActive,
+            subscription: user.subscription
+        };
 
     } catch (error: any) {
-        await session.abortTransaction();
-        console.error("Update failed:", error.message);
+        console.error("Update Error:", error.message);
         throw error;
-    } finally {
-        await session.endSession();
     }
 };
+
 export const adminUserService = {
     getUserActivities,
     getAllUsers,

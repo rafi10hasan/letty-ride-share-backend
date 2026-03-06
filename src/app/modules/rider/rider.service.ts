@@ -18,7 +18,6 @@ const createRiderProfile = async (user: IUser, payload: TRiderProfilePayload) =>
 
   try {
     const { role, ...rest } = payload;
-    const riderId = await generateRiderId();
 
     const riderPayload = {
       ...rest,
@@ -27,7 +26,6 @@ const createRiderProfile = async (user: IUser, payload: TRiderProfilePayload) =>
       email: user.email,
       phone: user.phone,
       avatar: user.avatar,
-      riderId,
     };
 
     const rider = await riderRepository.createRiderProfile(riderPayload, session);

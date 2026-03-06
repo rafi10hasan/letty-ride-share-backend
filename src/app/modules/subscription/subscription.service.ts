@@ -3,7 +3,7 @@ import config from "../../../config";
 import subscriptionRequestEmailTemplate from "../../../mailTemplate/subscriptionTemplate";
 import { getSocketIO, onlineUsers } from "../../../socket/connectSocket";
 import sendMail from "../../../utilities/sendEmail";
-import { NotFoundError } from "../../errors/request/apiError";
+import { BadRequestError, NotFoundError } from "../../errors/request/apiError";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
 import Notification from "../notification/notification.model";
 import { IUser } from "../user/user.interface";
@@ -23,6 +23,10 @@ const sendSubscriptionPurchaseRequest = async (
 
     try {
         session.startTransaction();
+        
+        if(user.subscription?.requestedAt){
+            throw new BadRequestError('you have already sent a request!')
+        }
 
         if (user.subscription) {
             user.subscription.requestedPlan = plan;

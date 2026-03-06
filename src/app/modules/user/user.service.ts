@@ -14,6 +14,7 @@ import { IUser, registerPayload } from './user.interface';
 import User from './user.model';
 import { userRepository } from './user.repository';
 import { TUserLocationPayload } from './user.validations';
+import { generateAccountId } from './user.utils';
 
 // register Account
 const createAccount = async (payload: registerPayload) => {
@@ -38,13 +39,14 @@ const createAccount = async (payload: registerPayload) => {
   // 3. Generate OTP
   const verificationOtp = generateOTP();
   const profileImage = randomUserImage();
-
+  const accountId = await generateAccountId();
   // 4. Prepare user payload
   const userPayload = {
     ...payload,
     verificationOtpExpiry: new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000),
     verificationOtp,
     avatar: profileImage,
+    accountId: accountId,
     currentRole: USER_ROLE.NORMAL_USER,
   };
 

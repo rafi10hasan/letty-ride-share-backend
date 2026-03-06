@@ -102,10 +102,6 @@ export const riderSchema = new mongoose.Schema<IRider>(
       type: String,
       required: false,
     },
-    riderId: {
-      type: String,
-      default: null,
-    },
     location: { type: locationSchema },
     isActive: {
       type: Boolean,
@@ -147,7 +143,6 @@ export const riderSchema = new mongoose.Schema<IRider>(
 
 riderSchema.index({ "location.geo": "2dsphere" })
 riderSchema.index({ "user": 1 })
-riderSchema.index({ "riderId": 1 })
 
 const Rider = mongoose.model<IRider>('Rider', riderSchema);
 export default Rider;
