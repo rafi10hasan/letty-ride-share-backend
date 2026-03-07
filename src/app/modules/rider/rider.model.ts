@@ -71,11 +71,7 @@ export const riderSchema = new mongoose.Schema<IRider>(
       type: String,
     },
 
-    badge: {
-      type: String,
-      enum: Object.values(BADGE),
-    },
-
+ 
     subscription: {
       plan: {
         type: String,

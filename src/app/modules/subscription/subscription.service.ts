@@ -9,7 +9,7 @@ import Notification from "../notification/notification.model";
 import { IUser } from "../user/user.interface";
 import User from "../user/user.model";
 
-import { SUBSCRIPTION_MODE, SUBSCRIPTION_STATUS, USER_ROLE } from "../user/user.constant";
+import { SUBSCRIPTION_STATUS, USER_ROLE } from "../user/user.constant";
 import { TSubscriptionRequestPayload } from "./subscription.zod";
 
 // send subscription request

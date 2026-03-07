@@ -21,7 +21,7 @@ const updateUserStatusChanged = z.object({
         const date = new Date(val);
 
         return !isNaN(date.getTime()) ? date.toISOString() : val;
-    }),
+    }).optional(),
 
     status: z.preprocess((val) => {
         if (typeof val === 'string') {

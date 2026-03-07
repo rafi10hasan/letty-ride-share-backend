@@ -21,13 +21,25 @@ const getMyPublishedRides = asyncHandler(async (req: Request, res: Response) => 
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
-        message: 'Driver trip has been retrieved successfully',
+        message: result.length > 0 ? 'Driver trip has been retrieved successfully' : 'no data found',
         data: result,
     });
 });
 
+const getAvailableRides = asyncHandler(async (req: Request, res: Response) => {
+    const result = await ridePublishService.searchAvailableRides(req.body);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: result.length > 0 ? 'avaiable trip has been retrieved successfully' : 'no available trip found for this date and time',
+        data: result,
+    });
+});
 
 export const ridePublishController = {
     publishRideIntoDb,
-    getMyPublishedRides
+    getMyPublishedRides,
+    getAvailableRides 
 };
+
+

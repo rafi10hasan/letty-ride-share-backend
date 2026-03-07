@@ -46,7 +46,7 @@ export interface IDriver extends Document {
   trunkSize: 'S' | 'M' | 'L';
   totalEarning: number;
   avgRating: number;
-  reviews: number;
+  totalReviews: number;
   hasAc: boolean;
   hasUsbPort: boolean;
   hasWifi: boolean;

@@ -24,7 +24,7 @@ export interface IRider extends Document {
   fullName: string;
   email: string;
   phone: string;
-  badge: TBadge;
+
   subscription: ISubscription;
   riderId: string;
   isActive: boolean;

@@ -10,6 +10,9 @@ import Notification from "../../notification/notification.model";
 import Rider from "../../rider/rider.model";
 import User from "../../user/user.model";
 import { TUserStatusPayload } from "./user.management.zod";
+import { subscriptionController } from "../../subscription/subscription.controller";
+import subscriptionApprovalEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
+import { BADGE } from "../../user/user.constant";
 
 
 type TUserQuery = {
@@ -241,7 +244,7 @@ const getUserDetails = async (id: string) => {
                 vehicleType: driverProfile.vehicleType || 'Unknown',
                 completedRides: driverProfile.totalTripCompleted || 0,
                 totalEarning: driverProfile.totalEarning || 0,
-                totalReviews: driverProfile.reviews || 0,
+                totalReviews: driverProfile.totalReviews || 0,
                 avgRating: driverProfile.avgRating || 0
             } : null
         };
@@ -255,7 +258,7 @@ const getUserDetails = async (id: string) => {
 // change user subscription staus
 const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusPayload) => {
     try {
-        const user = await User.findById(id).select("subscription isActive");
+        const user = await User.findById(id).select("_id subscription isActive email fullName");
         if (!user) throw new NotFoundError('User not found');
         if (!user.subscription) throw new NotFoundError('User subscription not found');
 
@@ -290,9 +293,18 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusP
                 user.subscription.currentMode = user.subscription.requestedMode;
                 user.subscription.status = 'approved';
                 user.subscription.expiryDate = selectedExpiry;
-                user.subscription.price = user.subscription.requestedPrice;
-
+                user.subscription.requestedPrice = user.subscription.requestedPrice;
                 isSubscriptionChanged = true;
+
+                if(user.subscription.requestedPlan === 'premium'){
+                    user.badge = BADGE.BLUE
+                }
+                if(user.subscription.requestedPlan === 'premium-plus'){
+                    user.badge = BADGE.PURPLE
+                }
+                if(user.subscription.requestedPlan === 'all-access'){
+                    user.badge = BADGE.GOLD
+                }
             }
             else if (payload.subscriptionStatus === 'rejected') {
                 user.subscription.status = 'rejected';
@@ -304,6 +316,7 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusP
             user.subscription.requestedMode = null;
             user.subscription.requestedStatus = null;
             user.subscription.requestedAt = null;
+            user.subscription.requestedPrice = null;
         }
 
         // ৩. Account Status Update (Active/Block)
@@ -338,7 +351,7 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusP
                 from: config.gmail_app_user,
                 to: user.email,
                 subject: `Subscription Request ${statusText}`,
-                html: subscriptionAcceptedEmailTemplate(
+                html: subscriptionApprovalEmailTemplate(
                     user.fullName,
                     user.subscription.requestedPlan,
                     statusText

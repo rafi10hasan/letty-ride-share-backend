@@ -1,7 +1,7 @@
 import bcrypt from 'bcrypt';
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { PROVIDER, SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS, USER_ROLE } from './user.constant';
+import { BADGE, PROVIDER, SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS, USER_ROLE } from './user.constant';
 import { IUser, IUserModel } from './user.interface';
 
 const geoSchema = new Schema(
@@ -106,6 +106,12 @@ export const userSchema = new mongoose.Schema<IUser>(
     },
     verificationOtpExpiry: {
       type: Date,
+    },
+
+    badge: {
+      type: String,
+      enum: Object.values(BADGE),
+      default: null
     },
 
     subscription: {

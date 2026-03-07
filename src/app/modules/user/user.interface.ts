@@ -1,5 +1,5 @@
 import { Document, Model, Types } from 'mongoose';
-import { TProvider, TSubscriptionMode, TSubscriptionPlan, TSubscriptionStatus, TUserRole } from './user.constant';
+import { TBadge, TProvider, TSubscriptionMode, TSubscriptionPlan, TSubscriptionStatus, TUserRole } from './user.constant';
 
 export interface registerPayload {
   email: string;
@@ -42,7 +42,7 @@ export interface ISubscription {
   requestedMode: TSubscriptionMode | null;
   requestedAt: Date | null;
   requestedStatus: TSubscriptionStatus | null;
-   requestedPrice: number
+  requestedPrice: number | null;
 }
 
 // Instance methods
@@ -65,6 +65,7 @@ export interface IUser extends Document {
   verificationOtpExpiry?: Date;
   currentRole: TUserRole;
   provider?: TProvider;
+  badge: TBadge;
   subscription?: ISubscription;
   isSocialLogin: boolean;
   isActive: boolean;

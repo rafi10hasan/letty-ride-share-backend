@@ -154,7 +154,7 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: Number,
       default: 0
     },
-    reviews: {
+    totalReviews: {
       type: Number,
       default: 0,
     },
