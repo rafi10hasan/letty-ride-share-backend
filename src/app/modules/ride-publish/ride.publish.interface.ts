@@ -1,5 +1,5 @@
 import { Document, Types } from 'mongoose';
-import { TGenderPreference, TPublishStatus } from './ride.publish.constant';
+import { TGenderPreference, TPublishStatus, TTripStatus } from './ride.publish.constant';
 
 interface IGeoPoint {
     type: 'Point';
@@ -11,6 +11,7 @@ interface IGeoPoint {
 export interface IRidePublish extends Document {
     driver: Types.ObjectId;
     status: TPublishStatus;
+    tripStatus: TTripStatus;
     departureDate: Date;
     tripId: string;
     departureTimeMinutes: number;

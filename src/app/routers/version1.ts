@@ -1,13 +1,13 @@
 import express from 'express';
 import authRouter from '../modules/auth/auth.route';
 import { contentRouter } from '../modules/Content/content.route';
+import adminRouter from '../modules/dashboard';
 import driverRouter from '../modules/driver/driver.route';
 import { messageRouter } from '../modules/Message/message.route';
+import riderRouter from '../modules/passenger/passenger.route';
 import rideRouter from '../modules/ride-publish/ride.publish.routes';
-import riderRouter from '../modules/rider/rider.route';
 import subscriptionRouter from '../modules/subscription/subscription.routes';
 import userRouter from '../modules/user/user.route';
-import adminRouter from '../modules/dashboard';
 
 const routersVersionOne = express.Router();
 

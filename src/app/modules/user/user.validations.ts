@@ -1,5 +1,52 @@
 import { z } from 'zod';
 
+export const jordanPhoneSchema = z.string()
+  .transform((val: string) => val.replace(/\s+/g, "")) // Space remove korbe
+  .superRefine((val: string, ctx) => {
+    
+    // 1. Landline check (Strict)
+    if (/^(02|03|05|06)/.test(val)) {
+      ctx.addIssue({ code: "custom", message: "Landline numbers are not allowed." });
+      return;
+    }
+
+    // 2. Format onujayi length check
+    if (val.startsWith("+962")) {
+      // International with +
+      if (val.length !== 13) {
+        ctx.addIssue({ code: "custom", message: "International format (+962) must be 13 characters." });
+      }
+    } 
+    else if (val.startsWith("00962")) {
+      // International with 00
+      if (val.length !== 14) {
+        ctx.addIssue({ code: "custom", message: "International format (00962) must be 14 digits." });
+      }
+    } 
+    else if (val.startsWith("07")) {
+      // Local Mobile (starts with 07)
+      if (val.length !== 10) {
+        ctx.addIssue({ code: "custom", message: "Local mobile number must be 10 digits." });
+      }
+      if (!/^07[789]/.test(val)) {
+        ctx.addIssue({ code: "custom", message: "Invalid local mobile prefix (Use 077, 078, or 079)." });
+      }
+    } 
+    else if (val.startsWith("7")) {
+      // Short Mobile (starts with 7)
+      if (val.length !== 9) {
+        ctx.addIssue({ code: "custom", message: "Short format mobile number must be 9 digits." });
+      }
+      if (!/^7[789]/.test(val)) {
+        ctx.addIssue({ code: "custom", message: "Invalid short prefix (Use 77, 78, or 79)." });
+      }
+    } 
+    else {
+      // Jodi uporer konotai na hoy
+      ctx.addIssue({ code: "custom", message: "Invalid Jordanian mobile number format." });
+    }
+  });
+
 const createAuthSchema = z.object({
   fullName: z
     .string({
@@ -14,13 +61,7 @@ const createAuthSchema = z.object({
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces'),
 
 
-  phone: z.string().refine((val) => {
-
-    const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
-    return jordanRegex.test(val.replace(/\s+/g, "")); // Removes spaces before testing
-  }, {
-    message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
-  }),
+  phone: jordanPhoneSchema,
 
   // phone: z.string({
   //   error: (issue) => {

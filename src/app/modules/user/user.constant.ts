@@ -1,7 +1,7 @@
 
 export const USER_ROLE = {
   NORMAL_USER: 'normal-user',
-  RIDER: 'rider',
+  PASSENGER: 'passenger',
   DRIVER: 'driver',
   ADMIN: 'admin',
   SUPER_ADMIN: 'super-admin',

@@ -3,8 +3,8 @@ import { Router } from 'express';
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
 import { USER_ROLE } from '../user/user.constant';
-import { riderController } from './rider.controller';
-import riderValidationZodSchema from './rider.zod';
+import { riderController } from './passenger.controller';
+import riderValidationZodSchema from './passenger.zod';
 
 const riderRouter = Router();
 
@@ -13,20 +13,20 @@ riderRouter.post(
   authMiddleware(USER_ROLE.NORMAL_USER, USER_ROLE.DRIVER),
   validateRequest(
     {
-      body: riderValidationZodSchema.createRiderProfileSchema,
+      body: riderValidationZodSchema.createPassengerProfileSchema,
     }
 
   ),
-  riderController.createRiderProfileIntoDb,
+  riderController.createPassengerProfileIntoDb,
 );
 
 riderRouter.patch(
   '/update-profile',
-  authMiddleware(USER_ROLE.RIDER),
+  authMiddleware(USER_ROLE.PASSENGER),
   validateRequest({
-    body: riderValidationZodSchema.updateRiderProfileSchema
+    body: riderValidationZodSchema.updatePassengerProfileSchema
   }),
-  riderController.updateRiderProfileIntoDb,
+  riderController.updatePassengerProfileIntoDb,
 );
 
 

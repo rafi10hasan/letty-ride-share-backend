@@ -8,13 +8,13 @@ import { BadRequestError } from '../../errors/request/apiError';
 
 import { sendVerificationOtp } from '../auth/auth.utils';
 import { driverRepository } from '../driver/driver.repository';
-import { riderRepository } from '../rider/rider.repository';
+import { riderRepository } from '../passenger/passenger.repository';
 import { USER_ROLE } from './user.constant';
 import { IUser, registerPayload } from './user.interface';
 import User from './user.model';
 import { userRepository } from './user.repository';
-import { TUserLocationPayload } from './user.validations';
 import { generateAccountId } from './user.utils';
+import { TUserLocationPayload } from './user.validations';
 
 // register Account
 const createAccount = async (payload: registerPayload) => {
@@ -79,7 +79,7 @@ const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) =>
 
       locationData = await driverRepository.updateDriverLocation(user._id, payload, session);
     } else {
-      locationData = await riderRepository.updateRiderLocation(user._id, payload, session);
+      locationData = await riderRepository.updatePassengerLocation(user._id, payload, session);
     }
 
     if (!locationData) {
@@ -91,7 +91,7 @@ const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) =>
       { $set: { location: payload } },
       { session, new: true }
     );
-    
+
     await session.commitTransaction();
 
     return {
@@ -110,15 +110,15 @@ const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) =>
 const switchUserRole = async (user: IUser) => {
   if (user.currentRole === USER_ROLE.DRIVER) {
 
-    const rider = await riderRepository.findRiderByUserId(user._id);
+    const rider = await riderRepository.findPassengerByUserId(user._id);
     if (!rider) {
       return {
         status: 'INCOMPLETE_PROFILE'
       }
     }
-    user.currentRole = USER_ROLE.RIDER;
+    user.currentRole = USER_ROLE.PASSENGER;
   }
-  else if (user.currentRole === USER_ROLE.RIDER) {
+  else if (user.currentRole === USER_ROLE.PASSENGER) {
 
     const driver = await driverRepository.findDriverByUserId(user._id);
 

@@ -36,12 +36,12 @@ export const GenderSchema = z.enum(['male', 'female', 'other'], {
 
 
 
-/* ================= createRiderProfileSchema ================= */
+/* ================= createPassengerProfileSchema ================= */
 
-const createRiderProfileSchema = z.object({
+const createPassengerProfileSchema = z.object({
 
-  role: z.literal('rider', {
-    error: () => 'Role must be rider',
+  role: z.literal('passenger', {
+    error: () => 'Role must be passenger',
   }),
 
   dateOfBirth: dateOfBirthSchema,
@@ -71,7 +71,7 @@ const createRiderProfileSchema = z.object({
 
 
 
-const updateRiderProfileSchema = z.object({
+const updatePassengerProfileSchema = z.object({
   bio: z.string().optional(),
   fullName: z
     .string({
@@ -126,19 +126,19 @@ const updateRiderProfileSchema = z.object({
 
 
 
-export type TRiderProfilePayload = z.infer<
-  typeof createRiderProfileSchema
+export type TPassengerProfilePayload = z.infer<
+  typeof createPassengerProfileSchema
 >;
 
 
-export type TRiderUpdatedProfilePayload = z.infer<
-  typeof updateRiderProfileSchema
+export type TPassengerUpdatedProfilePayload = z.infer<
+  typeof updatePassengerProfileSchema
 >;
 
 
 const riderValidationZodSchema = {
-  createRiderProfileSchema,
-  updateRiderProfileSchema,
+  createPassengerProfileSchema,
+  updatePassengerProfileSchema,
 };
 
 

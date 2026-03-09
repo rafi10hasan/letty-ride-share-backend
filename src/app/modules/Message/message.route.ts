@@ -13,7 +13,7 @@ const router = Router();
 
 router.post(
   '/send-message',
-  authMiddleware(USER_ROLE.DRIVER, USER_ROLE.RIDER),
+  authMiddleware(USER_ROLE.DRIVER, USER_ROLE.PASSENGER),
   uploadFile(),
   validateFileSizes,
   validateFormDataRequest(MessageValidationSchema.messageSchema),
@@ -22,14 +22,14 @@ router.post(
 
 router.patch(
   '/update-message/:messageId',
-  authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
+  authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
   validateRequest({ body: MessageValidationSchema.messageUpdateSchema }),
   MessageController.updateMessageById
 );
 
 router.delete(
   '/delete-message/:messageId',
-  authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
+  authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
   MessageController.deleteMessageById
 );
 

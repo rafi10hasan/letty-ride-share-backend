@@ -1,8 +1,8 @@
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { BADGE, SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
-import { GENDER } from './rider.constant';
-import { IRider } from './rider.interface';
+import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
+import { GENDER } from './passenger.constant';
+import { IPassenger } from './passenger.interface';
 
 
 const geoSchema = new Schema(
@@ -31,7 +31,7 @@ const locationSchema = new Schema(
 );
 
 // ride schema
-export const riderSchema = new mongoose.Schema<IRider>(
+export const riderSchema = new mongoose.Schema<IPassenger>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 
@@ -71,7 +71,7 @@ export const riderSchema = new mongoose.Schema<IRider>(
       type: String,
     },
 
- 
+
     subscription: {
       plan: {
         type: String,
@@ -140,5 +140,5 @@ export const riderSchema = new mongoose.Schema<IRider>(
 riderSchema.index({ "location.geo": "2dsphere" })
 riderSchema.index({ "user": 1 })
 
-const Rider = mongoose.model<IRider>('Rider', riderSchema);
-export default Rider;
+const Passenger = mongoose.model<IPassenger>('Passenger', riderSchema);
+export default Passenger;

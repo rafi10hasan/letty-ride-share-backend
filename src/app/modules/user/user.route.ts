@@ -19,7 +19,7 @@ userRouter.post(
 
 userRouter.patch(
   '/change-location',
-  authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
+  authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
   validateRequest({
     body: userValidationZodSchema.updateUserLocationSchema,
   }),
@@ -28,7 +28,7 @@ userRouter.patch(
 
 userRouter.patch(
   '/switch-mode',
-  authMiddleware(USER_ROLE.RIDER, USER_ROLE.DRIVER),
+  authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
   checkSubscription,
   requireBothModes,
   userController.switchUserRoleIntoDb,

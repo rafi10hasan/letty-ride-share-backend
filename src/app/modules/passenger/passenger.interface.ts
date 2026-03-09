@@ -1,7 +1,6 @@
 import { Document, Types } from 'mongoose';
-import { TBadge } from '../user/user.constant';
 import { ISubscription } from '../user/user.interface';
-import { TGender } from './rider.constant';
+import { TGender } from './passenger.constant';
 
 
 export type TProfileImage = {
@@ -13,12 +12,12 @@ export interface IGeoPoint {
   coordinates: [number, number];
 }
 
-interface IRiderLocation {
+interface IPassengerLocation {
   address: string;
   geo: IGeoPoint;
 }
 
-export interface IRider extends Document {
+export interface IPassenger extends Document {
   _id: Types.ObjectId;
   user: Types.ObjectId;
   fullName: string;
@@ -35,7 +34,7 @@ export interface IRider extends Document {
   gender: TGender;
   dateOfBirth: string;
   languages: string[];
-  location: IRiderLocation;
+  location: IPassengerLocation;
   avatar: string;
   createdAt: Date;
   updatedAt: Date;

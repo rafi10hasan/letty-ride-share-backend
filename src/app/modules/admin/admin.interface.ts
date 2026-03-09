@@ -34,7 +34,7 @@ export interface IAdmin extends Document {
   verificationOtpExpiry?: Date;
   isOtpVerified?: boolean;
   role: TAdminRole;
-  isRiderProfileCompleted: boolean;
+  isPassengerProfileCompleted: boolean;
   isDriverProfileCompleted: boolean;
 
   provider?: TProvider;

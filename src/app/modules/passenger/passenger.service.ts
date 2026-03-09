@@ -2,15 +2,14 @@ import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
-import { riderRepository } from './rider.repository';
-import { generateRiderId } from './rider.utils';
-import { TRiderProfilePayload, TRiderUpdatedProfilePayload } from './rider.zod';
+import { riderRepository } from './passenger.repository';
+import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
 
 
 // create driver profile
-const createRiderProfile = async (user: IUser, payload: TRiderProfilePayload) => {
-  if (user.currentRole === USER_ROLE.RIDER) {
-    throw new BadRequestError('Rider profile already completed');
+const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePayload) => {
+  if (user.currentRole === USER_ROLE.PASSENGER) {
+    throw new BadRequestError('Passenger profile already completed');
   }
   // 2. Start Transaction
   const session = await mongoose.startSession();
@@ -28,7 +27,7 @@ const createRiderProfile = async (user: IUser, payload: TRiderProfilePayload) =>
       avatar: user.avatar,
     };
 
-    const rider = await riderRepository.createRiderProfile(riderPayload, session);
+    const rider = await riderRepository.createPassengerProfile(riderPayload, session);
     user.currentRole = payload.role;
 
     await user.save({ session });
@@ -45,9 +44,9 @@ const createRiderProfile = async (user: IUser, payload: TRiderProfilePayload) =>
 };
 
 // updated rider profile
-const updateRiderProfile = async (user: IUser, payload: TRiderUpdatedProfilePayload) => {
+const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedProfilePayload) => {
 
-  const rider = await riderRepository.findRiderByUserId(user._id, '_id');
+  const rider = await riderRepository.findPassengerByUserId(user._id, '_id');
 
   if (!rider) {
     throw new NotFoundError('rider profile not found');
@@ -59,9 +58,9 @@ const updateRiderProfile = async (user: IUser, payload: TRiderUpdatedProfilePayl
 
   try {
 
-    const updatedRider = await riderRepository.updateRiderProfile(rider._id, payload, session);
-    console.log({ updatedRider })
-    if (!updatedRider) {
+    const updatedPassenger = await riderRepository.updatePassengerProfile(rider._id, payload, session);
+    console.log({ updatedPassenger })
+    if (!updatedPassenger) {
       throw new BadRequestError('Failed to update rider profile. Try again');
     }
 
@@ -74,10 +73,10 @@ const updateRiderProfile = async (user: IUser, payload: TRiderUpdatedProfilePayl
     await session.commitTransaction();
 
     return {
-      fullName: payload.fullName ? updatedRider.fullName : undefined,
-      phone: payload.phone ? updatedRider.phone : undefined,
-      bio: payload.bio ? updatedRider?.bio : undefined,
-      languages: payload.languages ? updatedRider?.languages : undefined,
+      fullName: payload.fullName ? updatedPassenger.fullName : undefined,
+      phone: payload.phone ? updatedPassenger.phone : undefined,
+      bio: payload.bio ? updatedPassenger?.bio : undefined,
+      languages: payload.languages ? updatedPassenger?.languages : undefined,
     };
   } catch (error) {
     await session.abortTransaction();
@@ -88,6 +87,6 @@ const updateRiderProfile = async (user: IUser, payload: TRiderUpdatedProfilePayl
 };
 
 export const riderService = {
-  createRiderProfile,
-  updateRiderProfile,
+  createPassengerProfile,
+  updatePassengerProfile,
 };

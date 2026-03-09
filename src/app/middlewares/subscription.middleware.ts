@@ -2,7 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
 import sendResponse from '../../shared/sendResponse';
 import Driver from '../modules/driver/driver.model';
-import Rider from '../modules/rider/rider.model';
+import Passenger from '../modules/passenger/passenger.model';
 import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../modules/user/user.constant';
 
 /**
@@ -39,7 +39,7 @@ export const checkSubscription = async (
 
         let profile: any;
         if (user.currentRole === 'rider') {
-            profile = await Rider.findOne({ user: user._id }).select('subscription totalRides');
+            profile = await Passenger.findOne({ user: user._id }).select('subscription totalRides');
         } else {
             profile = await Driver.findOne({ user: user._id }).select('subscription totalTripCompleted');
         }

@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { GENDER_PREFERENCE, PUBLISH_STATUS } from './ride.publish.constant';
+import { GENDER_PREFERENCE, PUBLISH_STATUS, TRIP_STATUS } from './ride.publish.constant';
 import { IRidePublish } from './ride.publish.interface';
 
 
@@ -15,6 +15,12 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             type: String,
             enum: Object.values(PUBLISH_STATUS),
             default: PUBLISH_STATUS.ACTIVE,
+        },
+
+        tripStatus: {
+            type: String,
+            enum: Object.values(TRIP_STATUS),
+            default: TRIP_STATUS.PENDING,
         },
 
         departureDate: {

@@ -1,18 +1,17 @@
 import { PipelineStage } from "mongoose";
 import config from "../../../../config";
-import subscriptionAcceptedEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
+import subscriptionApprovalEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
 import { getSocketIO, onlineUsers } from "../../../../socket/connectSocket";
 import sendMail from "../../../../utilities/sendEmail";
 import { BadRequestError, NotFoundError } from "../../../errors/request/apiError";
 import Driver from "../../driver/driver.model";
 import { NOTIFICATION_TYPE } from "../../notification/notification.constant";
 import Notification from "../../notification/notification.model";
-import Rider from "../../rider/rider.model";
+
+import Passenger from "../../passenger/passenger.model";
+import { BADGE } from "../../user/user.constant";
 import User from "../../user/user.model";
 import { TUserStatusPayload } from "./user.management.zod";
-import { subscriptionController } from "../../subscription/subscription.controller";
-import subscriptionApprovalEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
-import { BADGE } from "../../user/user.constant";
 
 
 type TUserQuery = {
@@ -211,8 +210,8 @@ const getUserDetails = async (id: string) => {
         }
 
 
-        const [riderProfile, driverProfile] = await Promise.all([
-            Rider.findOne({ user: user._id })
+        const [PASSENGERProfile, driverProfile] = await Promise.all([
+            Passenger.findOne({ user: user._id })
                 .select('avgRating totalSpent totalRides createdAt')
                 .lean(),
             Driver.findOne({ user: user._id })
@@ -232,10 +231,10 @@ const getUserDetails = async (id: string) => {
             joinDate: user.createdAt,
 
 
-            riderData: riderProfile ? {
-                totalSpent: riderProfile.totalSpent || 0,
-                totalRides: riderProfile.totalRides || 0,
-                avgRating: riderProfile.avgRating || 0
+            PASSENGERData: PASSENGERProfile ? {
+                totalSpent: PASSENGERProfile.totalSpent || 0,
+                totalRides: PASSENGERProfile.totalRides || 0,
+                avgRating: PASSENGERProfile.avgRating || 0
             } : null,
 
 
@@ -296,13 +295,13 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusP
                 user.subscription.requestedPrice = user.subscription.requestedPrice;
                 isSubscriptionChanged = true;
 
-                if(user.subscription.requestedPlan === 'premium'){
+                if (user.subscription.requestedPlan === 'premium') {
                     user.badge = BADGE.BLUE
                 }
-                if(user.subscription.requestedPlan === 'premium-plus'){
+                if (user.subscription.requestedPlan === 'premium-plus') {
                     user.badge = BADGE.PURPLE
                 }
-                if(user.subscription.requestedPlan === 'all-access'){
+                if (user.subscription.requestedPlan === 'all-access') {
                     user.badge = BADGE.GOLD
                 }
             }

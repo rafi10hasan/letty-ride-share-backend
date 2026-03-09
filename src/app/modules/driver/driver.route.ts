@@ -12,7 +12,7 @@ const driverRouter = Router();
 
 driverRouter.post(
   '/create-driver-profile',
-  authMiddleware(USER_ROLE.NORMAL_USER, USER_ROLE.RIDER),
+  authMiddleware(USER_ROLE.NORMAL_USER, USER_ROLE.PASSENGER),
   uploadFile(),
   validateFileSizes,
   validateFormDataRequest(
