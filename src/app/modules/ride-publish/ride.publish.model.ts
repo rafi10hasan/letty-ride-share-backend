@@ -106,6 +106,12 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             type: Number,
             default: 0
         },
+
+        totalSeatBooked: {
+            type: Number,
+            default: 0
+        },
+
         price: {
             type: Number,
             required: [true, 'price is required'],

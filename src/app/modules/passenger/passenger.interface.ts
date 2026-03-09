@@ -23,9 +23,7 @@ export interface IPassenger extends Document {
   fullName: string;
   email: string;
   phone: string;
-
   subscription: ISubscription;
-  riderId: string;
   isActive: boolean;
   bio: string;
   avgRating: number;

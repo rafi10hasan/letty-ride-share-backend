@@ -1,7 +1,7 @@
 import { Document, Types } from 'mongoose';
 import { TGenderPreference, TPublishStatus, TTripStatus } from './ride.publish.constant';
 
-interface IGeoPoint {
+export interface IGeoPoint {
     type: 'Point';
     coordinates: [number, number]; // [longitude, latitude]
     address: string;
@@ -21,6 +21,7 @@ export interface IRidePublish extends Document {
     genderPreference?: TGenderPreference;
     minimumPassenger: number;
     totalSeats: number;
+    totalSeatBooked:number;
     totalDistance: string;
     availableSeats: number;
     requestsCount: number;

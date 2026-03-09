@@ -11,16 +11,16 @@ interface IGeoPoint {
 export interface IBooking extends Document {
     ride: Types.ObjectId;
     driver: Types.ObjectId;
-    user: Types.ObjectId;
+    passenger: Types.ObjectId;
 
     seatsBooked: number;
     totalPrice: number;
 
-    userPickup: IGeoPoint;
-    userDropoff: IGeoPoint;    
-
+    pickUpLocation: IGeoPoint;
+    dropOffLocation: IGeoPoint;
+ 
     status: TBookingStatus;
-    cancelledBy: 'rider' | 'driver';
+    cancelledBy: 'passenger' | 'driver';
     cancelReason: string | null;
 
     // Timestamps

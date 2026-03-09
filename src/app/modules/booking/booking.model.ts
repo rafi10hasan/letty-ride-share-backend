@@ -1,6 +1,6 @@
 import { model, Schema } from "mongoose";
-import { IBooking } from "./booking.interface";
 import { BOOKING_STATUS } from "./booking.constant";
+import { IBooking } from "./booking.interface";
 
 
 const bookingSchema = new Schema<IBooking>(
@@ -15,10 +15,10 @@ const bookingSchema = new Schema<IBooking>(
       ref: 'Driver',
       required: [true, 'Driver is required'],
     },
-    user: {
+    passenger: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: [true, 'User is required'],
+      ref: 'Passenger',
+      required: [true, 'passenger is required'],
     },
 
     // Passenger info
@@ -27,22 +27,49 @@ const bookingSchema = new Schema<IBooking>(
       required: [true, 'Seats is required'],
       min: [1, 'At least 1 seat required'],
     },
-    
-    totalPrice: {
-      type: Number,
-      required: [true, 'Total price is required'],
-      min: [0, 'Price cannot be negative'],
+
+    pickUpLocation: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        required: true,
+      },
+      coordinates: {
+        type: [Number],
+        required: true,
+      },
+      address: {
+        type: String,
+        required: [true, 'Pickup address is required'],
+      },
     },
 
+    // Dropoff location (GeoJSON)
+    dropOffLocation: {
+      type: {
+        type: String,
+        enum: ['Point'],
+        required: true,
+      },
+      coordinates: {
+        type: [Number],         // [longitude, latitude]
+        required: true,
+      },
+      address: {
+        type: String,
+        required: [true, 'Dropoff address is required'],
+      },
+    },
     // Status
     status: {
       type: String,
       enum: Object.values(BOOKING_STATUS),
       default: BOOKING_STATUS.PENDING,
     },
+
     cancelledBy: {
       type: String,
-      enum: ['rider', 'driver'],
+      enum: ['passenger', 'driver'],
       default: null,
     },
     cancelReason: {
@@ -60,12 +87,12 @@ const bookingSchema = new Schema<IBooking>(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true, versionKey: false }
 );
 
 
-bookingSchema.index({ ride: 1, status: 1 });   
-bookingSchema.index({ user: 1, status: 1 });   
+bookingSchema.index({ ride: 1, status: 1 });
+bookingSchema.index({ user: 1, status: 1 });
 bookingSchema.index({ driver: 1, status: 1 });
 
 

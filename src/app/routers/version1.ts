@@ -4,10 +4,11 @@ import { contentRouter } from '../modules/Content/content.route';
 import adminRouter from '../modules/dashboard';
 import driverRouter from '../modules/driver/driver.route';
 import { messageRouter } from '../modules/Message/message.route';
-import riderRouter from '../modules/passenger/passenger.route';
-import rideRouter from '../modules/ride-publish/ride.publish.routes';
+import passengerRouter from '../modules/passenger/passenger.route';
+import passengerouter from '../modules/ride-publish/ride.publish.routes';
 import subscriptionRouter from '../modules/subscription/subscription.routes';
 import userRouter from '../modules/user/user.route';
+import bookingRouter from '../modules/booking/booking.routes';
 
 const routersVersionOne = express.Router();
 
@@ -21,8 +22,13 @@ const appRouters = [
     router: driverRouter,
   },
   {
-    path: '/rider',
-    router: riderRouter,
+    path: '/passenger',
+    router: passengerRouter,
+  },
+
+  {
+    path: '/booking',
+    router: bookingRouter,
   },
   {
     path: '/auth',
@@ -43,7 +49,7 @@ const appRouters = [
   },
   {
     path: '/driver-ride',
-    router: rideRouter,
+    router: passengerouter,
   },
   {
     path: '/content',

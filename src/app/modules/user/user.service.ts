@@ -8,7 +8,7 @@ import { BadRequestError } from '../../errors/request/apiError';
 
 import { sendVerificationOtp } from '../auth/auth.utils';
 import { driverRepository } from '../driver/driver.repository';
-import { riderRepository } from '../passenger/passenger.repository';
+import { passengerRepository } from '../passenger/passenger.repository';
 import { USER_ROLE } from './user.constant';
 import { IUser, registerPayload } from './user.interface';
 import User from './user.model';
@@ -79,7 +79,7 @@ const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) =>
 
       locationData = await driverRepository.updateDriverLocation(user._id, payload, session);
     } else {
-      locationData = await riderRepository.updatePassengerLocation(user._id, payload, session);
+      locationData = await passengerRepository.updatePassengerLocation(user._id, payload, session);
     }
 
     if (!locationData) {
@@ -110,8 +110,8 @@ const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) =>
 const switchUserRole = async (user: IUser) => {
   if (user.currentRole === USER_ROLE.DRIVER) {
 
-    const rider = await riderRepository.findPassengerByUserId(user._id);
-    if (!rider) {
+    const passenger = await passengerRepository.findPassengerByUserId(user._id);
+    if (!passenger) {
       return {
         status: 'INCOMPLETE_PROFILE'
       }

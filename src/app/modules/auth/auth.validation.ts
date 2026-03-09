@@ -36,7 +36,7 @@ const loginAuthSchema = z.object({
           return 'Please provide a valid fcm token';
       }
     },
-  }),
+  }).optional(),
 
 });
 

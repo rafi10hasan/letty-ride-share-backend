@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
-import { riderRepository } from './passenger.repository';
+import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
 
 
@@ -18,7 +18,7 @@ const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePay
   try {
     const { role, ...rest } = payload;
 
-    const riderPayload = {
+    const passengerPayload = {
       ...rest,
       user: user._id,
       fullName: user.fullName,
@@ -27,14 +27,14 @@ const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePay
       avatar: user.avatar,
     };
 
-    const rider = await riderRepository.createPassengerProfile(riderPayload, session);
+    const passenger = await passengerRepository.createPassengerProfile(passengerPayload, session);
     user.currentRole = payload.role;
 
     await user.save({ session });
 
     await session.commitTransaction();
 
-    return rider;
+    return passenger;
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -43,13 +43,13 @@ const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePay
   }
 };
 
-// updated rider profile
+// updated passenger profile
 const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedProfilePayload) => {
 
-  const rider = await riderRepository.findPassengerByUserId(user._id, '_id');
+  const passenger = await passengerRepository.findPassengerByUserId(user._id, '_id');
 
-  if (!rider) {
-    throw new NotFoundError('rider profile not found');
+  if (!passenger) {
+    throw new NotFoundError('passenger profile not found');
   }
   console.log(payload)
   // 2. Start Transaction
@@ -58,10 +58,10 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
 
   try {
 
-    const updatedPassenger = await riderRepository.updatePassengerProfile(rider._id, payload, session);
+    const updatedPassenger = await passengerRepository.updatePassengerProfile(passenger._id, payload, session);
     console.log({ updatedPassenger })
     if (!updatedPassenger) {
-      throw new BadRequestError('Failed to update rider profile. Try again');
+      throw new BadRequestError('Failed to update passenger profile. Try again');
     }
 
     if (payload.phone || payload.fullName) {
@@ -86,7 +86,7 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
   }
 };
 
-export const riderService = {
+export const passengerService = {
   createPassengerProfile,
   updatePassengerProfile,
 };

@@ -136,10 +136,10 @@ export type TPassengerUpdatedProfilePayload = z.infer<
 >;
 
 
-const riderValidationZodSchema = {
+const passengerValidationZodSchema = {
   createPassengerProfileSchema,
   updatePassengerProfileSchema,
 };
 
 
-export default riderValidationZodSchema;
+export default passengerValidationZodSchema;

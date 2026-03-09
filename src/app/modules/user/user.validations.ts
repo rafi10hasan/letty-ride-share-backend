@@ -4,49 +4,53 @@ export const jordanPhoneSchema = z.string()
   .transform((val: string) => val.replace(/\s+/g, "")) // Space remove korbe
   .superRefine((val: string, ctx) => {
     
-    // 1. Landline check (Strict)
-    if (/^(02|03|05|06)/.test(val)) {
-      ctx.addIssue({ code: "custom", message: "Landline numbers are not allowed." });
+    // 1. Shudhu 07 ba 7 chara any prefix block korbe (Like +962, 00962, 02, 06)
+    if (!/^(07|7)/.test(val)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Mobile number must start with 07 or 7 (e.g., 079... or 79...)",
+      });
       return;
     }
 
-    // 2. Format onujayi length check
-    if (val.startsWith("+962")) {
-      // International with +
-      if (val.length !== 13) {
-        ctx.addIssue({ code: "custom", message: "International format (+962) must be 13 characters." });
-      }
-    } 
-    else if (val.startsWith("00962")) {
-      // International with 00
-      if (val.length !== 14) {
-        ctx.addIssue({ code: "custom", message: "International format (00962) must be 14 digits." });
-      }
-    } 
-    else if (val.startsWith("07")) {
-      // Local Mobile (starts with 07)
-      if (val.length !== 10) {
-        ctx.addIssue({ code: "custom", message: "Local mobile number must be 10 digits." });
-      }
-      if (!/^07[789]/.test(val)) {
-        ctx.addIssue({ code: "custom", message: "Invalid local mobile prefix (Use 077, 078, or 079)." });
-      }
-    } 
-    else if (val.startsWith("7")) {
-      // Short Mobile (starts with 7)
-      if (val.length !== 9) {
-        ctx.addIssue({ code: "custom", message: "Short format mobile number must be 9 digits." });
-      }
-      if (!/^7[789]/.test(val)) {
-        ctx.addIssue({ code: "custom", message: "Invalid short prefix (Use 77, 78, or 79)." });
-      }
-    } 
-    else {
-      // Jodi uporer konotai na hoy
-      ctx.addIssue({ code: "custom", message: "Invalid Jordanian mobile number format." });
+    // 2. Mobile Operator Prefix Check (Must be 7, 8, or 9 after 07 or 7)
+    // Example: 077, 078, 079 OR 77, 78, 79
+    if (!/^(07|7)[789]/.test(val)) {
+      ctx.addIssue({
+        code: "custom",
+        message: "Invalid operator. Must be 077, 078, 079 or 77, 78, 79.",
+      });
+      return;
     }
+
+    // 3. Length Validation
+    if (val.startsWith("07")) {
+      // Local format: 07XXXXXXXX (10 digits)
+      if (val.length !== 10) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Local format (07x) must be exactly 10 digits.",
+        });
+      }
+    } else if (val.startsWith("7")) {
+      // Short format: 7XXXXXXXX (9 digits)
+      if (val.length !== 9) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Short format (7x) must be exactly 9 digits.",
+        });
+      }
+    }
+  })
+  // 4. Normalization: Database-e shobshomoy 07XXXXXXXX format-e save hobe
+  .transform((val: string) => {
+    if (val.startsWith("7")) {
+      return "0" + val; // 79... ke 079... banabe
+    }
+    return val; // Already 07... thakle setai thakbe
   });
 
+  
 const createAuthSchema = z.object({
   fullName: z
     .string({

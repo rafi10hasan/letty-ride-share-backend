@@ -5,19 +5,19 @@ import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './pas
 
 type FieldSelection = string | string[] | Record<string, 0 | 1>;
 
-const createPassengerProfile = async (riderData: Partial<TPassengerProfilePayload>, session?: mongoose.ClientSession) => {
+const createPassengerProfile = async (passengerData: Partial<TPassengerProfilePayload>, session?: mongoose.ClientSession) => {
   if (session) {
-    const rider = await Passenger.create([riderData], { session });
+    const passenger = await Passenger.create([passengerData], { session });
     return {
-      _id: rider[0]._id,
-      fullName: rider[0].fullName,
+      _id: passenger[0]._id,
+      fullName: passenger[0].fullName,
 
     };
   } else {
-    const rider = await Passenger.create(riderData);
+    const passenger = await Passenger.create(passengerData);
     return {
-      _id: rider._id,
-      fullName: rider.fullName,
+      _id: passenger._id,
+      fullName: passenger.fullName,
     };
   }
 };
@@ -41,18 +41,18 @@ const updatePassengerLocation = async (userId: Types.ObjectId, location: TUserLo
   return updatedPassenger;
 };
 
-const findByPassengerId = async (riderId: Types.ObjectId, fields?: FieldSelection) => {
-  const query = Passenger.findById(riderId);
+const findByPassengerId = async (passengerId: Types.ObjectId, fields?: FieldSelection) => {
+  const query = Passenger.findById(passengerId);
   if (fields && (Array.isArray(fields) ? fields.length > 0 : true)) {
     query.select(fields);
   }
   return query;
 };
 
-const updatePassengerProfile = async (riderId: Types.ObjectId, updatedData: TPassengerUpdatedProfilePayload, session?: mongoose.ClientSession) => {
+const updatePassengerProfile = async (passengerId: Types.ObjectId, updatedData: TPassengerUpdatedProfilePayload, session?: mongoose.ClientSession) => {
 
   const updatedPassenger = Passenger.findByIdAndUpdate(
-    riderId,
+    passengerId,
     { $set: { ...updatedData } },
     { new: true, session }
   );
@@ -62,7 +62,7 @@ const updatePassengerProfile = async (riderId: Types.ObjectId, updatedData: TPas
 
 
 
-export const riderRepository = {
+export const passengerRepository = {
   createPassengerProfile,
   updatePassengerLocation,
   findByPassengerId,

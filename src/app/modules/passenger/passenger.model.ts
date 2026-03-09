@@ -31,7 +31,7 @@ const locationSchema = new Schema(
 );
 
 // ride schema
-export const riderSchema = new mongoose.Schema<IPassenger>(
+export const passengerSchema = new mongoose.Schema<IPassenger>(
   {
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
 
@@ -137,8 +137,8 @@ export const riderSchema = new mongoose.Schema<IPassenger>(
   },
 );
 
-riderSchema.index({ "location.geo": "2dsphere" })
-riderSchema.index({ "user": 1 })
+passengerSchema.index({ "location.geo": "2dsphere" })
+passengerSchema.index({ "user": 1 })
 
-const Passenger = mongoose.model<IPassenger>('Passenger', riderSchema);
+const Passenger = mongoose.model<IPassenger>('Passenger', passengerSchema);
 export default Passenger;

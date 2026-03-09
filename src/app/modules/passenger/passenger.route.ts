@@ -3,31 +3,31 @@ import { Router } from 'express';
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
 import { USER_ROLE } from '../user/user.constant';
-import { riderController } from './passenger.controller';
-import riderValidationZodSchema from './passenger.zod';
+import { passengerController } from './passenger.controller';
+import passengerValidationZodSchema from './passenger.zod';
 
-const riderRouter = Router();
+const passengerRouter = Router();
 
-riderRouter.post(
-  '/create-rider-profile',
+passengerRouter.post(
+  '/create-profile',
   authMiddleware(USER_ROLE.NORMAL_USER, USER_ROLE.DRIVER),
   validateRequest(
     {
-      body: riderValidationZodSchema.createPassengerProfileSchema,
+      body: passengerValidationZodSchema.createPassengerProfileSchema,
     }
 
   ),
-  riderController.createPassengerProfileIntoDb,
+  passengerController.createPassengerProfileIntoDb,
 );
 
-riderRouter.patch(
+passengerRouter.patch(
   '/update-profile',
   authMiddleware(USER_ROLE.PASSENGER),
   validateRequest({
-    body: riderValidationZodSchema.updatePassengerProfileSchema
+    body: passengerValidationZodSchema.updatePassengerProfileSchema
   }),
-  riderController.updatePassengerProfileIntoDb,
+  passengerController.updatePassengerProfileIntoDb,
 );
 
 
-export default riderRouter;
+export default passengerRouter;

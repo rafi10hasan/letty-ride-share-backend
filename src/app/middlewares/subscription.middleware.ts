@@ -8,10 +8,10 @@ import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../modules/user/user.con
 /**
  * Plan rules:
  *
- * FREE         → max 3 trips/month, only one mode (rider OR driver)
- * PREMIUM      → unlimited trips, only one mode (rider OR driver)
- * ALL_ACCESS   → unlimited trips, both modes (rider AND driver)
- * PREMIUM_PLUS → unlimited trips, both modes (rider AND driver) + extra perks
+ * FREE         → max 3 trips/month, only one mode (passenger OR driver)
+ * PREMIUM      → unlimited trips, only one mode (passenger OR driver)
+ * ALL_ACCESS   → unlimited trips, both modes (passenger AND driver)
+ * PREMIUM_PLUS → unlimited trips, both modes (passenger AND driver) + extra perks
  */
 
 const BOTH_MODES_PLANS = [SUBSCRIPTION_PLAN.ALL_ACCESS, SUBSCRIPTION_PLAN.PREMIUM_PLUS];
@@ -38,7 +38,7 @@ export const checkSubscription = async (
         const user = req.user;
 
         let profile: any;
-        if (user.currentRole === 'rider') {
+        if (user.currentRole === 'passenger') {
             profile = await Passenger.findOne({ user: user._id }).select('subscription totalRides');
         } else {
             profile = await Driver.findOne({ user: user._id }).select('subscription totalTripCompleted');
@@ -83,7 +83,7 @@ export const checkSubscription = async (
 
         // free plan হলে 3 trip limit check
         if (subscription.plan === SUBSCRIPTION_PLAN.FREE) {
-            if (user.currentRole === 'rider' && profile.totalRides >= 2) {
+            if (user.currentRole === 'passenger' && profile.totalRides >= 2) {
 
                 sendResponse(res, {
                     statusCode: StatusCodes.FORBIDDEN,
