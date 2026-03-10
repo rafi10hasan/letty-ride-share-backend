@@ -22,7 +22,7 @@ export const MAX_FILE_COUNTS: Record<string, number> = {
 
 const fileFilter = (_req: Request, file: Express.Multer.File, cb: any) => {
   const allowedFieldnames = Object.keys(MAX_FILE_SIZES);
-
+  console.log(file)
   // Field validation
   if (!allowedFieldnames.includes(file.fieldname)) {
     return cb(new Error(`Invalid fieldname: ${file.fieldname}`));

@@ -16,12 +16,13 @@ const publishRide = async (user: IUser, payload: TCreateTripePayload) => {
         throw new NotFoundError('Driver profile not found');
     }
 
+    const departureTimeInMinutes = timeStringToMinutes(payload.departureTimeString);
+
+ 
     const isAlreadySameLocationRide = await RidePublish.findOne({
         driver: driver._id,
         status: PUBLISH_STATUS.ACTIVE,
         departureDate: payload.departureDate,
-
-        // Pickup 100 meter er moddhe
         pickUpLocation: {
             $near: {
                 $geometry: {
@@ -34,45 +35,55 @@ const publishRide = async (user: IUser, payload: TCreateTripePayload) => {
     });
 
     if (isAlreadySameLocationRide) {
-        throw new BadRequestError(' you already have an active ride with same pickup and dropoff location within 100 meter radius os this date.')
+        throw new BadRequestError('You already have an active ride with same pickup location within 100 meter radius on this date.');
     }
 
-    const departureTimeInMinutes = timeStringToMinutes(payload.departureTimeString);
+
+    const TRIP_DURATION_BUFFER = 180;
+
+    const isTimeConflict = await RidePublish.findOne({
+        driver: driver._id,
+        status: PUBLISH_STATUS.ACTIVE,
+        departureDate: payload.departureDate,
+        departureTimeMinutes: {
+            $gte: departureTimeInMinutes - TRIP_DURATION_BUFFER,
+            $lte: departureTimeInMinutes + TRIP_DURATION_BUFFER,
+        },
+    });
+
+    if (isTimeConflict) {
+        throw new BadRequestError(
+            `You already have an active ride around this time. Please choose a time at least ${TRIP_DURATION_BUFFER} minutes apart.`
+        );
+    }
+
     const tripId = await generateTripId();
 
-    // 4. Ride create
     const ride = await RidePublish.create({
         driver: driver._id,
         status: PUBLISH_STATUS.ACTIVE,
         tripId,
-        // Departure
         departureDate: payload.departureDate,
         departureTimeMinutes: departureTimeInMinutes,
         departureTimeString: payload.departureTimeString,
         genderPreference: payload.genderPreference,
-        // Locations
         pickUpLocation: payload.pickUpLocation,
         dropOffLocation: payload.dropOffLocation,
-
-        // Seats & Price
         totalDistance: payload.totalDistance,
         minimumPassenger: payload.minimumPassenger,
         totalSeats: payload.totalSeats,
         availableSeats: payload.totalSeats,
         price: payload.price
-
     });
 
     return {
         departureDate: ride.departureDate,
         tripId: ride.tripId,
         rideId: ride._id,
-        pickUpAdress: ride.pickUpLocation.address,
+        pickUpAddress: ride.pickUpLocation.address,
         dropOffAddress: ride.dropOffLocation.address
-    }
-        ;
-
-}
+    };
+};
 
 // get specific driver published rides
 const getMyPublishedRides = async (user: IUser) => {
@@ -116,11 +127,11 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
     const dayFrom = new Date();
     dayFrom.setUTCHours(0, 0, 0, 0);
 
-  
+
     const dayTo = new Date(date);
     dayTo.setUTCHours(23, 59, 59, 999);
 
-  
+
     const searchTimeMinutes = timeStringToMinutes(time);
     const timeMin = Math.max(0, searchTimeMinutes - 120);
     const timeMax = Math.min(1439, searchTimeMinutes + 120);
@@ -223,68 +234,6 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
     return rides;
 };
 
-// const searchAvailableRides = async (payload: TSearchTripPayload) => {
-//     const { date, time, seats, pickUpLocation, dropOffLocation, genderPreference } = payload;
-
-//     // ─── today UTC midnight (dayFrom) ────────────────────────────────
-//     const dayFrom = new Date();
-//     dayFrom.setUTCHours(0, 0, 0, 0);
-
-//     // ─── booking date UTC end of day (dayTo) ─────────────────────────
-//     const dayTo = new Date(date);
-//     dayTo.setUTCHours(23, 59, 59, 999);
-
-//     // ─── Time range: 2 hour age o pore ───────────────────────────────
-//     const searchTimeMinutes = timeStringToMinutes(time);
-//     const timeMin = Math.max(0, searchTimeMinutes - 120);
-//     const timeMax = Math.min(1439, searchTimeMinutes + 120);
-
-//     console.log('dayFrom:', dayFrom);
-//     console.log('dayTo:', dayTo);
-//     console.log('timeMin:', timeMin, 'timeMax:', timeMax);
-
-//     // ─── Build filter ─────────────────────────────────────────────────
-//     const filter: Record<string, any> = {
-//         status: 'active',
-
-//         availableSeats: { $gte: Number(seats) },
-
-//         departureDate: {
-//             $gte: dayFrom,
-//             $lte: dayTo,
-//         },
-
-//         departureTimeMinutes: {
-//             $gte: timeMin,
-//             $lte: timeMax,
-//         },
-
-//         pickUpLocation: {
-//             $geoWithin: {
-//                 $centerSphere: [pickUpLocation.coordinates, 10 / 6378.1], 
-//             },
-//         },
-
-//         dropOffLocation: {
-//             $geoWithin: {
-//                 $centerSphere: [dropOffLocation.coordinates, 10 / 6378.1], 
-//             },
-//         },
-//     };
-
-//     if (genderPreference) {
-//         filter.genderPreference = { $in: [genderPreference, 'no-preference'] };
-//     }
-
-
-//     const rides = await RidePublish.find(filter).sort({
-//         departureDate: 1,
-//     }).select("driverInfo pickUpLocation dropOffLocation price availableSeats departureDate departureTimeString");
-
-//     console.log('rides found:', rides.length);
-
-//     return rides;
-// };
 
 export const ridePublishService = {
     publishRide,
@@ -293,8 +242,9 @@ export const ridePublishService = {
 };
 
 
-/*
 
+
+/*
 const searchAvailableRides = async (query: IRideSearchQuery) => {
     const { date, time, seats, pickUpLocation, dropOffLocation, genderPreference } = query;
 

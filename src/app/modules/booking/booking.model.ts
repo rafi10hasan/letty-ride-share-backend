@@ -3,6 +3,9 @@ import { BOOKING_STATUS } from "./booking.constant";
 import { IBooking } from "./booking.interface";
 
 
+export const PENDING_REQUEST_EXPIRYTIME: number = 48 * 60 * 60 * 1000;
+export const ACCEPTED_REQUEST_EXPIRYTIME: number = 72 * 60 * 60 * 1000;
+
 const bookingSchema = new Schema<IBooking>(
   {
     ride: {
@@ -10,17 +13,21 @@ const bookingSchema = new Schema<IBooking>(
       ref: 'Ride',
       required: [true, 'Ride is required'],
     },
-    driver: {
-      type: Schema.Types.ObjectId,
-      ref: 'Driver',
-      required: [true, 'Driver is required'],
-    },
     passenger: {
       type: Schema.Types.ObjectId,
       ref: 'Passenger',
       required: [true, 'passenger is required'],
     },
-
+    passengerInfo: {
+      profileImg: {
+        type: String,
+        default: ""
+      },
+      name: {
+        type: String,
+        default: ""
+      }
+    },
     // Passenger info
     seatsBooked: {
       type: Number,
@@ -86,13 +93,15 @@ const bookingSchema = new Schema<IBooking>(
       type: Date,
       default: null,
     },
+     expireAt: { type: Date },
   },
   { timestamps: true, versionKey: false }
 );
 
 
+bookingSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 bookingSchema.index({ ride: 1, status: 1 });
-bookingSchema.index({ user: 1, status: 1 });
+bookingSchema.index({ passenger: 1, status: 1 });
 bookingSchema.index({ driver: 1, status: 1 });
 
 

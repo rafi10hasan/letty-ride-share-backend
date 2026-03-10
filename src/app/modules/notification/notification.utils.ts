@@ -10,8 +10,10 @@ import {
 } from './notification.template';
 import config from '../../../config';
 import { BadRequestError } from '../../errors/request/apiError';
-import { getIO } from '../../../socket/socketconn';
+
 import getUserNotificationCount from '../../../utilities/getUserNotificationCount';
+import { getSocketIO } from '../../../socket/connectSocket';
+import firebaseAdmin from '../../../config/firebase.config';
 
 export const sendNotificationByEmail = async (
   email: string,
@@ -49,7 +51,7 @@ export const sendNotificationByEmail = async (
 export const sendNotificationBySocket = async (
   notificationData: INotificationPayload
 ) => {
-  const io = getIO();
+  const io = getSocketIO();
   await Notification.create(notificationData);
 
   const updatedNotification = await getUserNotificationCount(
@@ -62,33 +64,28 @@ export const sendNotificationBySocket = async (
   );
 };
 
-// export const sendPushNotification = async (
-//   fcmToken: string,
-//   data: {
-//     title: string;
-//     content: string;
-//     time: string;
-//   }
-// ) => {
-//   try {
-//     const message = {
-//       notification: {
-//         title: data.title,
-//         body: data.content,
-//       },
-//       token: fcmToken,
-//       data: {
-//         time: data.time,
-//       },
-//     };
+export const sendPushNotification = async (
+  fcmToken: string,
+  data: {
+    title: string;
+    content: string;
+  }
+) => {
+  try {
+    const message = {
+      notification: {
+        title: data.title,
+        body: data.content,
+      },
+      token: fcmToken,
+    };
 
-//     const response = await firebaseAdmin.messaging().send(message);
+    const response = await firebaseAdmin.messaging().send(message);
 
-//     return response;
-//   } catch (error: unknown) {
-//     throw new AppError(
-//       httpStatus.NO_CONTENT,
-//       error instanceof Error ? error.message : String(error)
-//     );
-//   }
-// };
+    return response;
+  } catch (error: unknown) {
+    throw new BadRequestError(
+      error instanceof Error ? error.message : String(error)
+    );
+  }
+};

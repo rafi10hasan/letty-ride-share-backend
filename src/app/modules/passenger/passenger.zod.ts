@@ -25,7 +25,7 @@ const dateOfBirthSchema = z
       return age >= 18;
     },
     {
-      message: 'Driver must be at least 18 years old',
+      message: 'passenger must be at least 18 years old',
     },
   );
 

@@ -41,5 +41,10 @@ driverRouter.patch(
   driverController.updateDriverCarInfoIntoDb,
 );
 
+driverRouter.get(
+  '/get-passenger-request/:rideId',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getMySpecificRideRequests,
+);
 
 export default driverRouter;

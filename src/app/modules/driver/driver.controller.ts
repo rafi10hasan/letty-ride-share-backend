@@ -8,6 +8,7 @@ import { TDriverImages } from './driver.interface';
 
 
 const createDriverProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
+  console.log(req.files)
   const result = await driverService.createDriverProfile(req.user, req.body, req.files as TDriverImages);
   sendResponse(res, {
     statusCode: StatusCodes.CREATED,
@@ -40,6 +41,17 @@ const updateDriverCarInfoIntoDb = asyncHandler(async (req: Request, res: Respons
   });
 });
 
+const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Response) => {
+  const {rideId} = req.params; 
+  const result = await driverService.retrievedPassengerRequest(req.user, rideId);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'passenger request has been retrieved successfully',
+    data: result,
+  });
+});
+
 // publish ride into db
 
 
@@ -47,5 +59,5 @@ export const driverController = {
   createDriverProfileIntoDb,
   updateDriverProfileIntoDb,
   updateDriverCarInfoIntoDb,
-
+  getMySpecificRideRequests
 };

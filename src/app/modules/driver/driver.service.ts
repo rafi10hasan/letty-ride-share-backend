@@ -5,7 +5,9 @@ import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { IUser } from '../user/user.interface';
 import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
-import { generateDriverId } from './driver.utils';
+
+import moment from 'moment';
+import { Booking } from '../booking/booking.model';
 import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
 
 
@@ -34,7 +36,6 @@ const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, 
 
   try {
     const { role, ...rest } = payload;
-    const driverId = await generateDriverId();
 
     const driverPayload = {
       ...rest,
@@ -44,7 +45,6 @@ const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, 
       phone: user.phone,
       avatar: user.avatar,
       verificationImage,
-      driverId: driverId,
       carGalleries: uploadedCarImages,
     };
 
@@ -167,9 +167,34 @@ const updateDriverVehicle = async (user: IUser, payload: TDriverCarUpdatePayload
   }
 };
 
+const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
+
+  const driver = await driverRepository.findDriverByUserId(user._id);
+  if (!driver) {
+    throw new BadRequestError('driver not found');
+  }
+
+  const passengers = await Booking.find({ ride: rideId }).sort({createdAt: -1});
+
+  const sanitizedPassenger = passengers.map((passenger) => {
+    return {
+      name: passenger.passengerInfo.name,
+      profileImage: passenger.passengerInfo.profileImg,
+      pickUpAddress: passenger.pickUpLocation.address,
+      dropOffAddress: passenger.dropOffLocation.address,
+      seatRequired: passenger.seatsBooked,
+      arrivalDate: moment.utc(passenger.bookedAt).format('YYYY-MM-DD'),
+      arrivalTime: moment.utc(passenger.bookedAt).format('HH:mm A')
+    }
+  })
+  return sanitizedPassenger;
+
+};
+
 
 export const driverService = {
   createDriverProfile,
   updateDriverProfile,
-  updateDriverVehicle
+  updateDriverVehicle,
+  retrievedPassengerRequest
 };
