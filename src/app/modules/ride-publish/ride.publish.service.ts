@@ -1,15 +1,38 @@
 import moment from "moment";
-import { BadRequestError, NotFoundError } from "../../errors/request/apiError";
+import { Types } from "mongoose";
+import { getSocketIO } from "../../../socket/connectSocket";
+import { BadRequestError, NotFoundError, UnauthorizedError } from "../../errors/request/apiError";
+import { BOOKING_STATUS } from "../booking/booking.constant";
+import { Booking } from "../booking/booking.model";
 import { driverRepository } from "../driver/driver.repository";
+import { sendPushNotification } from "../notification/notification.utils";
 import { IUser } from "../user/user.interface";
-import { PUBLISH_STATUS } from "./ride.publish.constant";
+import { PUBLISH_STATUS, TRIP_STATUS } from "./ride.publish.constant";
 import RidePublish from "./ride.publish.model";
 import { generateTripId, timeStringToMinutes } from "./ride.publish.utils";
-import { TCreateTripePayload, TSearchTripPayload } from "./ride.publish.zod";
+import { TCreateTripPayload, TSearchTripPayload, TUpdateTripPayload } from "./ride.publish.zod";
 
+
+interface IPopulatedDriver {
+    _id: Types.ObjectId;
+    user: {
+        _id: Types.ObjectId;
+        fcmToken: string;
+    };
+}
+
+interface IPopulatedUser {
+    fcmToken: string;
+    _id: Types.ObjectId;
+}
+
+interface IPopulatedPassenger {
+    _id: Types.ObjectId;
+    user: IPopulatedUser;
+}
 
 // publish ride
-const publishRide = async (user: IUser, payload: TCreateTripePayload) => {
+const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
     const driver = await driverRepository.findDriverByUserId(user._id);
 
     if (!driver) {
@@ -18,7 +41,7 @@ const publishRide = async (user: IUser, payload: TCreateTripePayload) => {
 
     const departureTimeInMinutes = timeStringToMinutes(payload.departureTimeString);
 
- 
+
     const isAlreadySameLocationRide = await RidePublish.findOne({
         driver: driver._id,
         status: PUBLISH_STATUS.ACTIVE,
@@ -94,7 +117,7 @@ const getMyPublishedRides = async (user: IUser) => {
 
     const myPublishedRides = await RidePublish.find({ driver: driver._id })
         .select(
-            'pickUpLocation dropOffLocation departureDate departureTimeString totalSeats tripId availableSeats price driverInfo totalDistance status requestsCount'
+            'pickUpLocation dropOffLocation departureDate departureTimeString totalSeats minimumPassenger tripId availableSeats price tripStatus driverInfo totalDistance status requestsCount'
         )
         .sort({ createdAt: -1 })
         .lean();
@@ -102,21 +125,78 @@ const getMyPublishedRides = async (user: IUser) => {
     const formattedRides = myPublishedRides.map(ride => {
         return {
             rideId: ride._id,
-            status: ride.status,
+            tripStatus: ride.tripStatus,
             departureDate: moment(ride.departureDate).format('DD-MM-YYYY'),
             departureTimeString: ride.departureTimeString,
             pickUpLocation: ride.pickUpLocation.address,
             dropOffLocation: ride.dropOffLocation.address,
+            minimumPassenger: ride.minimumPassenger,
             totalSeats: ride.totalSeats,
             requestsCount: ride.requestsCount,
             price: ride.price,
             tripId: ride.tripId,
-            perSeatPrice: ride.price / ride.totalSeats,
             totalDistance: ride.totalDistance
 
         }
     })
     return formattedRides;
+};
+
+
+const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTripPayload) => {
+
+    const driver = await driverRepository.findDriverByUserId(user._id);
+    if (!driver) {
+        throw new NotFoundError('Driver profile not found');
+    }
+
+    const ride = await RidePublish.findById(rideId);
+    if (!ride) {
+        throw new NotFoundError('trip not found');
+    }
+
+    if (ride.driver.toString() !== driver._id.toString()) {
+        throw new UnauthorizedError('This ride is not yours');
+    }
+
+    if (ride.status !== PUBLISH_STATUS.ACTIVE) {
+        throw new BadRequestError('Only active publish rides can be updated');
+    }
+
+    if (ride.tripStatus !== TRIP_STATUS.PENDING) {
+        throw new BadRequestError('Only pending rides can be updated');
+    }
+
+    const { minimumPassenger, ...rest } = payload;
+
+    let updateData: Record<string, any> = {};
+
+    if (ride.availableSeats < ride.totalSeats) {
+        updateData = { minimumPassenger };
+    } else {
+
+        updateData = { minimumPassenger, ...rest };
+
+        if (rest.totalSeats) {
+            const bookedSeats = ride.totalSeats - ride.availableSeats;
+
+            if (rest.totalSeats < bookedSeats) {
+                throw new BadRequestError(
+                    `Cannot reduce seats below already booked seats (${bookedSeats})`
+                );
+            }
+
+            updateData.availableSeats = rest.totalSeats - bookedSeats;
+        }
+    }
+
+    const updatedRide = await RidePublish.findByIdAndUpdate(
+        rideId,
+        updateData,
+        { new: true }
+    );
+
+    return updatedRide;
 };
 
 // search available rides
@@ -235,10 +315,84 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
 };
 
 
+// cancel ride
+const cancelRide = async (user: IUser, rideId: string, cancellationReason: string) => {
+
+    const driver = await driverRepository.findDriverByUserId(user._id);
+    if (!driver) {
+        throw new NotFoundError('driver not found');
+    }
+
+    const ride = await RidePublish.findById(rideId);
+    if (!ride) {
+        throw new NotFoundError('trip not found');
+    }
+
+    if (ride.driver.toString() !== driver._id.toString()) {
+        throw new UnauthorizedError('This ride is not yours');
+    }
+
+
+    if (ride.status === PUBLISH_STATUS.CANCELLED) {
+        throw new BadRequestError('Ride is already cancelled');
+    }
+
+    if (ride.tripStatus === TRIP_STATUS.COMPLETED) {
+        throw new BadRequestError('Cannot cancel a completed ride');
+    }
+
+    const bookings = await Booking.find({
+        ride: rideId,
+        status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] }
+    }).populate<{ passenger: IPopulatedPassenger }>({
+        path: 'passenger',
+        select: 'user',
+        populate: {
+            path: 'user',
+            select: 'fcmToken _id'
+        }
+    });
+
+
+    await RidePublish.findByIdAndUpdate(rideId, {
+        status: PUBLISH_STATUS.CANCELLED,
+        cancellationReason
+    });
+
+    await Booking.updateMany(
+        { ride: rideId, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] } },
+        { status: BOOKING_STATUS.CANCELLED }
+    );
+
+    const io = getSocketIO();
+
+    for (const booking of bookings) {
+        const passengerId = booking.passenger.user._id;
+        const fcmToken = booking.passenger.user.fcmToken;
+
+        // socket
+        io.to(passengerId.toString()).emit('ride-cancelled', {
+            title: 'Ride Cancelled',
+            message: `Your trip ${ride.tripId} has been cancelled. Reason: ${cancellationReason}`,
+            rideId
+        });
+
+        // FCM
+        if (fcmToken) {
+            await sendPushNotification(fcmToken, {
+                title: 'Ride Cancelled',
+                content: `Your trip ${ride.tripId} has been cancelled by driver. Reason: ${cancellationReason}`,
+            });
+        }
+    }
+};
+
 export const ridePublishService = {
     publishRide,
     getMyPublishedRides,
     searchAvailableRides,
+    modifyPublishRide,
+    cancelRide
 };
 
 

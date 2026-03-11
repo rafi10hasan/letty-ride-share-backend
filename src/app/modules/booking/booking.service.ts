@@ -16,13 +16,13 @@ import { BOOKING_STATUS } from "./booking.constant";
 import { TSendRideRequestPayload } from "./booking.zod";
 
 
-interface IPopulatedUser {
-    fcmToken: string;
-}
 
 interface IPopulatedDriver {
-    fullName: string;
-    user: IPopulatedUser;
+    _id: Types.ObjectId;
+    user: {
+        _id: Types.ObjectId;
+        fcmToken: string;
+    };
 }
 
 interface IPopulatedUser {
@@ -185,14 +185,22 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
         await Booking.findByIdAndUpdate(
             bookingId,
             { status: BOOKING_STATUS.ACCEPTED, expireAt: null },
+
             { session }
         );
 
-        await RidePublish.findByIdAndUpdate(
+        const updatedRide = await RidePublish.findByIdAndUpdate(
             booking.ride._id,
-            { $inc: { availableSeats: -booking.seatsBooked } },
-            { session }
-        );
+            { $inc: { availableSeats: -booking.seatsBooked, totalSeatsBooked: booking.seatsBooked } },
+            { session, new: true }
+        ).populate<{ driver: IPopulatedDriver }>({
+            path: "driver",
+            select: "user totalSeatBooked availableSeats",
+            populate: {
+                path: "user",
+                select: "fcmToken _id"
+            }
+        });
 
         await session.commitTransaction();
 
@@ -212,6 +220,23 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
             await sendPushNotification(fcmToken, {
                 title: 'Your Booking Accepted',
                 content: `${user.fullName} has accepted your booking ${booking.ride.tripId}`,
+            });
+        }
+
+        if (updatedRide && updatedRide.totalSeatBooked >= updatedRide.minimumPassenger) {
+
+            const driverFcmToken = updatedRide.driver.user.fcmToken;
+            if (driverFcmToken) {
+                await sendPushNotification(driverFcmToken, {
+                    title: 'Minimum Passengers Reached!',
+                    content: `Trip ${booking.ride.tripId} has reached minimum passengers. You can now confirm the trip.`,
+                });
+            }
+
+            const io = getSocketIO();
+            io.to(driver.user._id.toString()).emit('minimum-passenger-reached', {
+                title: 'Minimum Passengers Reached!',
+                message: `Trip ${booking.ride.tripId} is ready to confirm.`,
             });
         }
 
@@ -246,7 +271,6 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
         throw new NotFoundError('request not found');
     }
 
-    // ✅ booking.driver দিয়ে check
     if (booking.ride.driver.toString() !== driver._id.toString()) {
         throw new BadRequestError('This booking is not yours');
     }

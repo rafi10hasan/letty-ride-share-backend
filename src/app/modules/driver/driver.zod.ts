@@ -1,4 +1,5 @@
 import z from 'zod';
+import { jordanPhoneSchema } from '../user/user.validations';
 import { GOVERNORATE, VEHICLE_TYPE } from './driver.constant';
 
 const dateOfBirthSchema = z
@@ -177,13 +178,7 @@ const updateDriverProfileSchema = z.object({
     .min(3, 'Full name must be at least 3 characters long')
     .max(30, 'Full name cannot exceed 30 characters')
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces').optional(),
-  phone: z.string().refine((val) => {
-
-    const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
-    return jordanRegex.test(val.replace(/\s+/g, ""));
-  }, {
-    message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
-  }).optional(),
+  phone: jordanPhoneSchema,
   languages: z
     .array(
       z.string({

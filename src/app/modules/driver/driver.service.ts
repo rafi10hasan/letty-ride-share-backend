@@ -17,6 +17,8 @@ const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, 
     throw new BadRequestError('Driver profile already completed');
   }
 
+  console.log({ payload });
+
   // 1. Handle File Uploads first (Outside the DB transaction to keep it fast)
   let verificationImage;
   if (files?.verification_image?.length) {
@@ -174,7 +176,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new BadRequestError('driver not found');
   }
 
-  const passengers = await Booking.find({ ride: rideId }).sort({createdAt: -1});
+  const passengers = await Booking.find({ ride: rideId }).sort({ createdAt: -1 });
 
   const sanitizedPassenger = passengers.map((passenger) => {
     return {

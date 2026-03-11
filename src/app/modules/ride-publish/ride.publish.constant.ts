@@ -1,7 +1,7 @@
 
 export const PUBLISH_STATUS = {
   ACTIVE: 'active',
-  FULL: 'full',
+  CONFIRMED: 'confirmed',
   CANCELLED: 'cancelled',
 } as const;
 
