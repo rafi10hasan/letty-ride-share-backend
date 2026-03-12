@@ -29,5 +29,10 @@ passengerRouter.patch(
   passengerController.updatePassengerProfileIntoDb,
 );
 
+passengerRouter.get(
+  '/get-profile',
+  authMiddleware(USER_ROLE.PASSENGER),
+  passengerController.getPassengerProfileIntoDb,
+);
 
 export default passengerRouter;

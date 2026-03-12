@@ -30,10 +30,22 @@ const updatePassengerProfileIntoDb = asyncHandler(async (req: Request, res: Resp
 });
 
 
+const getPassengerProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
+  const result = await passengerService.updatePassengerProfile(req.user, req.body);
+  // console.log(result);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Passenger profile has been retrieved successfully',
+    data: result,
+  });
+});
+
 // publish ride into db
 
 
 export const passengerController = {
   createPassengerProfileIntoDb,
   updatePassengerProfileIntoDb,
+  getPassengerProfileIntoDb
 };

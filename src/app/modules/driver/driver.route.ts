@@ -30,6 +30,20 @@ driverRouter.patch(
   driverController.updateDriverProfileIntoDb,
 );
 
+
+driverRouter.get(
+  '/get-car-info',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getDriverCarInfoIntoDb,
+);
+
+
+driverRouter.get(
+  '/get-profile-info',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getDriverProfileIntoDb,
+);
+
 driverRouter.patch(
   '/update-car-info',
   authMiddleware(USER_ROLE.DRIVER),

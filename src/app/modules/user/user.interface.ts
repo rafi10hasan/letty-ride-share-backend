@@ -8,8 +8,8 @@ export interface registerPayload {
   phone: string;
 }
 
-export type TProfileImages = {
-  car_images: Express.Multer.File[];
+export type TProfileImage = {
+  profile_image: Express.Multer.File[];
 };
 
 export interface registerSocialPayload {

@@ -1,36 +1,31 @@
 import { Types } from "mongoose";
-import { TBookingStatus } from "./booking.constant";
 
-interface IGeoPoint {
+interface ILocation {
     type: 'Point';
-    coordinates: [number, number]; // [longitude, latitude]
+    coordinates: [number, number]; // [lng, lat]
     address: string;
 }
 
-// ─── Booking Interface ───────────────────────────────
-export interface IBooking extends Document {
+interface IWaypoint extends ILocation {
+    order: number;
+}
+
+export interface IBooking {
     ride: Types.ObjectId;
     passenger: Types.ObjectId;
-
-    passengerInfo: {
-        profileImg: string;
-        name: string;
-    },
+    passengerInfo: { profileImg: string; name: string };
     seatsBooked: number;
-    totalPrice: number;
 
-    pickUpLocation: IGeoPoint;
-    dropOffLocation: IGeoPoint;
+    bookingType: 'single' | 'multi';
+    pickUpLocation: ILocation;
+    waypoints: IWaypoint[];
+    dropOffLocation: ILocation;
 
-    status: TBookingStatus;
-    cancelledBy: 'passenger' | 'driver';
+    status: string;
+    cancelledBy: 'passenger' | 'driver' | null;
     cancelReason: string | null;
-
-    // Timestamps
     bookedAt: Date;
     confirmedAt: Date | null;
-    expireAt: Date | null;
-    createdAt: Date;
-    updatedAt: Date;
+    expireAt: Date;
 }
 

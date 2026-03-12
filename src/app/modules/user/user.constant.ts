@@ -37,6 +37,7 @@ export type TSubscriptionStatus = (typeof SUBSCRIPTION_STATUS)[keyof typeof SUBS
 
 
 export const BADGE = {
+  FREE: 'free',
   BLUE: 'blue',
   GOLD: 'gold',
   PURPLE: 'purple'

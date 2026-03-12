@@ -3,8 +3,8 @@ import { StatusCodes } from 'http-status-codes';
 import sendResponse from '../../../shared/sendResponse';
 
 import asyncHandler from '../../../shared/asynchandler';
-import { driverService } from './driver.service';
 import { TDriverImages } from './driver.interface';
+import { driverService } from './driver.service';
 
 
 const createDriverProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
@@ -14,6 +14,17 @@ const createDriverProfileIntoDb = asyncHandler(async (req: Request, res: Respons
     statusCode: StatusCodes.CREATED,
     success: true,
     message: 'Driver profile has been created successfully',
+    data: result,
+  });
+});
+
+
+const getDriverProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
+  const result = await driverService.getDriverProfile(req.user);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Driver profile has been retrieved successfully',
     data: result,
   });
 });
@@ -31,6 +42,16 @@ const updateDriverProfileIntoDb = asyncHandler(async (req: Request, res: Respons
 });
 
 
+const getDriverCarInfoIntoDb = asyncHandler(async (req: Request, res: Response) => {
+  const result = await driverService.getDriverVehicle(req.user);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Driver car info has been retrieved successfully',
+    data: result,
+  });
+});
+
 const updateDriverCarInfoIntoDb = asyncHandler(async (req: Request, res: Response) => {
   const result = await driverService.updateDriverVehicle(req.user, req.body, req.files as TDriverImages);
   sendResponse(res, {
@@ -42,7 +63,7 @@ const updateDriverCarInfoIntoDb = asyncHandler(async (req: Request, res: Respons
 });
 
 const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Response) => {
-  const {rideId} = req.params; 
+  const { rideId } = req.params;
   const result = await driverService.retrievedPassengerRequest(req.user, rideId);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -59,5 +80,7 @@ export const driverController = {
   createDriverProfileIntoDb,
   updateDriverProfileIntoDb,
   updateDriverCarInfoIntoDb,
-  getMySpecificRideRequests
+  getMySpecificRideRequests,
+  getDriverCarInfoIntoDb,
+  getDriverProfileIntoDb
 };

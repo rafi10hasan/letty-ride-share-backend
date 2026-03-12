@@ -6,7 +6,7 @@ import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
 
 
-// create driver profile
+// create passenger profile
 const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePayload) => {
   if (user.currentRole === USER_ROLE.PASSENGER) {
     throw new BadRequestError('Passenger profile already completed');
@@ -42,6 +42,7 @@ const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePay
     await session.endSession();
   }
 };
+
 
 // updated passenger profile
 const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedProfilePayload) => {
@@ -86,7 +87,28 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
   }
 };
 
+
+//
+
+const getPassengerProfile = async (user: IUser) => {
+  const passenger = await passengerRepository.findPassengerByUserId(user._id, "fullName phone");
+  if (!passenger) {
+    throw new NotFoundError('passenger profile not found');
+  }
+  return {
+
+    fullName: passenger.fullName,
+    email: passenger.email,
+    avatar: passenger.avatar,
+    phone: passenger.phone,
+    bio: passenger.bio || '',
+    dateOfBirth: passenger.dateOfBirth,
+    languages: passenger.languages,
+  };
+
+}
 export const passengerService = {
   createPassengerProfile,
   updatePassengerProfile,
+  getPassengerProfile
 };

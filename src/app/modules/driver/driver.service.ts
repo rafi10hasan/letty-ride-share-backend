@@ -12,31 +12,42 @@ import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePa
 
 
 // create driver profile
-const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, files: TDriverImages) => {
-  if (user.currentRole === 'driver') {
+const createDriverProfile = async (
+  user: IUser,
+  payload: TDriverProfilePayload,
+  files: TDriverImages
+) => {
+  // 1. Check if driver profile already exists
+  const existingDriver = await driverRepository.findDriverByUserId(user._id);
+  if (existingDriver || user.currentRole === 'driver') {
     throw new BadRequestError('Driver profile already completed');
-  }
-
-  console.log({ payload });
-
-  // 1. Handle File Uploads first (Outside the DB transaction to keep it fast)
-  let verificationImage;
-  if (files?.verification_image?.length) {
-    const result = await uploadToCloudinary(files.verification_image[0], 'kyc_images');
-    verificationImage = result?.secure_url;
-  }
-
-  let uploadedCarImages: string[] = [];
-  if (files?.car_images?.length) {
-    const uploads = await Promise.all(files.car_images.map((file) => uploadToCloudinary(file, 'car_images')));
-    uploadedCarImages = uploads.map((img: any) => img.secure_url);
   }
 
   // 2. Start Transaction
   const session = await mongoose.startSession();
   session.startTransaction();
 
+  let verificationImage: string | undefined;
+  let uploadedCarImages: string[] = [];
+
   try {
+    // 3. Handle File Uploads inside transaction (so we can cleanup on failure)
+    if (files?.verification_image?.length) {
+      const result = await uploadToCloudinary(
+        files.verification_image[0],
+        'kyc_images'
+      )
+      verificationImage = result?.secure_url;
+    }
+
+    if (files?.car_images?.length) {
+      const uploads = await Promise.all(
+        files.car_images.map((file) => uploadToCloudinary(file, 'car_images'))
+      )
+      uploadedCarImages = uploads.map((img) => img.secure_url);
+    }
+
+    // 4. Build driver payload
     const { role, ...rest } = payload;
 
     const driverPayload = {
@@ -50,17 +61,31 @@ const createDriverProfile = async (user: IUser, payload: TDriverProfilePayload, 
       carGalleries: uploadedCarImages,
     };
 
+    // 5. Create driver profile
     const driver = await driverRepository.createDriverProfile(driverPayload, session);
 
-    user.currentRole = payload.role;
-
+    // 6. Update user role (hardcoded, not from payload)
+    user.currentRole = 'driver';
     await user.save({ session });
 
+    // 7. Commit
     await session.commitTransaction();
 
     return driver;
   } catch (error) {
+    // 8. Rollback DB
     await session.abortTransaction();
+
+    // 9. Cleanup Cloudinary uploads if any
+    if (verificationImage) {
+      await deleteImageFromCloudinary(verificationImage);
+    }
+    if (uploadedCarImages.length) {
+      await Promise.all(
+        uploadedCarImages.map((url) => deleteImageFromCloudinary(url))
+      );
+    }
+
     throw error;
   } finally {
     await session.endSession();
@@ -111,8 +136,50 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
   }
 };
 
+// get driver profile
+const getDriverProfile = async (user: IUser) => {
+  const driver = await driverRepository.findDriverByUserId(user._id, "fullName email avatar phone bio dateOfbirth licenseNumber languages governorate");
+  if (!driver) {
+    throw new NotFoundError('driver profile not found');
+  }
+  return {
+    fullName: driver.fullName,
+    email: driver.email,
+    avatar: driver.avatar,
+    phone: driver.phone,
+    bio: driver.bio || '',
+    dateOfBirth: driver.dateOfBirth,
+    languages: driver.languages,
+    governorate: driver.governorate,
+    licenseNumber: driver.licenseNumber
+  };
+
+}
+
+const getDriverVehicle = async (user: IUser) => {
+  const driver = await driverRepository.findDriverByUserId(user._id);
+  if (!driver) {
+    throw new NotFoundError('driver profile not found');
+  }
+  return {
+    carModel: driver.carModel,
+    vehicleType: driver.vehicleType,
+    numberOfSeats: driver.numberOfSeats,
+    trunkSize: driver.trunkSize,
+    carGalleries: driver.carGalleries,
+    hasAc: driver.hasAc,
+    hasUsbPort: driver.hasUsbPort,
+    hasWifi: driver.hasWifi,
+    isSmokingAllowed: driver.isSmokingAllowed,
+    hasMusic: driver.hasMusic
+  };
+
+}
+
 // updated driver vehicle info
 const updateDriverVehicle = async (user: IUser, payload: TDriverCarUpdatePayload, files: TDriverImages) => {
+
+  console.log({ payload })
 
   const driver = await driverRepository.findDriverByUserId(user._id);
   if (!driver) {
@@ -198,5 +265,7 @@ export const driverService = {
   createDriverProfile,
   updateDriverProfile,
   updateDriverVehicle,
-  retrievedPassengerRequest
+  retrievedPassengerRequest,
+  getDriverVehicle,
+  getDriverProfile
 };

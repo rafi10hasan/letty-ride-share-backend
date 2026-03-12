@@ -81,7 +81,7 @@ export const userSchema = new mongoose.Schema<IUser>(
     },
     accountId: {
       type: String,
-      default: '',
+      unique: true
     },
     isEmailVerified: {
       type: Boolean,
@@ -111,7 +111,7 @@ export const userSchema = new mongoose.Schema<IUser>(
     badge: {
       type: String,
       enum: Object.values(BADGE),
-      default: null
+      default: BADGE.FREE
     },
 
     subscription: {
