@@ -348,7 +348,7 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
     if (fcmToken) {
         await sendPushNotification(fcmToken, {
             title: 'Your Booking Rejected',
-            content: `${user.fullName} has rejected your booking ${booking.ride.tripId}`,
+            content: `${user.fullName} has rejected your booking ${booking.ride.tripId}`, 
         });
     }
 
