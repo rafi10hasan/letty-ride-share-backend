@@ -50,16 +50,16 @@ const getAvailableRides = asyncHandler(async (req: Request, res: Response) => {
 
 // cancel ride
 const cancelRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const { bookingId } = req.params;
+    const { rideId } = req.params;
     const cancelletionReason = req.body.cancelReason;
     if (!cancelletionReason) {
         throw new BadRequestError(`cancelletion reason is required`)
     }
-    const result = await ridePublishService.cancelRide(req.user, bookingId, cancelletionReason);
+    const result = await ridePublishService.cancelRide(req.user, rideId, cancelletionReason);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
-        message: 'booking request has been rejected successfully',
+        message: 'ride has been cancelled successfully',
         data: result,
     });
 });

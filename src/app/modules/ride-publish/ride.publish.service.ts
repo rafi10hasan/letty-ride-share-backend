@@ -142,7 +142,7 @@ const getMyPublishedRides = async (user: IUser) => {
     return formattedRides;
 };
 
-
+// modify publish ride
 const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTripPayload) => {
 
     const driver = await driverRepository.findDriverByUserId(user._id);
@@ -152,7 +152,7 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 
     const ride = await RidePublish.findById(rideId);
     if (!ride) {
-        throw new NotFoundError('trip not found');
+        throw new NotFoundError('Trip not found');
     }
 
     if (ride.driver.toString() !== driver._id.toString()) {
@@ -172,10 +172,21 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
     let updateData: Record<string, any> = {};
 
     if (ride.availableSeats < ride.totalSeats) {
-        updateData = { minimumPassenger };
+
+        if (minimumPassenger !== undefined) {
+            updateData.minimumPassenger = minimumPassenger;
+        }
     } else {
 
-        updateData = { minimumPassenger, ...rest };
+        if (minimumPassenger !== undefined) {
+            updateData.minimumPassenger = minimumPassenger;
+        }
+
+        updateData = { ...updateData, ...rest };
+
+        if (rest.departureTimeString) {
+            updateData.departureTimeMinutes = timeStringToMinutes(rest.departureTimeString);
+        }
 
         if (rest.totalSeats) {
             const bookedSeats = ride.totalSeats - ride.availableSeats;

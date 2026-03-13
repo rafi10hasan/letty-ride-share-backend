@@ -30,4 +30,18 @@ rideRouter.get(
     ridePublishController.getAvailableRides,
 );
 
+rideRouter.patch(
+    '/update/:rideId',
+    authMiddleware(USER_ROLE.DRIVER),
+    validateRequest({ body: tripValidationZodSchema.updateTripSchema }
+    ),
+    ridePublishController.UpdateSpecificPublishedRide,
+);
+
+rideRouter.patch(
+    '/cancel/:rideId',
+    authMiddleware(USER_ROLE.DRIVER),
+    ridePublishController.getAvailableRides,
+);
+
 export default rideRouter;

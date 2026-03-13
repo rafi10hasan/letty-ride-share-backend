@@ -2,10 +2,10 @@ import { Router } from 'express';
 
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
+import { checkSubscription } from '../../middlewares/subscription.middleware';
 import { USER_ROLE } from '../user/user.constant';
-import bookingValidationZodSchema from './booking.zod';
 import { bookingController } from './booking.controller';
-import { checkSubscription, requirePaidPlan } from '../../middlewares/subscription.middleware';
+import bookingValidationZodSchema from './booking.zod';
 
 
 const bookingRouter = Router();
@@ -21,6 +21,18 @@ bookingRouter.post(
   ),
   checkSubscription,
   bookingController.sendRideRequestToDriverIntoDb,
+);
+
+bookingRouter.patch(
+  '/accept/:bookingId',
+  authMiddleware(USER_ROLE.DRIVER),
+  bookingController.acceptBookingIntoDb,
+);
+
+bookingRouter.patch(
+  '/reject/:bookingId',
+  authMiddleware(USER_ROLE.DRIVER),
+  bookingController.rejectBookingIntoDb,
 );
 
 

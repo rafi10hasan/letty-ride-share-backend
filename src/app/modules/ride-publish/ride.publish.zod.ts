@@ -75,7 +75,7 @@ const createTripSchema = z.object({
 
 // update trip schema
 
-const updateTripSchema = z.object({
+const updateTripSchema = z.strictObject({
     departureDate: z.coerce.date({
         error: (issue) => {
             if (issue.input === undefined) return { message: 'Departure date is required' };

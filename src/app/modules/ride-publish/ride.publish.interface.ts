@@ -21,7 +21,7 @@ export interface IRidePublish extends Document {
     genderPreference?: TGenderPreference;
     minimumPassenger: number;
     totalSeats: number;
-    totalSeatBooked:number;
+    totalSeatBooked: number;
     totalDistance: string;
     availableSeats: number;
     requestsCount: number;

@@ -1,13 +1,14 @@
 import mongoose from 'mongoose';
 import { deleteImageFromCloudinary } from '../../cloudinary/deleteImageFromCloudinary';
 import { uploadToCloudinary } from '../../cloudinary/uploadImageToCLoudinary';
-import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
+import { BadRequestError, NotFoundError, UnauthorizedError } from '../../errors/request/apiError';
 import { IUser } from '../user/user.interface';
 import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
 
 import moment from 'moment';
 import { Booking } from '../booking/booking.model';
+import RidePublish from '../ride-publish/ride.publish.model';
 import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
 
 
@@ -240,10 +241,22 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
 
   const driver = await driverRepository.findDriverByUserId(user._id);
   if (!driver) {
-    throw new BadRequestError('driver not found');
+    throw new NotFoundError('driver not found');
+  }
+
+  const ride = await RidePublish.findById(rideId).select("driver requestsCount");
+  if (!ride) {
+    throw new NotFoundError('ride not found');
+  }
+
+  if (ride.driver.toString() !== driver._id.toString()) {
+    throw new UnauthorizedError('This ride is not yours');
   }
 
   const passengers = await Booking.find({ ride: rideId }).sort({ createdAt: -1 });
+
+  ride.requestsCount = passengers.length;
+  await ride.save();
 
   const sanitizedPassenger = passengers.map((passenger) => {
     return {
@@ -253,11 +266,11 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
       dropOffAddress: passenger.dropOffLocation.address,
       seatRequired: passenger.seatsBooked,
       arrivalDate: moment.utc(passenger.bookedAt).format('YYYY-MM-DD'),
-      arrivalTime: moment.utc(passenger.bookedAt).format('HH:mm A')
+      arrivalTime: moment.utc(passenger.bookedAt).format('hh:mm A')
     }
-  })
-  return sanitizedPassenger;
+  });
 
+  return sanitizedPassenger;
 };
 
 

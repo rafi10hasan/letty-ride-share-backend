@@ -21,8 +21,13 @@ export const handleZodError = (err: ZodError) => {
   const errors: Record<string, string> = {};
 
   err.issues.forEach((issue) => {
-    const path = issue.path.join('.');
-    errors[path] = issue.message;
+    if (issue.code === 'unrecognized_keys') {
+      const keyList = issue.keys.join(', ');
+      errors['unknownFields'] = `These fields are not allowed: ${keyList}`;
+    } else {
+      const path = issue.path.join('.');
+      errors[path] = issue.message;
+    }
   });
 
   return {
@@ -33,6 +38,7 @@ export const handleZodError = (err: ZodError) => {
     errors,
   };
 };
+
 
 export const handleCastError = (err: mongoose.Error.CastError) => {
   const errors: Record<string, string> = {};

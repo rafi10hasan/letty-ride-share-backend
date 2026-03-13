@@ -45,24 +45,7 @@ const bookingSchema = new Schema<IBooking>(
       min: [1, 'At least 1 seat required'],
     },
 
-    bookingType: {
-      type: String,
-      enum: ['single', 'multi'],
-      default: 'single',
-    },
-
-
     pickUpLocation: locationSchema,
-
-    waypoints: {
-      type: [
-        {
-          ...locationSchema,
-          order: { type: Number, required: true },
-        }
-      ],
-      default: [],
-    },
 
 
     dropOffLocation: locationSchema,

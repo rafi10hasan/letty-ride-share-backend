@@ -68,7 +68,7 @@ const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Respons
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'passenger request has been retrieved successfully',
+    message: result.length > 0 ? 'passenger request has been retrieved successfully' : 'no passenger request found',
     data: result,
   });
 });

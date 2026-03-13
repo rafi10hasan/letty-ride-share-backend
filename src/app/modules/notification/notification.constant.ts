@@ -1,6 +1,7 @@
 
 export const NOTIFICATION_TYPE = {
     BOOKING_REQUEST: 'booking_request',
+    BOOKING_ACCEPTED: 'booking_accepted',
     CONFIRMED_BOOKING: 'confirmed_booking',
     COMPLETED_BOOKING: 'completed_booking',
     CANCEL_BOOKING: 'cancel_booking',

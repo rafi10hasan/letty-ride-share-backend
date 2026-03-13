@@ -6,19 +6,14 @@ interface ILocation {
     address: string;
 }
 
-interface IWaypoint extends ILocation {
-    order: number;
-}
+
 
 export interface IBooking {
     ride: Types.ObjectId;
     passenger: Types.ObjectId;
     passengerInfo: { profileImg: string; name: string };
     seatsBooked: number;
-
-    bookingType: 'single' | 'multi';
     pickUpLocation: ILocation;
-    waypoints: IWaypoint[];
     dropOffLocation: ILocation;
 
     status: string;

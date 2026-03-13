@@ -84,6 +84,11 @@ export const sendPushNotification = async (
 
     return response;
   } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.log(error.message);
+      } else {
+        console.log(error);
+      }
     throw new BadRequestError(
       error instanceof Error ? error.message : String(error)
     );

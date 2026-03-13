@@ -1,7 +1,7 @@
 import mongoose, { Types } from "mongoose";
 import { getSocketIO, onlineUsers } from "../../../socket/connectSocket";
 import { getDistanceInKm } from "../../../utilities/getDistanceInKm";
-import { BadRequestError, NotFoundError } from "../../errors/request/apiError";
+import { BadRequestError, NotFoundError, UnauthorizedError } from "../../errors/request/apiError";
 import { driverRepository } from "../driver/driver.repository";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
 import Notification from "../notification/notification.model";
@@ -11,7 +11,9 @@ import RidePublish from "../ride-publish/ride.publish.model";
 import { IUser } from "../user/user.interface";
 import { Booking } from "./booking.model";
 
+import logger from "../../../config/logger";
 import { sendPushNotification } from "../notification/notification.utils";
+import { TRIP_STATUS } from "../ride-publish/ride.publish.constant";
 import { BOOKING_STATUS } from "./booking.constant";
 import { TSendRideRequestPayload } from "./booking.zod";
 
@@ -49,7 +51,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
     }
 
     const ride = await RidePublish.findById(rideId)
-        .select("price availableSeats driver pickUpLocation tripId departureDate departureTimeMinutes requestsCount")
+        .select("price availableSeats driver pickUpLocation tripStatus tripId departureDate departureTimeMinutes requestsCount")
         .populate<{ driver: IPopulatedDriver }>({
             path: "driver",
             select: "fullName user",
@@ -63,23 +65,28 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
         throw new NotFoundError('trip not found')
     }
 
-    if (payload.seatsBooked > ride.availableSeats) {
-        throw new BadRequestError(`you booked ${payload.seatsBooked} seats but available seat has ${ride.availableSeats}`)
+    if (ride.tripStatus !== TRIP_STATUS.PENDING) {
+        throw new BadRequestError('This ride is no longer available for booking');
     }
-
-    const distance = getDistanceInKm(payload.pickUpLocation.coordinates, ride.pickUpLocation.coordinates);
-
-    if (distance > 10) {
-        throw new BadRequestError("you can't booked outside 10 km from pick up location")
-    }
-
-    console.log({ distance })
 
     const departureDateTime = new Date(ride.departureDate);
     departureDateTime.setUTCHours(0, 0, 0, 0);
     departureDateTime.setUTCMinutes(ride.departureTimeMinutes);
 
-    const bookingPayload = {
+    if (departureDateTime < new Date()) {
+        throw new BadRequestError('This ride has already departed');
+    }
+
+    if (payload.seatsBooked > ride.availableSeats) {
+        throw new BadRequestError(`you booked ${payload.seatsBooked} seats but available seat has ${ride.availableSeats}`)
+    }
+
+    const distance = getDistanceInKm(payload.pickUpLocation.coordinates, ride.pickUpLocation.coordinates);
+    if (distance > 10) {
+        throw new BadRequestError("you can't booked outside 10 km from pick up location")
+    }
+
+    const booking = await Booking.create({
         ...payload,
         ride: ride._id,
         passengerInfo: {
@@ -89,46 +96,54 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
         bookedAt: departureDateTime,
         expireAt: new Date(Date.now() + 30 * 60 * 1000),
         passenger: passenger._id
-    }
-    const booking = await Booking.create(bookingPayload);
+    });
 
-    const userId = ride.driver.user
+    const userId = ride.driver.user;
 
-    if (booking) {
-        const socketId = onlineUsers.get(userId.toString());
-        if (socketId) {
-            const io = getSocketIO();
-            io.to(userId.toString()).emit('receive-booking-request', {
-                title: 'New Booking Request',
-                message: `${user.fullName} sent a bookings request ${ride.tripId}`,
-                tripId: ride.tripId
-            });
-        }
 
-        if (!socketId) {
-            const notificationPayload = {
-                title: 'New Booking Request',
-                message: `${user.fullName} sent a bookings request ${ride.tripId}`,
-                receiver: userId,
-                type: NOTIFICATION_TYPE.BOOKING_REQUEST,
-            };
+    Promise.all([
 
-            await Notification.create(notificationPayload);
-        }
-
-        const fcmToken = ride?.driver?.user?.fcmToken;
-        if (fcmToken) {
-            const payload = {
-                title: 'New Booking Request',
-                content: `${user.fullName} sent a bookings request ${ride.tripId}`,
-
+        (async () => {
+            const socketId = onlineUsers.get(userId.toString());
+            if (socketId) {
+                const io = getSocketIO();
+                io.to(userId.toString()).emit('receive-booking-request', {
+                    title: 'New Booking Request',
+                    message: `${user.fullName} sent a bookings request ${ride.tripId}. please review it because the will remain 30 miniutes`,
+                    tripId: ride.tripId
+                });
+            } else {
+                await Notification.create({
+                    title: 'New Booking Request',
+                    message: `${user.fullName} sent a bookings request ${ride.tripId} please review it because the will remain 30 miniutes`,
+                    receiver: userId,
+                    type: NOTIFICATION_TYPE.BOOKING_REQUEST,
+                });
             }
-            await sendPushNotification(fcmToken, payload)
-        }
+        })(),
 
-        ride.requestsCount += 1;
-        await ride.save();
-    }
+        // FCM notification
+        (async () => {
+            const fcmToken = ride?.driver?.user?.fcmToken;
+            if (fcmToken) {
+                try {
+                    await sendPushNotification(fcmToken, {
+                        title: 'New Booking Request',
+                        content: `${user.fullName} sent a bookings request ${ride.tripId}`,
+                    });
+                } catch (error) {
+                    logger.error(`FCM failed: ${error}`);
+                }
+            }
+        })(),
+
+        // requestsCount update
+        (async () => {
+            ride.requestsCount += 1;
+            await ride.save();
+        })(),
+
+    ]).catch((error) => logger.error(`Background task failed: ${error}`));
 
     return {
         bookingId: booking._id,
@@ -138,7 +153,6 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
         bookedAt: booking.bookedAt,
         status: booking.status
     };
-
 };
 
 // accept booking
@@ -150,7 +164,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
     }
 
     const booking = await Booking.findById(bookingId)
-        .populate<{ ride: IRidePublish }>("ride", "_id availableSeats tripId driver")
+        .populate<{ ride: IRidePublish }>("ride", "_id availableSeats totalSeatsBooked minimumPassenger tripId driver")
         .populate<{ passenger: IPopulatedPassenger }>({
             path: "passenger",
             select: "user",
@@ -164,13 +178,17 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
         throw new NotFoundError('request not found');
     }
 
-
     if (booking.ride?.driver.toString() !== driver._id.toString()) {
-        throw new BadRequestError('This booking is not yours');
+        throw new UnauthorizedError('This booking is not yours');
     }
 
     if (booking.status !== BOOKING_STATUS.PENDING) {
         throw new BadRequestError(`Booking is already ${booking.status}`);
+    }
+
+    // Expired booking check
+    if (booking.expireAt && booking.expireAt < new Date()) {
+        throw new BadRequestError('Booking request has expired');
     }
 
     if (booking.ride.availableSeats < booking.seatsBooked) {
@@ -178,6 +196,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
     }
 
     const session = await mongoose.startSession();
+    let updatedRide;
 
     try {
         session.startTransaction();
@@ -185,60 +204,20 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
         await Booking.findByIdAndUpdate(
             bookingId,
             { status: BOOKING_STATUS.ACCEPTED, expireAt: null },
-
             { session }
         );
 
-        const updatedRide = await RidePublish.findByIdAndUpdate(
-            booking.ride._id,
-            { $inc: { availableSeats: -booking.seatsBooked, totalSeatsBooked: booking.seatsBooked } },
+        updatedRide = await RidePublish.findOneAndUpdate(
+            { _id: booking.ride._id, availableSeats: { $gte: booking.seatsBooked } },
+            { $inc: { availableSeats: -booking.seatsBooked, totalSeatBooked: booking.seatsBooked } },
             { session, new: true }
-        ).populate<{ driver: IPopulatedDriver }>({
-            path: "driver",
-            select: "user totalSeatBooked availableSeats",
-            populate: {
-                path: "user",
-                select: "fcmToken _id"
-            }
-        });
+        ).select("totalSeatBooked  availableSeats");
+
+        if (!updatedRide) {
+            throw new BadRequestError('Not enough seats available');
+        }
 
         await session.commitTransaction();
-
-        const passengerId = booking.passenger.user._id;
-        const fcmToken = booking.passenger.user.fcmToken;
-
-        const socketId = onlineUsers.get(passengerId.toString());
-        if (socketId) {
-            const io = getSocketIO();
-            io.to(passengerId.toString()).emit('booking-accepted', {
-                title: 'Booking Accepted',
-                message: `Your booking has been accepted for ${booking.ride.tripId}`,
-            });
-        }
-
-        if (fcmToken) {
-            await sendPushNotification(fcmToken, {
-                title: 'Your Booking Accepted',
-                content: `${user.fullName} has accepted your booking ${booking.ride.tripId}`,
-            });
-        }
-
-        if (updatedRide && updatedRide.totalSeatBooked >= updatedRide.minimumPassenger) {
-
-            const driverFcmToken = updatedRide.driver.user.fcmToken;
-            if (driverFcmToken) {
-                await sendPushNotification(driverFcmToken, {
-                    title: 'Minimum Passengers Reached!',
-                    content: `Trip ${booking.ride.tripId} has reached minimum passengers. You can now confirm the trip.`,
-                });
-            }
-
-            const io = getSocketIO();
-            io.to(driver.user._id.toString()).emit('minimum-passenger-reached', {
-                title: 'Minimum Passengers Reached!',
-                message: `Trip ${booking.ride.tripId} is ready to confirm.`,
-            });
-        }
 
     } catch (error) {
         await session.abortTransaction();
@@ -246,8 +225,73 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
     } finally {
         session.endSession();
     }
+
+    const passengerId = booking.passenger.user._id;
+    const passengerFcmToken = booking.passenger.user.fcmToken;
+
+    
+    Promise.all([
+
+        // Passenger notification
+        (async () => {
+            const socketId = onlineUsers.get(passengerId.toString());
+            if (socketId) {
+                const io = getSocketIO();
+                io.to(passengerId.toString()).emit('booking-accepted', {
+                    title: 'Booking Accepted',
+                    message: `Your booking has been accepted for ${booking.ride.tripId}`,
+                });
+            } else {
+                // Socket না থাকলে DB notification
+                await Notification.create({
+                    title: 'Booking Accepted',
+                    message: `Your booking has been accepted for ${booking.ride.tripId}`,
+                    receiver: passengerId,
+                    type: NOTIFICATION_TYPE.BOOKING_ACCEPTED,
+                });
+            }
+        })(),
+
+        // Passenger FCM
+        (async () => {
+            if (passengerFcmToken) {
+                try {
+                    await sendPushNotification(passengerFcmToken, {
+                        title: 'Booking Accepted',
+                        content: `${user.fullName} has accepted your booking ${booking.ride.tripId}`,
+                    });
+                } catch (error) {
+                    logger.error(`FCM failed for passenger: ${error}`);
+                }
+            }
+        })(),
+
+        // Minimum passenger reached — driver এর user.fcmToken থেকেই নাও
+        (async () => {
+            if (updatedRide && updatedRide.totalSeatBooked >= updatedRide.minimumPassenger) {
+                const io = getSocketIO();
+                io.to(driver.user._id.toString()).emit('minimum-passenger-reached', {
+                    title: 'Minimum Passengers Reached!',
+                    message: `Trip ${booking.ride.tripId} is ready to confirm.`,
+                });
+
+                if (user.fcmToken) {
+                    try {
+                        await sendPushNotification(user.fcmToken, {
+                            title: 'Minimum Passengers Reached!',
+                            content: `Trip ${booking.ride.tripId} has reached minimum passengers. You can now confirm the trip.`,
+                        });
+                    } catch (error) {
+                        logger.error(`FCM failed for driver: ${error}`);
+                    }
+                }
+            }
+        })(),
+
+    ]).catch((error) => logger.error(`Background task failed: ${error}`));
 };
 
+ 
 // reject booking
 const rejectBooking = async (user: IUser, bookingId: string) => {
 
