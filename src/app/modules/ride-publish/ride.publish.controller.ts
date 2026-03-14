@@ -64,12 +64,36 @@ const cancelRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     });
 });
 
+const startRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    const { rideId } = req.params;
+    const result = await ridePublishService.startRide(req.user, rideId);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Ride started successfully',
+        data: result,
+    });
+});
+
+const completeRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    const { rideId } = req.params;
+    const result = await ridePublishService.completeRide(req.user, rideId, req.body);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Ride completed successfully',
+        data: result,
+    });
+});
+
 export const ridePublishController = {
     publishRideIntoDb,
     getMyPublishedRides,
     getAvailableRides,
     UpdateSpecificPublishedRide,
-    cancelRideIntoDb
+    cancelRideIntoDb,
+    startRideIntoDb,
+    completeRideIntoDb
 };
 
 

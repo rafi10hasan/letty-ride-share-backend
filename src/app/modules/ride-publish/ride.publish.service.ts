@@ -1,10 +1,14 @@
 import moment from "moment";
 import { Types } from "mongoose";
-import { getSocketIO } from "../../../socket/connectSocket";
+import logger from "../../../config/logger";
+import { getSocketIO, onlineUsers } from "../../../socket/connectSocket";
+import { getDistanceInKm } from "../../../utilities/getDistanceInKm";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../../errors/request/apiError";
 import { BOOKING_STATUS } from "../booking/booking.constant";
 import { Booking } from "../booking/booking.model";
 import { driverRepository } from "../driver/driver.repository";
+import { NOTIFICATION_TYPE } from "../notification/notification.constant";
+import Notification from "../notification/notification.model";
 import { sendPushNotification } from "../notification/notification.utils";
 import { IUser } from "../user/user.interface";
 import { PUBLISH_STATUS, TRIP_STATUS } from "./ride.publish.constant";
@@ -325,6 +329,190 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
     return rides;
 };
 
+// start ride
+const startRide = async (user: IUser, rideId: string) => {
+
+    const driver = await driverRepository.findDriverByUserId(user._id);
+    if (!driver) {
+        throw new NotFoundError('Driver not found');
+    }
+
+    const ride = await RidePublish.findById(rideId);
+    if (!ride) {
+        throw new NotFoundError('Ride not found');
+    }
+
+    if (ride.driver.toString() !== driver._id.toString()) {
+        throw new UnauthorizedError('This ride is not yours');
+    }
+
+    if (ride.tripStatus !== TRIP_STATUS.PENDING) {
+        throw new BadRequestError(`Ride is already ${ride.tripStatus}`);
+    }
+
+    if (ride.totalSeatBooked < ride.minimumPassenger) {
+        throw new BadRequestError('Minimum passengers not reached yet');
+    }
+
+    const now = new Date();
+    const departureDateTime = new Date(ride.departureDate);
+    departureDateTime.setUTCHours(0, 0, 0, 0);
+    departureDateTime.setUTCMinutes(ride.departureTimeMinutes);
+
+    if (now < departureDateTime) {
+        throw new BadRequestError('Cannot start ride before departure time');
+    }
+
+    const estimatedArrivalTime = new Date(now.getTime() + ride.estimatedDuration * 60 * 1000);
+
+    const updatedRide = await RidePublish.findByIdAndUpdate(
+        rideId,
+        {
+            tripStatus: TRIP_STATUS.ONGOING,
+            startedAt: now,
+            estimatedArrivalTime,
+        },
+        { new: true }
+    );
+
+    // Notify accepted passengers in background
+    Promise.all([
+        (async () => {
+            const acceptedBookings = await Booking.find({
+                ride: rideId,
+                status: BOOKING_STATUS.ACCEPTED,
+            }).populate<{ passenger: IPopulatedPassenger }>({
+                path: 'passenger',
+                select: 'user',
+                populate: { path: 'user', select: 'fcmToken _id' },
+            });
+
+            for (const booking of acceptedBookings) {
+                const passengerId = booking.passenger.user._id;
+                const fcmToken = booking.passenger.user.fcmToken;
+
+                const socketId = onlineUsers.get(passengerId.toString());
+                if (socketId) {
+                    const io = getSocketIO();
+                    io.to(passengerId.toString()).emit('ride-started', {
+                        title: 'Ride Started',
+                        message: `Your ride ${ride.tripId} has started`,
+                        estimatedArrivalTime,
+                    });
+                } else {
+                    await Notification.create({
+                        title: 'Ride Started',
+                        message: `Your ride ${ride.tripId} has started`,
+                        receiver: passengerId,
+                        type: NOTIFICATION_TYPE.RIDE_STARTED,
+                    });
+                }
+
+                if (fcmToken) {
+                    try {
+                        await sendPushNotification(fcmToken, {
+                            title: 'Ride Started',
+                            content: `Your ride ${ride.tripId} has started. Estimated arrival: ${moment(estimatedArrivalTime).format('hh:mm A')}`,
+                        });
+                    } catch (error) {
+                        logger.error(`FCM failed: ${error}`);
+                    }
+                }
+            }
+        })(),
+    ]).catch((error) => logger.error(`Background task failed: ${error}`));
+
+    return updatedRide;
+};
+
+// complete ride
+const completeRide = async (user: IUser, rideId: string, currentLocation: { coordinates: [number, number] }) => {
+
+    const driver = await driverRepository.findDriverByUserId(user._id);
+    if (!driver) {
+        throw new NotFoundError('Driver not found');
+    }
+
+    const ride = await RidePublish.findById(rideId);
+    if (!ride) {
+        throw new NotFoundError('Ride not found');
+    }
+
+    if (ride.driver.toString() !== driver._id.toString()) {
+        throw new UnauthorizedError('This ride is not yours');
+    }
+
+    if (ride.tripStatus !== TRIP_STATUS.ONGOING) {
+        throw new BadRequestError('Ride is not ongoing');
+    }
+
+    // Driver location check — 3km or 10km radius
+    const distanceFromDropOff = getDistanceInKm(
+        currentLocation.coordinates,
+        ride.dropOffLocation.coordinates
+    );
+
+    if (distanceFromDropOff > 10) {
+        throw new BadRequestError('You are too far from the drop-off location to complete the ride');
+    }
+
+    const updatedRide = await RidePublish.findByIdAndUpdate(
+        rideId,
+        {
+            tripStatus: TRIP_STATUS.COMPLETED,
+            completedAt: new Date(),
+        },
+        { new: true }
+    );
+
+    // Notify passengers in background
+    Promise.all([
+        (async () => {
+            const acceptedBookings = await Booking.find({
+                ride: rideId,
+                status: BOOKING_STATUS.ACCEPTED,
+            }).populate<{ passenger: IPopulatedPassenger }>({
+                path: 'passenger',
+                select: 'user',
+                populate: { path: 'user', select: 'fcmToken _id' },
+            });
+
+            for (const booking of acceptedBookings) {
+                const passengerId = booking.passenger.user._id;
+                const fcmToken = booking.passenger.user.fcmToken;
+
+                const socketId = onlineUsers.get(passengerId.toString());
+                if (socketId) {
+                    const io = getSocketIO();
+                    io.to(passengerId.toString()).emit('ride-completed', {
+                        title: 'Ride Completed',
+                        message: `Your ride ${ride.tripId} has been completed`,
+                    });
+                } else {
+                    await Notification.create({
+                        title: 'Ride Completed',
+                        message: `Your ride ${ride.tripId} has been completed`,
+                        receiver: passengerId,
+                        type: NOTIFICATION_TYPE.RIDE_COMPLETED,
+                    });
+                }
+
+                if (fcmToken) {
+                    try {
+                        await sendPushNotification(fcmToken, {
+                            title: 'Ride Completed',
+                            content: `Your ride ${ride.tripId} has been completed. Please submit your report.`,
+                        });
+                    } catch (error) {
+                        logger.error(`FCM failed: ${error}`);
+                    }
+                }
+            }
+        })(),
+    ]).catch((error) => logger.error(`Background task failed: ${error}`));
+
+    return updatedRide;
+};
 
 // cancel ride
 const cancelRide = async (user: IUser, rideId: string, cancellationReason: string) => {
@@ -403,7 +591,9 @@ export const ridePublishService = {
     getMyPublishedRides,
     searchAvailableRides,
     modifyPublishRide,
-    cancelRide
+    cancelRide,
+    startRide,
+    completeRide
 };
 
 

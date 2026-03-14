@@ -41,12 +41,15 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
                 'Format must be HH:MM AM/PM',
             ],
         },
+        departureDateTime: {
+            type: Date,
+        },
         tripId: {
             type: String,
             required: [true, 'Trip Id is required'],
             unique: true
         },
-        // Pickup location (GeoJSON)
+
         pickUpLocation: {
             type: {
                 type: String,
@@ -63,7 +66,6 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             },
         },
 
-        // Dropoff location (GeoJSON)
         dropOffLocation: {
             type: {
                 type: String,
@@ -71,7 +73,7 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
                 required: true,
             },
             coordinates: {
-                type: [Number],         // [longitude, latitude]
+                type: [Number],
                 required: true,
             },
             address: {
@@ -117,10 +119,34 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             required: [true, 'price is required'],
             min: [0, 'Price cannot be negative'],
         },
+
         totalDistance: {
             type: String,
             required: [true, 'totalDistance is required'],
-        }
+        },
+
+        estimatedDuration: {
+            type: Number,
+            required: [true, 'estimatedDuration is required'],
+            min: [1, 'Duration must be at least 1 minute'],
+        },
+        estimatedArrivalTime: {
+            type: Date,
+        },
+
+        notifications: {
+            notified24h: { type: Boolean, default: false },
+            notified1h: { type: Boolean, default: false },
+            notifiedArrival: { type: Boolean, default: false },
+            autoStarted: { type: Boolean, default: false },
+        },
+
+        startedAt: {
+            type: Date,
+        },
+        completedAt: {
+            type: Date,
+        },
     },
     {
         timestamps: true,
@@ -128,6 +154,15 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
     },
 );
 
+ridePublishSchema.pre('save', function (this: IRidePublish, next) {
+    if (this.isModified('departureDate') || this.isModified('departureTimeMinutes')) {
+        const date = new Date(this.departureDate);
+        date.setUTCHours(0, 0, 0, 0);
+        date.setUTCMinutes(this.departureTimeMinutes);
+        this.departureDateTime = date;
+    }
+    next();
+});
 
 ridePublishSchema.index({ "pickUpLocation": "2dsphere" })
 ridePublishSchema.index({ "dropOffLocation": "2dsphere" })

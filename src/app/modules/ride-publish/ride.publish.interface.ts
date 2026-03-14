@@ -18,14 +18,25 @@ export interface IRidePublish extends Document {
     departureTimeString: string;
     pickUpLocation: IGeoPoint;
     dropOffLocation: IGeoPoint;
+    price: number;
+    departureDateTime: Date;
     genderPreference?: TGenderPreference;
     minimumPassenger: number;
     totalSeats: number;
     totalSeatBooked: number;
+    notifications: {
+        notified24h: boolean;
+        notified1h: boolean;
+        notifiedArrival: boolean;
+        autoStarted: boolean;
+    },
     totalDistance: string;
     availableSeats: number;
     requestsCount: number;
-    price: number;
+    estimatedDuration: number;
+    estimatedArrivalTime: Date;
+    startedAt: Date;
+    completedAt: Date;
     createdAt: Date;
     updatedAt: Date;
 }

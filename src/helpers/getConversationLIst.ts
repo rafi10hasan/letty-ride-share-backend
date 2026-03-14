@@ -1,9 +1,10 @@
 import { Types } from 'mongoose';
 
+import moment from 'moment';
 import Conversation from '../app/modules/conversation/conversation.model';
+import Message from '../app/modules/Message/message.model';
 import User from '../app/modules/user/user.model';
 import { onlineUsers } from '../socket/connectSocket';
-import Message from '../app/modules/Message/message.model';
 
 
 interface ConversationQuery {
@@ -48,7 +49,7 @@ export const getConversationList = async (
   let filter: any = { participants: userObjectId };
 
   if (searchTerm && searchTerm.trim()) {
-  
+
     const matchingUsers = await User.find(
       {
         fullName: { $regex: searchTerm.trim(), $options: 'i' }
@@ -139,7 +140,7 @@ export const getConversationList = async (
           online: isOnline, // Online status
         },
         lastMsg,
-        lastMsgCreatedAt: conv.lastMessage?.createdAt || null,
+        lastMsgCreatedAt: conv.lastMessage?.createdAt ? moment(conv.lastMessage?.createdAt).fromNow() : "No messages yet",
         unseenMsg: unreadCount,
       };
     })
@@ -148,7 +149,7 @@ export const getConversationList = async (
   // Filter out null entries (if any)
   const validConversations = conversationsWithDetails.filter(
     (conv) => conv !== null
-  ) ;
+  );
 
   return {
     total,

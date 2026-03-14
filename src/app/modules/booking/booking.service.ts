@@ -19,7 +19,7 @@ import { TSendRideRequestPayload } from "./booking.zod";
 
 
 
-interface IPopulatedDriver {
+export interface IPopulatedDriver {
     _id: Types.ObjectId;
     user: {
         _id: Types.ObjectId;
@@ -27,12 +27,12 @@ interface IPopulatedDriver {
     };
 }
 
-interface IPopulatedUser {
+export interface IPopulatedUser {
     fcmToken: string;
     _id: Types.ObjectId;
 }
 
-interface IPopulatedPassenger {
+export interface IPopulatedPassenger {
     _id: Types.ObjectId;
     user: IPopulatedUser;
 }
@@ -217,6 +217,14 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
             throw new BadRequestError('Not enough seats available');
         }
 
+        if (updatedRide.totalSeatBooked >= updatedRide.minimumPassenger) {
+            await RidePublish.findByIdAndUpdate(
+                booking.ride._id,
+                { tripStatus: TRIP_STATUS.UPCOMING },
+                { session }
+            );
+        }
+
         await session.commitTransaction();
 
     } catch (error) {
@@ -229,7 +237,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
     const passengerId = booking.passenger.user._id;
     const passengerFcmToken = booking.passenger.user.fcmToken;
 
-    
+
     Promise.all([
 
         // Passenger notification
@@ -291,8 +299,9 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
     ]).catch((error) => logger.error(`Background task failed: ${error}`));
 };
 
- 
+
 // reject booking
+
 const rejectBooking = async (user: IUser, bookingId: string) => {
 
     const driver = await driverRepository.findDriverByUserId(user._id);
@@ -316,7 +325,7 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
     }
 
     if (booking.ride.driver.toString() !== driver._id.toString()) {
-        throw new BadRequestError('This booking is not yours');
+        throw new UnauthorizedError('This booking is not yours');
     }
 
     if (booking.status !== BOOKING_STATUS.PENDING) {
@@ -324,37 +333,59 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
     }
 
 
-    const updatedBooking = await Booking.findByIdAndUpdate(
+    if (booking.expireAt && booking.expireAt < new Date()) {
+        throw new BadRequestError('Booking request has expired');
+    }
+
+    await Booking.findByIdAndUpdate(
         bookingId,
         {
             status: BOOKING_STATUS.REJECTED,
             expireAt: new Date(Date.now() + 10 * 60 * 1000),
         },
-        { new: true }
     );
 
     const passengerId = booking.passenger.user._id;
-    const fcmToken = booking.passenger.user.fcmToken;
+    const passengerFcmToken = booking.passenger.user.fcmToken;
 
-    const socketId = onlineUsers.get(passengerId.toString());
-    if (socketId) {
-        const io = getSocketIO();
-        io.to(passengerId.toString()).emit('booking-rejected', {
-            title: 'Booking Rejected',
-            message: `Your booking has been rejected for ${booking.ride.tripId}`,
-        });
-    }
 
-    if (fcmToken) {
-        await sendPushNotification(fcmToken, {
-            title: 'Your Booking Rejected',
-            content: `${user.fullName} has rejected your booking ${booking.ride.tripId}`, 
-        });
-    }
+    Promise.all([
 
-    return updatedBooking;
+        // Passenger notification
+        (async () => {
+            const socketId = onlineUsers.get(passengerId.toString());
+            if (socketId) {
+                const io = getSocketIO();
+                io.to(passengerId.toString()).emit('booking-rejected', {
+                    title: 'Booking Rejected',
+                    message: `Your booking has been rejected for ${booking.ride.tripId}`,
+                });
+            } else {
+                await Notification.create({
+                    title: 'Booking Rejected',
+                    message: `Your booking has been rejected for ${booking.ride.tripId}`,
+                    receiver: passengerId,
+                    type: NOTIFICATION_TYPE.BOOKING_REJECTED,
+                });
+            }
+        })(),
+
+        // Passenger FCM
+        (async () => {
+            if (passengerFcmToken) {
+                try {
+                    await sendPushNotification(passengerFcmToken, {
+                        title: 'Booking Rejected',
+                        content: `${user.fullName} has rejected your booking ${booking.ride.tripId}`,
+                    });
+                } catch (error) {
+                    logger.error(`FCM failed for passenger: ${error}`);
+                }
+            }
+        })(),
+
+    ]).catch((error) => logger.error(`Background task failed: ${error}`));
 };
-
 
 export const bookingService = {
     sendRideRequestToDriver,
