@@ -119,7 +119,11 @@ const getMyPublishedRides = async (user: IUser) => {
         throw new NotFoundError('Driver profile not found');
     }
 
-    const myPublishedRides = await RidePublish.find({ driver: driver._id })
+    if (driver.user.toString() !== user._id.toString()) {
+        throw new UnauthorizedError('this driver profile does not belong to you')
+    }
+
+    const myPublishedRides = await RidePublish.find({ driver: driver._id, status: TRIP_STATUS.PENDING })
         .select(
             'pickUpLocation dropOffLocation departureDate departureTimeString totalSeats minimumPassenger tripId availableSeats price tripStatus driverInfo totalDistance status requestsCount'
         )

@@ -13,7 +13,7 @@ const handleLocationEvents = async (
     socket: Socket,
 ): Promise<void> => {
 
-    // create conversation
+    // update driver location
     socket.on(SOCKET_EVENTS.DRIVER_LOCATION_UPDATE, async (data: {
         rideId: string,
         coordinates: [number, number]
@@ -23,7 +23,7 @@ const handleLocationEvents = async (
             updatedAt: new Date()
         });
 
-        // Passenger কে real-time location পাঠাও
+        // send real-time location to passenger
         const bookings = await Booking.find({
             ride: data.rideId,
             status: BOOKING_STATUS.ACCEPTED,
@@ -35,7 +35,7 @@ const handleLocationEvents = async (
             });
         }
 
-        // প্রতি 1 মিনিটে একবার DB তে save করো — ETA recalculate
+        // here location update after 1 miniute — ETA recalculate
         const cached = driverLocations.get(data.rideId) as
             | { coordinates: [number, number]; updatedAt: Date }
             | undefined;
@@ -47,7 +47,7 @@ const handleLocationEvents = async (
             if (ride) {
                 const etaSeconds = await getETAFromGoogleMaps(
                     data.coordinates,
-                    ride.dropOffLocation.coordinates
+                    [ride.dropOffLocation.coordinates[1], ride.dropOffLocation.coordinates[0]]
                 );
                 const estimatedArrivalTime = new Date(
                     new Date().getTime() + etaSeconds * 1000
@@ -58,7 +58,7 @@ const handleLocationEvents = async (
                     lastDriverLocation: data.coordinates,
                 });
 
-                // Passenger কে updated ETA পাঠাও
+                // send the updated ETA to passenger
                 for (const booking of bookings) {
                     io.to(booking.passenger.user.toString()).emit('eta-updated', {
                         estimatedArrivalTime,
@@ -71,4 +71,4 @@ const handleLocationEvents = async (
 
 export default handleLocationEvents;
 
-// Socket এ driver location আসলে
+
