@@ -36,6 +36,8 @@ interface IPopulatedPassenger {
 }
 
 // publish ride
+const TRIP_DURATION_BUFFER_MINUTES = 180;
+
 const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
     const driver = await driverRepository.findDriverByUserId(user._id);
 
@@ -43,13 +45,33 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
         throw new NotFoundError('Driver profile not found');
     }
 
+    // 1. Validations
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (new Date(payload.departureDate) < today) {
+        throw new BadRequestError('Departure date cannot be in the past');
+    }
+
+    if (payload.minimumPassenger > payload.totalSeats) {
+        throw new BadRequestError('Minimum passenger cannot exceed total seats');
+    }
+
+    if (payload.price <= 0) {
+        throw new BadRequestError('Price must be greater than 0');
+    }
+
     const departureTimeInMinutes = timeStringToMinutes(payload.departureTimeString);
 
-
-    const isAlreadySameLocationRide = await RidePublish.findOne({
+    const isConflict = await RidePublish.findOne({
         driver: driver._id,
         status: PUBLISH_STATUS.ACTIVE,
+        tripStatus: TRIP_STATUS.PENDING,
         departureDate: payload.departureDate,
+        departureTimeMinutes: {
+            $gte: departureTimeInMinutes - TRIP_DURATION_BUFFER_MINUTES,
+            $lte: departureTimeInMinutes + TRIP_DURATION_BUFFER_MINUTES,
+        },
         pickUpLocation: {
             $near: {
                 $geometry: {
@@ -61,55 +83,53 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
         },
     });
 
-    if (isAlreadySameLocationRide) {
-        throw new BadRequestError('You already have an active ride with same pickup location within 100 meter radius on this date.');
-    }
-
-
-    const TRIP_DURATION_BUFFER = 180;
-
-    const isTimeConflict = await RidePublish.findOne({
-        driver: driver._id,
-        status: PUBLISH_STATUS.ACTIVE,
-        departureDate: payload.departureDate,
-        departureTimeMinutes: {
-            $gte: departureTimeInMinutes - TRIP_DURATION_BUFFER,
-            $lte: departureTimeInMinutes + TRIP_DURATION_BUFFER,
-        },
-    });
-
-    if (isTimeConflict) {
+    if (isConflict) {
         throw new BadRequestError(
-            `You already have an active ride around this time. Please choose a time at least ${TRIP_DURATION_BUFFER} minutes apart.`
+            `You already have an active ride around this time. Please choose a time at least ${TRIP_DURATION_BUFFER_MINUTES} minutes apart.`
         );
     }
 
-    const tripId = await generateTripId();
+    // 3. Create ride with retry for tripId uniqueness
+    const MAX_RETRIES = 3;
 
-    const ride = await RidePublish.create({
-        driver: driver._id,
-        status: PUBLISH_STATUS.ACTIVE,
-        tripId,
-        departureDate: payload.departureDate,
-        departureTimeMinutes: departureTimeInMinutes,
-        departureTimeString: payload.departureTimeString,
-        genderPreference: payload.genderPreference,
-        pickUpLocation: payload.pickUpLocation,
-        dropOffLocation: payload.dropOffLocation,
-        totalDistance: payload.totalDistance,
-        minimumPassenger: payload.minimumPassenger,
-        totalSeats: payload.totalSeats,
-        availableSeats: payload.totalSeats,
-        price: payload.price
-    });
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const tripId = await generateTripId();
+            console.log({ tripId })
+            const ride = await RidePublish.create({
+                driver: driver._id,
+                status: PUBLISH_STATUS.ACTIVE,
+                tripId,
+                departureDate: payload.departureDate,
+                departureTimeMinutes: departureTimeInMinutes,
+                departureTimeString: payload.departureTimeString,
+                genderPreference: payload.genderPreference,
+                pickUpLocation: payload.pickUpLocation,
+                dropOffLocation: payload.dropOffLocation,
+                totalDistance: payload.totalDistance,
+                minimumPassenger: payload.minimumPassenger,
+                totalSeats: payload.totalSeats,
+                availableSeats: payload.totalSeats,
+                price: payload.price,
+            });
 
-    return {
-        departureDate: ride.departureDate,
-        tripId: ride.tripId,
-        rideId: ride._id,
-        pickUpAddress: ride.pickUpLocation.address,
-        dropOffAddress: ride.dropOffLocation.address
-    };
+            return {
+                departureDate: ride.departureDate,
+                tripId: ride.tripId,
+                rideId: ride._id,
+                pickUpAddress: ride.pickUpLocation.address,
+                dropOffAddress: ride.dropOffLocation.address,
+            };
+
+        } catch (error: any) {
+            if (error?.code === 11000 && error?.keyPattern?.tripId && attempt < MAX_RETRIES) {
+                continue;
+            }
+            throw error;
+        }
+    }
+
+    throw new BadRequestError('Failed to generate unique trip ID. Try again later.');
 };
 
 // get specific driver published rides

@@ -127,8 +127,7 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
 
         estimatedDuration: {
             type: Number,
-            required: [true, 'estimatedDuration is required'],
-            min: [1, 'Duration must be at least 1 minute'],
+            default: 0
         },
         estimatedArrivalTime: {
             type: Date,

@@ -14,6 +14,7 @@ export const SOCKET_EVENTS = {
   NOTIFICATION: 'notification',
   CONNECTION: 'connection',
   DISCONNECT: 'disconnect',
+  DRIVER_LOCATION_UPDATE: 'driver-location-update',
   TYPING: 'typing',
   STOP_TYPING: 'stop-typing',
   USER_TYPING: 'user-typing',
