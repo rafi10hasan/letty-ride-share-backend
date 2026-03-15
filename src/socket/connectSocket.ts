@@ -1,21 +1,23 @@
 /* eslint-disable no-console */
 import { Server as HTTPServer } from 'http';
 import mongoose from 'mongoose';
-import { Server as ChatServer, Socket } from 'socket.io';
 import NodeCache from 'node-cache';
+import { Server as ChatServer, Socket } from 'socket.io';
 
-import handleChatEvents from './handleChatEvents';
-import { SOCKET_EVENTS } from './socket.constant';
-import User from '../app/modules/user/user.model';
-import Conversation from '../app/modules/conversation/conversation.model';
 import { BadRequestError } from '../app/errors/request/apiError';
+import Conversation from '../app/modules/conversation/conversation.model';
+import User from '../app/modules/user/user.model';
 import getUnreadMessageCount from '../helpers/getUnreadMessageCount';
+import handleChatEvents from './handleChatEvents';
+import handleLocationEvents from './handleLocationEvent';
+import { SOCKET_EVENTS } from './socket.constant';
 
 let io: ChatServer;
 
 
 const onlineUsers = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 const participantCache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
+export const driverLocations = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 
 // socket Auth Middleware
 const socketAuthMiddleware = async (
@@ -82,7 +84,7 @@ const connectSocket = (server: HTTPServer) => {
       console.error('Failed to get unread count for:', currentUserId, err);
     }
 
- 
+
     try {
       const userConversations = await Conversation.find({
         participants: currentUserId,
@@ -115,7 +117,8 @@ const connectSocket = (server: HTTPServer) => {
     }
 
     handleChatEvents(io, socket, currentUserId, onlineUsers);
-    
+    handleLocationEvents(io, socket);
+
     // Disconnect socket 
     socket.on(SOCKET_EVENTS.DISCONNECT, () => {
       console.log(`User disconnected: ${currentUserId}`);
