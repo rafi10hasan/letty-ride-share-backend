@@ -55,6 +55,26 @@ driverRouter.patch(
   driverController.updateDriverCarInfoIntoDb,
 );
 
+
+driverRouter.get(
+  '/upcoming-rides',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getUpcomingRideIntoDb,
+);
+
+driverRouter.get(
+  '/ongoing-rides',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getOngoingRideIntoDb,
+);
+
+
+driverRouter.get(
+  '/completed-rides',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getCompletedRideIntoDb,
+);
+
 driverRouter.get(
   '/get-passenger-request/:rideId',
   authMiddleware(USER_ROLE.DRIVER),

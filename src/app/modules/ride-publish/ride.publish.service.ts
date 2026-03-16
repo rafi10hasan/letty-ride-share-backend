@@ -311,6 +311,72 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
     return rides;
 };
 
+// 
+
+const confirmRide = async (user: IUser, rideId: string) => {
+
+    const driver = await driverRepository.findDriverByUserId(user._id);
+    if (!driver) {
+        throw new NotFoundError('Driver not found');
+    }
+
+    const ride = await RidePublish.findById(rideId);
+    if (!ride) {
+        throw new NotFoundError('Ride not found');
+    }
+
+    if (ride.driver.toString() !== driver._id.toString()) {
+        throw new UnauthorizedError('This ride is not yours');
+    }
+
+    if (ride.tripStatus !== TRIP_STATUS.PENDING) {
+        throw new BadRequestError(`Ride is already ${ride.tripStatus}`);
+    }
+    
+    if(ride.totalSeatBooked < 1){
+        throw new BadRequestError(`you have atleast one passenger to confirm it`)
+    }
+
+    const updatedRide = await RidePublish.findByIdAndUpdate(
+        rideId,
+        {
+            tripStatus: TRIP_STATUS.UPCOMING,
+        },
+        { new: true }
+    );
+
+    // Notify accepted passengers in background
+    Promise.all([
+        (async () => {
+            const acceptedBookings = await Booking.find({
+                ride: rideId,
+                status: BOOKING_STATUS.ACCEPTED,
+            }).populate<{ passenger: IPopulatedPassenger }>({
+                path: 'passenger',
+                select: 'user',
+                populate: { path: 'user', select: 'fcmToken _id' },
+            });
+
+            for (const booking of acceptedBookings) {
+               
+                const fcmToken = booking.passenger.user.fcmToken;
+                if (fcmToken) {
+                    try {
+                        await sendPushNotification(fcmToken, {
+                            title: 'upcoming ride',
+                            content: `Your ride is upcoming ${ride.tripId}}`,
+                        });
+                    } catch (error) {
+                        logger.error(`FCM failed: ${error}`);
+                    }
+                }
+            }
+        })(),
+    ]).catch((error) => logger.error(`Background task failed: ${error}`));
+
+    return updatedRide;
+};
+
 
 // start ride
 const startRide = async (user: IUser, rideId: string) => {
@@ -531,6 +597,7 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
     ).catch((error) => logger.error(`Background task failed: ${error}`));
 };
 
+
 export const ridePublishService = {
     publishRide,
     getMyPublishedRides,
@@ -538,7 +605,8 @@ export const ridePublishService = {
     modifyPublishRide,
     cancelRide,
     startRide,
-    completeRideByDriver
+    completeRideByDriver,
+    confirmRide
 };
 
 

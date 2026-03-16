@@ -4,6 +4,9 @@ import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
 import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
+import { BOOKING_STATUS } from '../booking/booking.constant';
+import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
+import { Booking } from '../booking/booking.model';
 
 
 // create passenger profile
@@ -107,8 +110,57 @@ const getPassengerProfile = async (user: IUser) => {
   };
 
 }
+
+
+// const getPassengerUpcomingRides = async (passengerId: string) => {
+//     const passenger = await passengerRepository.findPassengerByUserId(passengerId);
+//     if (!passenger) throw new NotFoundError('Passenger profile not found');
+
+//     const bookings = await Booking.find({
+//         passenger: passenger._id,
+//         status: BOOKING_STATUS.ACCEPTED,
+//     }).populate({
+//         path: 'ride',
+//         match: { tripStatus: TRIP_STATUS.UPCOMING },
+//     });
+
+//     return bookings
+//         .filter((b) => b.ride !== null)
+//         .map((b) => b.ride);
+// };
+
+// // Passenger — Ongoing rides
+// export const getPassengerOngoingRide = async (passengerId: string) => {
+//     const passenger = await passengerRepository.findPassengerByUserId(passengerId);
+//     if (!passenger) throw new NotFoundError('Passenger profile not found');
+
+//     const booking = await Booking.findOne({
+//         passenger: passenger._id,
+//         status: BOOKING_STATUS.ACCEPTED,
+//     }).populate({
+//         path: 'ride',
+//         match: { tripStatus: TRIP_STATUS.ONGOING },
+//     });
+
+//     return booking?.ride ?? null;
+// };
+
+// // Passenger — Completed rides (TripHistory)
+// export const getPassengerCompletedRides = async (passengerId: string) => {
+//     const passenger = await passengerRepository.findPassengerByUserId(passengerId);
+//     if (!passenger) throw new NotFoundError('Passenger profile not found');
+
+//     return await TripHistory.find({
+//         'passengers.passenger': passenger._id,
+//     }).sort({ completedAt: -1 });
+// };
+
+
 export const passengerService = {
   createPassengerProfile,
   updatePassengerProfile,
-  getPassengerProfile
+  getPassengerProfile,
+  getPassengerUpcomingRides,
+  getPassengerOngoingRides,
+  getPassengerCompletedRides
 };

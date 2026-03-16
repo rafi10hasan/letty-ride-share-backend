@@ -39,6 +39,12 @@ rideRouter.patch(
 );
 
 rideRouter.patch(
+    '/confirm/:rideId',
+    authMiddleware(USER_ROLE.DRIVER), 
+    ridePublishController.confirmRideIntoDb,
+);
+
+rideRouter.patch(
     '/cancel/:rideId',
     authMiddleware(USER_ROLE.DRIVER),
     ridePublishController.cancelRideIntoDb,

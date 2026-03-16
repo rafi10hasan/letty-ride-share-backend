@@ -76,11 +76,51 @@ const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Respons
 // publish ride into db
 
 
+const getUpcomingRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    const { rideId } = req.params;
+    const result = await driverService.getDriverUpcomingRides(req.user);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Upcoming rides retrieved successfully',
+        data: result,
+    });
+});
+
+
+const getOngoingRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    const { rideId } = req.params;
+    const result = await driverService.getDriverOngoingRides(req.user);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Ongoing rides retrieved successfully',
+        data: result,
+    });
+});
+
+
+const getCompletedRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    const { rideId } = req.params;
+    const result = await driverService.getDriverCompletedRides(req.user);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Completed rides retrieved successfully',
+        data: result,
+    });
+});
+
+
+
 export const driverController = {
   createDriverProfileIntoDb,
   updateDriverProfileIntoDb,
   updateDriverCarInfoIntoDb,
   getMySpecificRideRequests,
   getDriverCarInfoIntoDb,
-  getDriverProfileIntoDb
+  getDriverProfileIntoDb,
+  getUpcomingRideIntoDb,
+  getOngoingRideIntoDb,
+  getCompletedRideIntoDb
 };

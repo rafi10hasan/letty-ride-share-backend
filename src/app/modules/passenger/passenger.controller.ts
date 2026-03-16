@@ -41,11 +41,50 @@ const getPassengerProfileIntoDb = asyncHandler(async (req: Request, res: Respons
   });
 });
 
+
 // publish ride into db
 
 
 export const passengerController = {
   createPassengerProfileIntoDb,
   updatePassengerProfileIntoDb,
-  getPassengerProfileIntoDb
+  getPassengerProfileIntoDb,
+
 };
+
+/*
+// const passengerUpcomingRides = async (req: Request, res: Response) => {
+//     const rides = await getPassengerUpcomingRides(req.user);
+
+//     sendResponse(res, {
+//         statusCode: 200,
+//         success: true,
+//         message: 'Upcoming rides fetched successfully',
+//         data: rides,
+//     });
+// };
+
+// const passengerOngoingRides = async (req: Request, res: Response) => {
+//     const ride = await getPassengerOngoingRide(req.user);
+
+//     sendResponse(res, {
+//         statusCode: 200,
+//         success: true,
+//         message: 'Ongoing ride fetched successfully',
+//         data: ride,
+//     });
+// };
+
+// const passengerCompletedRides = async (req: Request, res: Response) => {
+//     const rides = await getPassengerCompletedRides(req.user);
+
+//     sendResponse(res, {
+//         statusCode: 200,
+//         success: true,
+//         message: 'Completed rides fetched successfully',
+//         data: rides,
+//     });
+// };
+
+
+*/
