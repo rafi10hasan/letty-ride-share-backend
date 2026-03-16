@@ -1,5 +1,5 @@
 import { Document, Types } from 'mongoose';
-import { TGenderPreference, TPublishStatus, TTripStatus } from './ride.publish.constant';
+import { TPublishStatus, TTripStatus } from './ride.publish.constant';
 
 export interface IGeoPoint {
     type: 'Point';
@@ -20,10 +20,11 @@ export interface IRidePublish extends Document {
     dropOffLocation: IGeoPoint;
     price: number;
     departureDateTime: Date;
-    genderPreference?: TGenderPreference;
+    isLadiesOnly: boolean;
     minimumPassenger: number;
     totalSeats: number;
     totalSeatBooked: number;
+    cancellationReason?: string;
     notifications: {
         notified24h: boolean;
         notified1h: boolean;
@@ -33,8 +34,9 @@ export interface IRidePublish extends Document {
     totalDistance: string;
     availableSeats: number;
     requestsCount: number;
-    estimatedDuration: number;
-    estimatedArrivalTime: Date;
+    remainingDistanceMeters: number;
+    estimatedArrivalTime: number;
+    lastDriverLocation: [number, number];
     startedAt: Date;
     completedAt: Date;
     createdAt: Date;

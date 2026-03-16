@@ -1,9 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
+import { getDriverRideCountCurrentMonth } from '../../helpers/getDriverRideCountByMonth';
+import { getPassengerMonthlyTripCount } from '../../helpers/getPassengerMonthlyTripCount';
 import sendResponse from '../../shared/sendResponse';
 import Driver from '../modules/driver/driver.model';
 import Passenger from '../modules/passenger/passenger.model';
 import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../modules/user/user.constant';
+
 
 /**
  * Plan rules:
@@ -43,7 +46,7 @@ export const checkSubscription = async (
         } else {
             profile = await Driver.findOne({ user: user._id }).select('subscription totalTripCompleted');
         }
-        console.log({ profile })
+        // console.log({ profile })
         const subscription = profile?.subscription;
 
         console.log({ subscription })
@@ -83,8 +86,11 @@ export const checkSubscription = async (
 
         // free plan হলে 3 trip limit check
         if (subscription.plan === SUBSCRIPTION_PLAN.FREE) {
-            if (user.currentRole === 'passenger' && profile.totalRides >= 2) {
 
+            const driverTotalTrip = await getDriverRideCountCurrentMonth(profile._id.toString());
+            const riderTotalTrip = await getPassengerMonthlyTripCount(profile._id.toString());
+
+            if (user.currentRole === 'passenger' && riderTotalTrip > 2) {
                 sendResponse(res, {
                     statusCode: StatusCodes.FORBIDDEN,
                     success: false,
@@ -96,7 +102,7 @@ export const checkSubscription = async (
                 return;
 
             }
-            if (user.currentRole === 'driver' && profile.totalTripCompleted >= 1) {
+            if (user.currentRole === 'driver' && driverTotalTrip > 1) {
 
                 sendResponse(res, {
                     statusCode: StatusCodes.FORBIDDEN,

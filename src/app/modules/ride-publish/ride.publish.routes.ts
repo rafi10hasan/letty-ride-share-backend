@@ -27,7 +27,7 @@ rideRouter.get(
 rideRouter.get(
     '/search',
     authMiddleware(USER_ROLE.PASSENGER),
-    ridePublishController.getAvailableRides,
+    ridePublishController.getAvailableRides
 );
 
 rideRouter.patch(
@@ -41,7 +41,7 @@ rideRouter.patch(
 rideRouter.patch(
     '/cancel/:rideId',
     authMiddleware(USER_ROLE.DRIVER),
-    ridePublishController.getAvailableRides,
+    ridePublishController.cancelRideIntoDb,
 );
 
 export default rideRouter;

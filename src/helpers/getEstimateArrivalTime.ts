@@ -1,15 +1,29 @@
 import config from "../config";
 
 export const getETAFromGoogleMaps = async (
-    origin: [number, number],      // driver current location
-    destination: [number, number]  // dropOff location
-): Promise<number> => {
-    const response = await fetch(
-        `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin[1]},${origin[0]}&destinations=${destination[1]},${destination[0]}&key=${config.google_maps_api_key}`
-    );
+    origin: [number, number],
+    destination: [number, number]
+): Promise<{ etaSeconds: number; distanceMeters: number }> => {
+
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origin[1]},${origin[0]}&destinations=${destination[1]},${destination[0]}&key=${config.google_maps_api_key}`;
+
+    const response = await fetch(url);
     const data = await response.json();
-    // seconds এ return করে
-    return data.rows[0].elements[0].duration.value;
+
+    if (data.status !== 'OK') {
+        throw new Error(`Google Maps API error: ${data.status}`);
+    }
+
+    const element = data.rows[0].elements[0];
+
+    if (element.status !== 'OK') {
+        throw new Error(`Route not found: ${element.status}`);
+    }
+
+    return {
+        etaSeconds: element.duration.value,       // 1486
+        distanceMeters: element.distance.value,   // 9562
+    };
 };
 
 

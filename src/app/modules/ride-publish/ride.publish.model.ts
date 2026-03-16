@@ -1,5 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
-import { GENDER_PREFERENCE, PUBLISH_STATUS, TRIP_STATUS } from './ride.publish.constant';
+import { PUBLISH_STATUS, TRIP_STATUS } from './ride.publish.constant';
 import { IRidePublish } from './ride.publish.interface';
 
 
@@ -82,10 +82,9 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             },
         },
 
-        genderPreference: {
-            type: String,
-            enum: Object.values(GENDER_PREFERENCE),
-            required: [true, 'genderPreference is required'],
+        isLadiesOnly: {
+            type: Boolean,
+            default: false
         },
 
         minimumPassenger: {
@@ -120,17 +119,26 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             min: [0, 'Price cannot be negative'],
         },
 
+        cancellationReason: {
+            type: String,
+        },
+
         totalDistance: {
             type: String,
             required: [true, 'totalDistance is required'],
         },
 
-        estimatedDuration: {
+        remainingDistanceMeters: {
             type: Number,
             default: 0
         },
         estimatedArrivalTime: {
-            type: Date,
+            type: Number,
+        },
+
+        lastDriverLocation: {
+            type: [Number],
+
         },
 
         notifications: {

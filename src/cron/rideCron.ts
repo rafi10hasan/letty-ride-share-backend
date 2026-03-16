@@ -1,19 +1,63 @@
 import cron from 'node-cron';
-import { BOOKING_STATUS } from '../app/modules/booking/booking.constant';
 import { Booking } from '../app/modules/booking/booking.model';
+
+import RidePublish from '../app/modules/ride-publish/ride.publish.model';
+
+import { BOOKING_STATUS } from '../app/modules/booking/booking.constant';
 import { IPopulatedDriver, IPopulatedPassenger } from '../app/modules/booking/booking.service';
 import { NOTIFICATION_TYPE } from '../app/modules/notification/notification.constant';
 import Notification from '../app/modules/notification/notification.model';
 import { sendPushNotification } from '../app/modules/notification/notification.utils';
 import { TRIP_STATUS } from '../app/modules/ride-publish/ride.publish.constant';
-import RidePublish from '../app/modules/ride-publish/ride.publish.model';
 import logger from '../config/logger';
+import { completeRide } from '../helpers/completeRide';
 import { getSocketIO, onlineUsers } from '../socket/connectSocket';
 
 
+
+// Helper — notify a user via socket (if online) + FCM + DB notification
+export const notifyUser = async ({
+    userId,
+    fcmToken,
+    title,
+    message,
+    socketEvent,
+    notificationType,
+}: {
+    userId: string;
+    fcmToken?: string;
+    title: string;
+    message: string;
+    socketEvent: string;
+    notificationType: string;
+}) => {
+    const isOnline = onlineUsers.has(userId);
+
+    if (isOnline) {
+
+        getSocketIO().to(userId).emit(socketEvent, { title, message });
+    } else {
+        // Offline — DB notification save করো
+        await Notification.create({
+            title,
+            message,
+            receiver: userId,
+            type: notificationType,
+        });
+    }
+
+    if (fcmToken) {
+        try {
+            await sendPushNotification(fcmToken, { title, content: message });
+        } catch (error) {
+            logger.error(`FCM failed for user ${userId}: ${error}`);
+        }
+    }
+};
+
 export const initializeRideCrons = () => {
 
-    // 24 hours before departure — driver & passenger notify
+    // 24 hours before departure — notify driver & passengers
     cron.schedule('*/5 * * * *', async () => {
         try {
             const now = new Date();
@@ -31,20 +75,17 @@ export const initializeRideCrons = () => {
             });
 
             for (const ride of rides) {
+                // Notify driver
+                await notifyUser({
+                    userId: ride.driver.user._id.toString(),
+                    fcmToken: ride.driver.user.fcmToken,
+                    title: 'Ride Tomorrow',
+                    message: `Your ride ${ride.tripId} starts in 24 hours.`,
+                    socketEvent: 'ride-reminder-24h',
+                    notificationType: NOTIFICATION_TYPE.RIDE_REMINDER_24H,
+                });
 
-                // Driver notify
-                if (ride.driver.user.fcmToken) {
-                    try {
-                        await sendPushNotification(ride.driver.user.fcmToken, {
-                            title: 'Ride Tomorrow',
-                            content: `Your ride ${ride.tripId} starts in 24 hours.`,
-                        });
-                    } catch (error) {
-                        logger.error(`FCM failed for driver: ${error}`);
-                    }
-                }
-
-                // Passenger notify
+                // Notify all accepted passengers
                 const bookings = await Booking.find({
                     ride: ride._id,
                     status: BOOKING_STATUS.ACCEPTED,
@@ -57,31 +98,14 @@ export const initializeRideCrons = () => {
                 for (const booking of bookings) {
                     const { _id: passengerId, fcmToken } = booking.passenger.user;
 
-                    const socketId = onlineUsers.get(passengerId.toString());
-                    if (socketId) {
-                        getSocketIO().to(passengerId.toString()).emit('ride-reminder-24h', {
-                            title: 'Ride Tomorrow',
-                            message: `Your upcoming ride ${ride.tripId} is tomorrow.`,
-                        });
-                    } else {
-                        await Notification.create({
-                            title: 'Ride Tomorrow',
-                            message: `Your upcoming ride ${ride.tripId} is tomorrow.`,
-                            receiver: passengerId,
-                            type: NOTIFICATION_TYPE.RIDE_REMINDER_24H,
-                        });
-                    }
-
-                    if (fcmToken) {
-                        try {
-                            await sendPushNotification(fcmToken, {
-                                title: 'Ride Tomorrow',
-                                content: `Your upcoming ride ${ride.tripId} is tomorrow.`,
-                            });
-                        } catch (error) {
-                            logger.error(`FCM failed for passenger: ${error}`);
-                        }
-                    }
+                    await notifyUser({
+                        userId: passengerId.toString(),
+                        fcmToken,
+                        title: 'Ride Tomorrow',
+                        message: `Your upcoming ride ${ride.tripId} is tomorrow.`,
+                        socketEvent: 'ride-reminder-24h',
+                        notificationType: NOTIFICATION_TYPE.RIDE_REMINDER_24H,
+                    });
                 }
 
                 await RidePublish.findByIdAndUpdate(ride._id, {
@@ -93,7 +117,7 @@ export const initializeRideCrons = () => {
         }
     });
 
-    // 1 hour before departure — driver notify
+    // 1 hour before departure — notify driver only
     cron.schedule('*/5 * * * *', async () => {
         try {
             const now = new Date();
@@ -111,17 +135,14 @@ export const initializeRideCrons = () => {
             });
 
             for (const ride of rides) {
-
-                if (ride.driver.user.fcmToken) {
-                    try {
-                        await sendPushNotification(ride.driver.user.fcmToken, {
-                            title: 'Ride in 1 Hour',
-                            content: `Your ride ${ride.tripId} starts in 1 hour.`,
-                        });
-                    } catch (error) {
-                        logger.error(`FCM failed for driver: ${error}`);
-                    }
-                }
+                await notifyUser({
+                    userId: ride.driver.user._id.toString(),
+                    fcmToken: ride.driver.user.fcmToken,
+                    title: 'Ride in 1 Hour',
+                    message: `Your ride ${ride.tripId} starts in 1 hour.`,
+                    socketEvent: 'ride-reminder-1h',
+                    notificationType: NOTIFICATION_TYPE.RIDE_REMINDER_1H,
+                });
 
                 await RidePublish.findByIdAndUpdate(ride._id, {
                     'notifications.notified1h': true,
@@ -146,14 +167,9 @@ export const initializeRideCrons = () => {
             });
 
             for (const ride of rides) {
-                const estimatedArrivalTime = new Date(
-                    now.getTime() + ride.estimatedDuration * 60 * 1000
-                );
-
                 await RidePublish.findByIdAndUpdate(ride._id, {
                     tripStatus: TRIP_STATUS.ONGOING,
                     startedAt: now,
-                    estimatedArrivalTime,
                     'notifications.autoStarted': true,
                 });
 
@@ -164,65 +180,25 @@ export const initializeRideCrons = () => {
         }
     });
 
-    // 30 min before estimated arrival — passenger notify
-    cron.schedule('*/5 * * * *', async () => {
+    // Auto-complete 
+    cron.schedule('* * * * *', async () => {
         try {
-            const now = new Date();
-            const windowStart = new Date(now.getTime() + 30 * 60 * 1000);
-            const windowEnd = new Date(windowStart.getTime() + 5 * 60 * 1000);
+            const nowMs = new Date().getTime();
 
             const rides = await RidePublish.find({
                 tripStatus: TRIP_STATUS.ONGOING,
-                estimatedArrivalTime: { $gte: windowStart, $lt: windowEnd },
-                'notifications.notifiedArrival': false,
-            });
+                estimatedArrivalTime: { $lte: nowMs },
+            }) as Array<{ _id: any; tripId: string; }>;
 
             for (const ride of rides) {
-                const bookings = await Booking.find({
-                    ride: ride._id,
-                    status: BOOKING_STATUS.ACCEPTED,
-                }).populate<{ passenger: IPopulatedPassenger }>({
-                    path: 'passenger',
-                    select: 'user',
-                    populate: { path: 'user', select: 'fcmToken _id' },
-                });
-
-                for (const booking of bookings) {
-                    const { _id: passengerId, fcmToken } = booking.passenger.user;
-
-                    const socketId = onlineUsers.get(passengerId.toString());
-                    if (socketId) {
-                        getSocketIO().to(passengerId.toString()).emit('near-destination', {
-                            title: 'Near Destination',
-                            message: `You are 30 minutes away from your destination.`,
-                        });
-                    } else {
-                        await Notification.create({
-                            title: 'Near Destination',
-                            message: `You are 30 minutes away from your destination.`,
-                            receiver: passengerId,
-                            type: NOTIFICATION_TYPE.NEAR_DESTINATION,
-                        });
-                    }
-
-                    if (fcmToken) {
-                        try {
-                            await sendPushNotification(fcmToken, {
-                                title: 'Near Destination',
-                                content: `You are near your destination. Estimated arrival in 30 minutes.`,
-                            });
-                        } catch (error) {
-                            logger.error(`FCM failed for passenger: ${error}`);
-                        }
-                    }
+                try {
+                    await completeRide(ride._id.toString());
+                } catch (error) {
+                    logger.error(`Auto-complete failed for ride ${ride.tripId}: ${error}`);
                 }
-
-                await RidePublish.findByIdAndUpdate(ride._id, {
-                    'notifications.notifiedArrival': true,
-                });
             }
         } catch (error) {
-            logger.error(`Arrival notification cron failed: ${error}`);
+            logger.error(`Auto-complete cron failed: ${error}`);
         }
     });
 
