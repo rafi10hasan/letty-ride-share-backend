@@ -3,6 +3,7 @@ import { Booking } from '../app/modules/booking/booking.model';
 
 import RidePublish from '../app/modules/ride-publish/ride.publish.model';
 
+import moment from 'moment';
 import { BOOKING_STATUS } from '../app/modules/booking/booking.constant';
 import { IPopulatedDriver, IPopulatedPassenger } from '../app/modules/booking/booking.service';
 import { NOTIFICATION_TYPE } from '../app/modules/notification/notification.constant';
@@ -57,7 +58,59 @@ export const notifyUser = async ({
 
 export const initializeRideCrons = () => {
 
-    // 24 hours before departure — notify driver & passengers
+    cron.schedule('* * * * *', async () => {
+        try {
+            const now = moment();
+            const result = await RidePublish.deleteMany({
+                departureDateTime: { $lt: now.toDate() },
+                tripStatus: TRIP_STATUS.PENDING,
+                totalSeatBooked: 0
+            });
+
+            if (result.deletedCount > 0) {
+                console.log(`[Success] ${result.deletedCount}টি রাইড ডিলিট হয়েছে।`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    });
+
+    // Cron 1 — PENDING → UPCOMING: minimum passenger filled
+    cron.schedule('*/2 * * * *', async () => {
+        try {
+            const rides = await RidePublish.find({
+                tripStatus: TRIP_STATUS.PENDING,
+                $expr: { $gte: ['$totalSeatBooked', '$minimumPassenger'] },
+            }).populate<{ driver: IPopulatedDriver }>({
+                path: 'driver',
+                select: 'user',
+                populate: { path: 'user', select: 'fcmToken _id' },
+            });
+
+            await Promise.all(rides.map(async (ride) => {
+                await RidePublish.findByIdAndUpdate(ride._id, {
+                    tripStatus: TRIP_STATUS.UPCOMING,
+                });
+
+                await notifyUser({
+                    userId: ride.driver.user._id.toString(),
+                    fcmToken: ride.driver.user.fcmToken,
+                    title: 'Minimum Passengers Reached!',
+                    message: `Your ride ${ride.tripId} has reached minimum passengers. Ride is confirmed.`,
+                    socketEvent: 'minimum-passenger-reached',
+                    notificationType: NOTIFICATION_TYPE.MINIMUM_PASSENGER_REACHED,
+                });
+
+                logger.info(`Ride ${ride.tripId} marked as UPCOMING`);
+            }));
+
+        } catch (error) {
+            logger.error(`PENDING → UPCOMING cron failed: ${error}`);
+        }
+    });
+
+
+    // Cron 2 — 24h before departure: driver & passengers notify
     cron.schedule('*/5 * * * *', async () => {
         try {
             const now = new Date();
@@ -65,7 +118,7 @@ export const initializeRideCrons = () => {
             const windowEnd = new Date(windowStart.getTime() + 5 * 60 * 1000);
 
             const rides = await RidePublish.find({
-                tripStatus: TRIP_STATUS.PENDING,
+                tripStatus: TRIP_STATUS.UPCOMING,
                 departureDateTime: { $gte: windowStart, $lt: windowEnd },
                 'notifications.notified24h': false,
             }).populate<{ driver: IPopulatedDriver }>({
@@ -74,18 +127,8 @@ export const initializeRideCrons = () => {
                 populate: { path: 'user', select: 'fcmToken _id' },
             });
 
-            for (const ride of rides) {
-                // Notify driver
-                await notifyUser({
-                    userId: ride.driver.user._id.toString(),
-                    fcmToken: ride.driver.user.fcmToken,
-                    title: 'Ride Tomorrow',
-                    message: `Your ride ${ride.tripId} starts in 24 hours.`,
-                    socketEvent: 'ride-reminder-24h',
-                    notificationType: NOTIFICATION_TYPE.RIDE_REMINDER_24H,
-                });
+            await Promise.all(rides.map(async (ride) => {
 
-                // Notify all accepted passengers
                 const bookings = await Booking.find({
                     ride: ride._id,
                     status: BOOKING_STATUS.ACCEPTED,
@@ -95,29 +138,39 @@ export const initializeRideCrons = () => {
                     populate: { path: 'user', select: 'fcmToken _id' },
                 });
 
-                for (const booking of bookings) {
-                    const { _id: passengerId, fcmToken } = booking.passenger.user;
-
-                    await notifyUser({
-                        userId: passengerId.toString(),
-                        fcmToken,
+                await Promise.all([
+                    notifyUser({
+                        userId: ride.driver.user._id.toString(),
+                        fcmToken: ride.driver.user.fcmToken,
                         title: 'Ride Tomorrow',
-                        message: `Your upcoming ride ${ride.tripId} is tomorrow.`,
+                        message: `Your ride ${ride.tripId} starts in 24 hours.`,
                         socketEvent: 'ride-reminder-24h',
                         notificationType: NOTIFICATION_TYPE.RIDE_REMINDER_24H,
-                    });
-                }
+                    }),
+                    ...bookings.map((booking) => {
+                        const { _id: passengerId, fcmToken } = booking.passenger.user;
+                        return notifyUser({
+                            userId: passengerId.toString(),
+                            fcmToken,
+                            title: 'Ride Tomorrow',
+                            message: `Your upcoming ride ${ride.tripId} is tomorrow.`,
+                            socketEvent: 'ride-reminder-24h',
+                            notificationType: NOTIFICATION_TYPE.RIDE_REMINDER_24H,
+                        });
+                    }),
+                ]);
 
                 await RidePublish.findByIdAndUpdate(ride._id, {
                     'notifications.notified24h': true,
                 });
-            }
+            }));
+
         } catch (error) {
             logger.error(`24h cron failed: ${error}`);
         }
     });
 
-    // 1 hour before departure — notify driver only
+    // Cron 3 — 1h before departure: driver notify
     cron.schedule('*/5 * * * *', async () => {
         try {
             const now = new Date();
@@ -125,7 +178,7 @@ export const initializeRideCrons = () => {
             const windowEnd = new Date(windowStart.getTime() + 5 * 60 * 1000);
 
             const rides = await RidePublish.find({
-                tripStatus: TRIP_STATUS.PENDING,
+                tripStatus: TRIP_STATUS.UPCOMING,
                 departureDateTime: { $gte: windowStart, $lt: windowEnd },
                 'notifications.notified1h': false,
             }).populate<{ driver: IPopulatedDriver }>({
@@ -134,7 +187,8 @@ export const initializeRideCrons = () => {
                 populate: { path: 'user', select: 'fcmToken _id' },
             });
 
-            for (const ride of rides) {
+            await Promise.all(rides.map(async (ride) => {
+
                 await notifyUser({
                     userId: ride.driver.user._id.toString(),
                     fcmToken: ride.driver.user.fcmToken,
@@ -147,18 +201,19 @@ export const initializeRideCrons = () => {
                 await RidePublish.findByIdAndUpdate(ride._id, {
                     'notifications.notified1h': true,
                 });
-            }
+            }));
+
         } catch (error) {
             logger.error(`1h cron failed: ${error}`);
         }
     });
 
-    // Departure + 15 min buffer — auto-start ride
+    // Cron 4 — departure + 15 min buffer: auto-start ride
     cron.schedule('* * * * *', async () => {
         try {
             const now = new Date();
-            const bufferTime = new Date(now.getTime() - 15 * 60 * 1000);
-
+            const bufferTime = new Date(now.getTime() - 1 * 60 * 1000);
+            console.log({ bufferTime });
             const rides = await RidePublish.find({
                 tripStatus: TRIP_STATUS.UPCOMING,
                 departureDateTime: { $lte: bufferTime },
@@ -166,41 +221,105 @@ export const initializeRideCrons = () => {
                 'notifications.autoStarted': false,
             });
 
-            for (const ride of rides) {
+            await Promise.all(rides.map(async (ride) => {
                 await RidePublish.findByIdAndUpdate(ride._id, {
                     tripStatus: TRIP_STATUS.ONGOING,
                     startedAt: now,
                     'notifications.autoStarted': true,
                 });
-
+                console.log("ride start")
                 logger.info(`Ride ${ride.tripId} auto-started`);
-            }
+            }));
+
         } catch (error) {
             logger.error(`Auto-start cron failed: ${error}`);
         }
     });
 
-    // Auto-complete 
-    cron.schedule('* * * * *', async () => {
+    // Cron 5 — 30 min before estimated arrival: passenger notify
+    cron.schedule('*/5 * * * *', async () => {
         try {
-            const nowMs = new Date().getTime();
+            const now = new Date();
+            const windowStart = new Date(now.getTime() + 30 * 60 * 1000);
+            const windowEnd = new Date(windowStart.getTime() + 5 * 60 * 1000);
 
             const rides = await RidePublish.find({
                 tripStatus: TRIP_STATUS.ONGOING,
-                estimatedArrivalTime: { $lte: nowMs },
-            }) as Array<{ _id: any; tripId: string; }>;
+                estimatedArrivalTime: { $gte: windowStart, $lt: windowEnd },
+                'notifications.notifiedArrival': false,
+            });
 
-            for (const ride of rides) {
-                try {
-                    await completeRide(ride._id.toString());
-                } catch (error) {
-                    logger.error(`Auto-complete failed for ride ${ride.tripId}: ${error}`);
-                }
-            }
+            await Promise.all(rides.map(async (ride) => {
+
+                const bookings = await Booking.find({
+                    ride: ride._id,
+                    status: BOOKING_STATUS.ACCEPTED,
+                }).populate<{ passenger: IPopulatedPassenger }>({
+                    path: 'passenger',
+                    select: 'user',
+                    populate: { path: 'user', select: 'fcmToken _id' },
+                });
+
+                await Promise.all(
+                    bookings.map((booking) => {
+                        const { _id: passengerId, fcmToken } = booking.passenger.user;
+                        return notifyUser({
+                            userId: passengerId.toString(),
+                            fcmToken,
+                            title: 'Near Destination',
+                            message: `You are 30 minutes away from your destination for ride ${ride.tripId}.`,
+                            socketEvent: 'near-destination',
+                            notificationType: NOTIFICATION_TYPE.NEAR_DESTINATION,
+                        });
+                    })
+                );
+
+                await RidePublish.findByIdAndUpdate(ride._id, {
+                    'notifications.notifiedArrival': true,
+                });
+            }));
+
+        } catch (error) {
+            logger.error(`Arrival notification cron failed: ${error}`);
+        }
+    });
+
+    // Cron 6 — auto-complete: cross the estimatedArrivalTime
+    cron.schedule('* * * * *', async () => {
+        try {
+            const now = new Date();
+
+            const rides = await RidePublish.find({
+                tripStatus: TRIP_STATUS.ONGOING,
+                estimatedArrivalTime: { $lte: now },
+            }).select('_id tripId').lean();
+
+            await Promise.all(
+                rides.map((ride) => completeRide((ride._id as string).toString()))
+            );
+
         } catch (error) {
             logger.error(`Auto-complete cron failed: ${error}`);
         }
     });
 
-    logger.info('Ride crons initialized');
+    logger.info('Ride crons initialized ✅');
 };
+
+
+/*
+// Frontend
+const payload = {
+    departureDate: '2026-03-17',
+    departureTimeString: '08:30 AM',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // ✅ Auto detect
+    // → 'Asia/Amman' or 'Asia/Dhaka' or 'America/New_York'
+}
+
+const departureDateTime = moment.tz(
+    `${payload.departureDate} ${payload.departureTimeString}`,
+    'YYYY-MM-DD hh:mm A',
+    payload.timezone // 'Asia/Amman'
+).utc().toDate();
+
+*/

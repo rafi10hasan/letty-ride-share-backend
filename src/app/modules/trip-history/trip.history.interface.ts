@@ -14,7 +14,7 @@ export interface ITripHistory extends Document {
         coordinates: [number, number];
     };
     departureDateTime: Date;
-    totalDistance: number;
+    totalDistance: string;
     price: number;
     totalSeats: number;
     totalSeatBooked: number;

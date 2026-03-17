@@ -1,4 +1,4 @@
-import { model, Schema } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 import { BOOKING_STATUS } from "./booking.constant";
 import { IBooking } from "./booking.interface";
 
@@ -22,13 +22,15 @@ const locationSchema = {
   },
 };
 
+// booking schema
 const bookingSchema = new Schema<IBooking>(
   {
     ride: {
       type: Schema.Types.ObjectId,
-      ref: 'Ride',
+      ref: 'RidePublish',
       required: [true, 'Ride is required'],
     },
+    tripHistory: { type: Schema.Types.ObjectId, ref: 'TripHistory' },
     passenger: {
       type: Schema.Types.ObjectId,
       ref: 'Passenger',
@@ -74,4 +76,4 @@ bookingSchema.index({ expireAt: 1 }, { expireAfterSeconds: 0 });
 bookingSchema.index({ ride: 1, status: 1 });
 bookingSchema.index({ passenger: 1, status: 1 });
 
-export const Booking = model<IBooking>('Booking', bookingSchema);
+export const Booking = mongoose.model<IBooking>('Booking', bookingSchema);

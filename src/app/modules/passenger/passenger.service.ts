@@ -1,12 +1,16 @@
+import moment from 'moment';
 import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
+import { BOOKING_STATUS } from '../booking/booking.constant';
+import { Booking } from '../booking/booking.model';
+import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
+import { IRidePublish } from '../ride-publish/ride.publish.interface';
 import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
 import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
-import { BOOKING_STATUS } from '../booking/booking.constant';
-import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
-import { Booking } from '../booking/booking.model';
+import { ITripHistory } from '../trip-history/trip.history.interface';
+
 
 
 // create passenger profile
@@ -92,14 +96,12 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
 
 
 //
-
 const getPassengerProfile = async (user: IUser) => {
   const passenger = await passengerRepository.findPassengerByUserId(user._id, "fullName phone");
   if (!passenger) {
     throw new NotFoundError('passenger profile not found');
   }
   return {
-
     fullName: passenger.fullName,
     email: passenger.email,
     avatar: passenger.avatar,
@@ -108,52 +110,120 @@ const getPassengerProfile = async (user: IUser) => {
     dateOfBirth: passenger.dateOfBirth,
     languages: passenger.languages,
   };
-
 }
 
+// passenger  - upcoming rides
+const getPassengerUpcomingRides = async (user: IUser) => {
+  const passenger = await passengerRepository.findPassengerByUserId(user._id);
+  if (!passenger) throw new NotFoundError('Passenger profile not found');
 
-// const getPassengerUpcomingRides = async (passengerId: string) => {
-//     const passenger = await passengerRepository.findPassengerByUserId(passengerId);
-//     if (!passenger) throw new NotFoundError('Passenger profile not found');
+  const bookings = await Booking.find({
+    passenger: passenger._id,
+    status: BOOKING_STATUS.ACCEPTED,
+  }).populate<{ ride: IRidePublish }>({
+    path: 'ride',
+    match: { tripStatus: TRIP_STATUS.UPCOMING },
+    select: 'tripId tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+  });
 
-//     const bookings = await Booking.find({
-//         passenger: passenger._id,
-//         status: BOOKING_STATUS.ACCEPTED,
-//     }).populate({
-//         path: 'ride',
-//         match: { tripStatus: TRIP_STATUS.UPCOMING },
-//     });
+  return bookings
+    .filter((b) => b.ride !== null)
+    .map((b) => {
+      const ride = b.ride;
+      return {
+        tripId: ride.tripId,
+        tripStatus: ride.tripStatus,
+        departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
+        departureTimeString: ride.departureTimeString,
+        pickUpLocation: ride.pickUpLocation.address,
+        dropOffLocation: ride.dropOffLocation.address,
+        price: ride.price,
+        totalDistance: ride.totalDistance,
+        totalSeatBooked: ride.totalSeatBooked,
+      };
+    });
+};
 
-//     return bookings
-//         .filter((b) => b.ride !== null)
-//         .map((b) => b.ride);
-// };
+// Passenger — Ongoing rides
+export const getPassengerOngoingRide = async (user: IUser) => {
+  const passenger = await passengerRepository.findPassengerByUserId(user._id);
+  if (!passenger) throw new NotFoundError('Passenger profile not found');
 
-// // Passenger — Ongoing rides
-// export const getPassengerOngoingRide = async (passengerId: string) => {
-//     const passenger = await passengerRepository.findPassengerByUserId(passengerId);
-//     if (!passenger) throw new NotFoundError('Passenger profile not found');
+  const bookings = await Booking.find({
+    passenger: passenger._id,
+    status: BOOKING_STATUS.ACCEPTED,
+  }).populate<{ ride: IRidePublish }>({
+    path: 'ride',
+    match: { tripStatus: TRIP_STATUS.ONGOING },
+    select: 'tripId tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+  });
 
-//     const booking = await Booking.findOne({
-//         passenger: passenger._id,
-//         status: BOOKING_STATUS.ACCEPTED,
-//     }).populate({
-//         path: 'ride',
-//         match: { tripStatus: TRIP_STATUS.ONGOING },
-//     });
+  return bookings
+    .filter((b) => b.ride !== null)
+    .map((b) => {
+      const ride = b.ride;
+      return {
+        tripId: ride.tripId,
+        tripStatus: ride.tripStatus,
+        departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
+        departureTimeString: ride.departureTimeString,
+        pickUpLocation: ride.pickUpLocation.address,
+        dropOffLocation: ride.dropOffLocation.address,
+        price: ride.price,
+        totalDistance: ride.totalDistance,
+        totalSeatBooked: ride.totalSeatBooked,
+      };
+    });
+};
 
-//     return booking?.ride ?? null;
-// };
+// Passenger — Completed rides (TripHistory)
+const getPassengerCompletedRides = async (user: IUser) => {
+  const passenger = await passengerRepository.findPassengerByUserId(user._id);
+  if (!passenger) throw new NotFoundError('Passenger profile not found');
 
-// // Passenger — Completed rides (TripHistory)
-// export const getPassengerCompletedRides = async (passengerId: string) => {
-//     const passenger = await passengerRepository.findPassengerByUserId(passengerId);
-//     if (!passenger) throw new NotFoundError('Passenger profile not found');
+  const bookings = await Booking.find({
+    passenger: passenger._id,
+    status: BOOKING_STATUS.COMPLETED,
+  }).populate({
+    path: 'tripHistory',
+    select: 'tripId pickUpLocation dropOffLocation departureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
+    populate: {
+      path: 'driver',
+      select: 'fullName avatar avgRating totalReviews',
+    },
+  });
 
-//     return await TripHistory.find({
-//         'passengers.passenger': passenger._id,
-//     }).sort({ completedAt: -1 });
-// };
+  return bookings.map((b) => {
+    const trip = b.tripHistory as unknown as ITripHistory & {
+      driver: {
+        fullName: string;
+        avatar: string;
+        avgRating: number;
+        totalReviews: number;
+      };
+    };
+
+    return {
+      bookingId: b._id,
+      seatsBooked: b.seatsBooked,
+      totalPrice: (trip.price / trip.totalSeatBooked) * b.seatsBooked,
+      tripId: trip.tripId,
+      departureDateTime: trip.departureDateTime,
+      pickUpLocation: trip.pickUpLocation.address,
+      dropOffLocation: trip.dropOffLocation.address,
+      totalDistance: trip.totalDistance,
+      price: trip.price,
+      totalSeats: trip.totalSeats,
+      totalSeatBooked: trip.totalSeatBooked,
+      startedAt: trip.startedAt,
+      completedAt: trip.completedAt,
+      driverName: trip.driver.fullName,
+      driverAvatar: trip.driver.avatar,
+      driverRating: trip.driver.avgRating,
+      driverTotalReviews: trip.driver.totalReviews,
+    };
+  });
+};
 
 
 export const passengerService = {
@@ -161,6 +231,6 @@ export const passengerService = {
   updatePassengerProfile,
   getPassengerProfile,
   getPassengerUpcomingRides,
-  getPassengerOngoingRides,
-  getPassengerCompletedRides
+  getPassengerOngoingRide,
+  getPassengerCompletedRides,
 };

@@ -10,7 +10,7 @@ import logger from '../config/logger';
 import { notifyUser } from '../cron/rideCron';
 
 
-
+// complete ride
 export const completeRide = async (rideId: string) => {
     const ride = await RidePublish.findById(rideId).populate<{ driver: IPopulatedDriver }>({
         path: 'driver',
@@ -23,7 +23,6 @@ export const completeRide = async (rideId: string) => {
         return;
     }
 
-    // 1. Accepted bookings আনো
     const bookings = await Booking.find({
         ride: ride._id,
         status: BOOKING_STATUS.ACCEPTED,
@@ -33,15 +32,13 @@ export const completeRide = async (rideId: string) => {
         populate: { path: 'user', select: 'fcmToken _id' },
     });
 
-    // 2. Transaction
     const session = await mongoose.startSession();
     session.startTransaction();
 
     const now = new Date();
 
     try {
-        // 3. TripHistory তে save
-        await TripHistory.create(
+       const tripHistory = await TripHistory.create(
             [
                 {
                     tripId: ride.tripId,
@@ -60,13 +57,22 @@ export const completeRide = async (rideId: string) => {
                     totalSeats: ride.totalSeats,
                     totalSeatBooked: ride.totalSeatBooked,
                     startedAt: ride.startedAt,
-                    completedAt: now
+                    completedAt: now,
                 },
             ],
             { session }
         );
 
-        // 5. RidePublish delete
+        await Booking.updateMany(
+            { ride: ride._id },
+            {
+                status: BOOKING_STATUS.COMPLETED,
+                tripHistory: tripHistory[0]._id, 
+                ride: null,
+            },
+            { session }
+        );
+
         await RidePublish.findByIdAndDelete(ride._id, { session });
 
         await session.commitTransaction();
@@ -79,26 +85,25 @@ export const completeRide = async (rideId: string) => {
         await session.endSession();
     }
 
-    // 6. Notify — transaction এর বাইরে
-    await notifyUser({
-        userId: ride.driver.user._id.toString(),
-        fcmToken: ride.driver.user.fcmToken,
-        title: 'Ride Completed',
-        message: `Your ride ${ride.tripId} has been completed.`,
-        socketEvent: 'ride-completed',
-        notificationType: NOTIFICATION_TYPE.RIDE_COMPLETED,
-    });
-
-    for (const booking of bookings) {
-        const { _id: passengerId, fcmToken } = booking.passenger.user;
-
-        await notifyUser({
-            userId: passengerId.toString(),
-            fcmToken,
+    Promise.all([
+        notifyUser({
+            userId: ride.driver.user._id.toString(),
+            fcmToken: ride.driver.user.fcmToken,
             title: 'Ride Completed',
-            message: `Your ride ${ride.tripId} has been completed. If you faced any problem please submit a report.`,
+            message: `Your ride ${ride.tripId} has been completed.`,
             socketEvent: 'ride-completed',
             notificationType: NOTIFICATION_TYPE.RIDE_COMPLETED,
-        });
-    }
+        }),
+        ...bookings.map((booking) => {
+            const { _id: passengerId, fcmToken } = booking.passenger.user;
+            return notifyUser({
+                userId: passengerId.toString(),
+                fcmToken,
+                title: 'Ride Completed',
+                message: `Your ride ${ride.tripId} has been completed. If you faced any problem please submit a report.`,
+                socketEvent: 'ride-completed',
+                notificationType: NOTIFICATION_TYPE.RIDE_COMPLETED,
+            });
+        }),
+    ]).catch((error) => logger.error(`Notify failed for ride ${ride.tripId}: ${error}`));
 };

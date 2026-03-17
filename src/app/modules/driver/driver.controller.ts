@@ -73,11 +73,22 @@ const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Respons
   });
 });
 
+
+const getMyAlPassengerDetailsByRideId = asyncHandler(async (req: Request, res: Response) => {
+  const { rideId } = req.params;
+  const result = await driverService.retrievedPassengerDetails(req.user, rideId);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: result.length > 0 ? 'passenger details have been retrieved successfully' : 'no passenger details found',
+    data: result,
+  });
+});
+
 // publish ride into db
 
 
 const getUpcomingRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const { rideId } = req.params;
     const result = await driverService.getDriverUpcomingRides(req.user);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
@@ -89,7 +100,6 @@ const getUpcomingRideIntoDb = asyncHandler(async (req: Request, res: Response) =
 
 
 const getOngoingRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const { rideId } = req.params;
     const result = await driverService.getDriverOngoingRides(req.user);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
@@ -101,7 +111,6 @@ const getOngoingRideIntoDb = asyncHandler(async (req: Request, res: Response) =>
 
 
 const getCompletedRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const { rideId } = req.params;
     const result = await driverService.getDriverCompletedRides(req.user);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
@@ -118,6 +127,7 @@ export const driverController = {
   updateDriverProfileIntoDb,
   updateDriverCarInfoIntoDb,
   getMySpecificRideRequests,
+  getMyAlPassengerDetailsByRideId,
   getDriverCarInfoIntoDb,
   getDriverProfileIntoDb,
   getUpcomingRideIntoDb,

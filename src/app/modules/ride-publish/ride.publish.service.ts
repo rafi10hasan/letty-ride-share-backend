@@ -1,4 +1,5 @@
-import moment from "moment";
+
+import moment from 'moment-timezone';
 import { Types } from "mongoose";
 import logger from "../../../config/logger";
 import { completeRide } from "../../../helpers/completeRide";
@@ -41,6 +42,7 @@ const TRIP_DURATION_BUFFER_MINUTES = 180;
 const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
     const driver = await driverRepository.findDriverByUserId(user._id);
 
+    console.log({ payload })
     if (!driver) {
         throw new NotFoundError('Driver profile not found');
     }
@@ -89,6 +91,16 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
         );
     }
 
+    const departureDateString = new Date(payload.departureDate)
+        .toISOString()
+        .split('T')[0];
+
+    const departureDateTime = moment.tz(
+        `${departureDateString} ${payload.departureTimeString}`,
+        'YYYY-MM-DD hh:mm A',
+        payload.timezone // 'Asia/Amman'
+    ).utc().toDate();
+
     // 3. Create ride with retry for tripId uniqueness
     const MAX_RETRIES = 3;
 
@@ -111,6 +123,7 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
                 totalSeats: payload.totalSeats,
                 availableSeats: payload.totalSeats,
                 price: payload.price,
+                departureDateTime: departureDateTime,
             });
 
             return {
@@ -195,14 +208,30 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
         throw new BadRequestError('Only pending rides can be updated');
     }
 
+    if (payload.minimumPassenger && payload.minimumPassenger > ride.totalSeats) {
+        throw new BadRequestError('Minimum passenger cannot exceed total seats');
+    }
+
+
+    let updateData: Record<string, any> = {};
+
+    if (payload.minimumPassenger !== undefined) {
+        updateData.minimumPassenger = payload.minimumPassenger;
+        if (ride.totalSeatBooked >= payload.minimumPassenger) {
+            updateData.tripStatus = TRIP_STATUS.UPCOMING;
+        }
+    }
+
     const updatedRide = await RidePublish.findByIdAndUpdate(
         rideId,
-        payload,
+        updateData,
         { new: true }
     );
 
     return updatedRide;
 };
+
+
 
 // search available rides
 const searchAvailableRides = async (payload: TSearchTripPayload) => {
@@ -332,8 +361,8 @@ const confirmRide = async (user: IUser, rideId: string) => {
     if (ride.tripStatus !== TRIP_STATUS.PENDING) {
         throw new BadRequestError(`Ride is already ${ride.tripStatus}`);
     }
-    
-    if(ride.totalSeatBooked < 1){
+
+    if (ride.totalSeatBooked < 1) {
         throw new BadRequestError(`you have atleast one passenger to confirm it`)
     }
 
@@ -358,7 +387,7 @@ const confirmRide = async (user: IUser, rideId: string) => {
             });
 
             for (const booking of acceptedBookings) {
-               
+
                 const fcmToken = booking.passenger.user.fcmToken;
                 if (fcmToken) {
                     try {

@@ -15,7 +15,7 @@ const TripHistorySchema = new Schema<ITripHistory>(
             coordinates: { type: [Number], index: '2dsphere' },
         },
         departureDateTime: { type: Date },
-        totalDistance: { type: Number },
+        totalDistance: { type: String },
         price: { type: Number },
         totalSeats: { type: Number },
         totalSeatBooked: { type: Number },

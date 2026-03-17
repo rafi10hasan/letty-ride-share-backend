@@ -43,6 +43,7 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
         },
         departureDateTime: {
             type: Date,
+            required: [true, 'Departure date and time is required'],
         },
         tripId: {
             type: String,
@@ -161,15 +162,6 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
     },
 );
 
-ridePublishSchema.pre('save', function (this: IRidePublish, next) {
-    if (this.isModified('departureDate') || this.isModified('departureTimeMinutes')) {
-        const date = new Date(this.departureDate);
-        date.setUTCHours(0, 0, 0, 0);
-        date.setUTCMinutes(this.departureTimeMinutes);
-        this.departureDateTime = date;
-    }
-    next();
-});
 
 ridePublishSchema.index({ "pickUpLocation": "2dsphere" })
 ridePublishSchema.index({ "dropOffLocation": "2dsphere" })

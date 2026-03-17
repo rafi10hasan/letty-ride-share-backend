@@ -10,6 +10,7 @@ interface ILocation {
 
 export interface IBooking {
     ride: Types.ObjectId;
+    tripHistory: Types.ObjectId;
     passenger: Types.ObjectId;
     passengerInfo: { profileImg: string; name: string };
     seatsBooked: number;

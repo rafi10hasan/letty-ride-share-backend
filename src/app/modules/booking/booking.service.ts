@@ -173,7 +173,8 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
                 select: "fcmToken _id"
             }
         });
-
+    
+    console.log({booking})
     if (!booking) {
         throw new NotFoundError('request not found');
     }
@@ -229,6 +230,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 
     } catch (error) {
         await session.abortTransaction();
+        console.log(error)
         throw error;
     } finally {
         session.endSession();

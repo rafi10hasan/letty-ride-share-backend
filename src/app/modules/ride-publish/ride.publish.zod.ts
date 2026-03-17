@@ -66,6 +66,14 @@ const createTripSchema = z.object({
         }
     }).min(0),
 
+    timezone: z.string({
+        error: (issue) => {
+            if (issue.input === undefined) return { message: 'Timezone is required' };
+            if (typeof issue.input !== 'string') return { message: 'Timezone must be a string' };
+            return { message: 'Invalid timezone' };
+        },
+    })
+
 })
 
 // update trip schema

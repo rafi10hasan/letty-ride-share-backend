@@ -81,4 +81,11 @@ driverRouter.get(
   driverController.getMySpecificRideRequests,
 );
 
+
+driverRouter.get(
+  '/get-passenger-details/:rideId',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getMyAlPassengerDetailsByRideId,
+);
+
 export default driverRouter;
