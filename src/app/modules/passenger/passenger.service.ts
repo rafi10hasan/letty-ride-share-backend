@@ -189,13 +189,14 @@ const getPassengerCompletedRides = async (user: IUser) => {
     select: 'tripId pickUpLocation dropOffLocation departureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
     populate: {
       path: 'driver',
-      select: 'fullName avatar avgRating totalReviews',
+      select: '_id fullName avatar avgRating totalReviews',
     },
-  });
+  }).sort({createdAt: -1});
 
   return bookings.map((b) => {
     const trip = b.tripHistory as unknown as ITripHistory & {
       driver: {
+        _id: string;
         fullName: string;
         avatar: string;
         avgRating: number;
@@ -205,6 +206,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
 
     return {
       bookingId: b._id,
+      driverId: trip.driver._id,
       seatsBooked: b.seatsBooked,
       totalPrice: (trip.price / trip.totalSeatBooked) * b.seatsBooked,
       tripId: trip.tripId,

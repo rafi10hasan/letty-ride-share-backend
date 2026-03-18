@@ -139,7 +139,7 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
 };
 
 // verify account by otp
-const verifyAccountByOtp = async (email: string, otp: string) => {
+const verifyAccountByOtp = async (email: string, otp: string, fcmToken?: string) => {
   console.log({ email });
   // const user = await Auth.findOne({ email: userEmail });
   const user = await userRepository.findByEmail(email);
@@ -165,10 +165,13 @@ const verifyAccountByOtp = async (email: string, otp: string) => {
     throw new BadRequestError('OTP has expired. Please request a fresh Otp!');
   }
 
+
+  console.log("fcmToken",fcmToken)
   // Mark user as verified
   user.isEmailVerified = true;
   user.verificationOtp = undefined;
   user.verificationOtpExpiry = undefined;
+  user.fcmToken = fcmToken;
   await user.save();
 
   const JwtPayload: jwtPayload = {

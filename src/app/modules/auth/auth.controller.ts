@@ -29,8 +29,8 @@ const loginWithOAuth = asyncHandler(async (req: Request, res: Response) => {
 
 // verify email by otp
 const verifyEmailByOtp = asyncHandler(async (req: Request, res: Response) => {
-  const { email, otp } = req.body;
-  const result = await userAuthService.verifyAccountByOtp(email, otp);
+  const { email, otp, fcmToken } = req.body;
+  const result = await userAuthService.verifyAccountByOtp(email, otp, fcmToken);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

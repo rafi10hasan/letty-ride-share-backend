@@ -56,6 +56,20 @@ const verifyEmailByOtpSchema = z.object({
     },
   }),
   otp: z.string().regex(/^\d{6}$/, { message: 'OTP must be exactly 6 digits' }),
+  fcmToken: z.string({
+    error: (issue) => {
+      switch (true) {
+        case issue.input === undefined:
+          return 'fcm token is required';
+        case issue.input === null:
+          return 'fcm token can not be null';
+        case typeof issue.input !== 'string':
+          return 'fcm token must be string';
+        default:
+          return 'Please provide a valid fcm token';
+      }
+    },
+  }).optional(),
 });
 
 // Schema for resending verification OTP

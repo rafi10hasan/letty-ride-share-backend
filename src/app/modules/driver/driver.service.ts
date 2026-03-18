@@ -281,33 +281,53 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
 // get passenger details by rideId
 const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
+  if (!driver) throw new NotFoundError('Driver not found');
 
-  if (!driver) {
-    throw new NotFoundError('driver not found');
-  }
+  const ride = await RidePublish.findById(rideId).select('driver');
 
-  const ride = await RidePublish.findById(rideId).select("driver");
-  if (!ride) {
-    throw new NotFoundError('ride not found');
-  }
+  if (ride) {
+    // Ongoing/Upcoming ride
+    if (ride.driver.toString() !== driver._id.toString()) {
+      throw new UnauthorizedError('This ride is not yours');
+    }
 
-  if (ride.driver.toString() !== driver._id.toString()) {
-    throw new UnauthorizedError('This ride is not yours');
-  }
+    const passengers = await Booking.find({
+      ride: rideId,
+      status: BOOKING_STATUS.ACCEPTED,
+    }).sort({ createdAt: -1 });
 
-  const passengers = await Booking.find({ ride: rideId, status: BOOKING_STATUS.ACCEPTED }).sort({ createdAt: -1 });
-
-  const sanitizedPassenger = passengers.map((passenger) => {
-    return {
+    return passengers.map((passenger) => ({
       bookingId: passenger._id,
       name: passenger.passengerInfo.name,
       profileImage: passenger.passengerInfo.profileImg,
       pickUpAddress: passenger.pickUpLocation.address,
       dropOffAddress: passenger.dropOffLocation.address,
       seatBooked: passenger.seatsBooked,
-    }
-  });
-  return sanitizedPassenger;
+    }));
+  }
+
+  const tripHistory = await TripHistory.findById(rideId).select('driver');
+
+  if (!tripHistory) throw new NotFoundError('Ride not found');
+
+  if (tripHistory.driver.toString() !== driver._id.toString()) {
+    throw new UnauthorizedError('This ride is not yours');
+  }
+
+  const passengers = await Booking.find({
+    tripHistory: tripHistory._id,
+    status: BOOKING_STATUS.COMPLETED,
+  }).sort({ createdAt: -1 });
+
+  return passengers.map((passenger) => ({
+    bookingId: passenger._id,
+    passengerId: passenger.passenger,
+    name: passenger.passengerInfo.name,
+    profileImage: passenger.passengerInfo.profileImg,
+    pickUpAddress: passenger.pickUpLocation.address,
+    dropOffAddress: passenger.dropOffLocation.address,
+    seatBooked: passenger.seatsBooked,
+  }));
 };
 
 
@@ -379,9 +399,23 @@ const getDriverCompletedRides = async (user: IUser) => {
   const driver = await driverRepository.findDriverByUserId(user._id, "_id");
   if (!driver) throw new NotFoundError('Driver profile not found');
 
-  return await TripHistory.find({
+  const completedRides = await TripHistory.find({
     driver: driver._id,
-  }).sort({ completedAt: -1 });
+  }).populate('driver', '_id');
+
+  const sanitizedCompleteRides = completedRides.map((trip) => {
+    return {
+      tripId: trip.tripId,
+      rideId: trip.ride,
+      departureDateTime: moment(trip.departureDateTime).format('YYYY-MM-DD'),
+      pickUpLocation: trip.pickUpLocation.address,
+      dropOffLocation: trip.dropOffLocation.address,
+      price: trip.price,
+      totalDistance: trip.totalDistance,
+      totalSeatBooked: trip.totalSeatBooked
+    }
+  });
+  return sanitizedCompleteRides;
 };
 
 

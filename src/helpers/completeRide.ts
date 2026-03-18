@@ -42,6 +42,7 @@ export const completeRide = async (rideId: string) => {
             [
                 {
                     tripId: ride.tripId,
+                    ride: ride._id,
                     driver: ride.driver._id,
                     pickUpLocation: {
                         address: ride.pickUpLocation.address,

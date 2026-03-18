@@ -3,6 +3,7 @@
 import { Document, Types } from 'mongoose';
 
 export interface ITripHistory extends Document {
+    ride: Types.ObjectId;
     tripId: string;
     driver: Types.ObjectId;
     pickUpLocation: {
