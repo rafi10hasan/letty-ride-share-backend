@@ -81,7 +81,6 @@ export const userSchema = new mongoose.Schema<IUser>(
     },
     accountId: {
       type: String,
-      unique: true
     },
     isEmailVerified: {
       type: Boolean,
@@ -245,7 +244,6 @@ userSchema.set('toJSON', {
 
 userSchema.index({ "accountId": 1 })
 userSchema.index({ "email": 1 })
-userSchema.index({ "phone": 1 })
 userSchema.index({ "fullName": 1 })
 userSchema.index({ "subscription.currentPlan": 1 })
 
