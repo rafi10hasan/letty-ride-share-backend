@@ -8,7 +8,6 @@ import { TSearchTripPayload } from "./ride.publish.zod";
 
 // publish ride into db
 const publishRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    console.log(req.body)
     const result = await ridePublishService.publishRide(req.user, req.body);
     sendResponse(res, {
         statusCode: StatusCodes.CREATED,

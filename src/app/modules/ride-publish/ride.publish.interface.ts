@@ -25,6 +25,7 @@ export interface IRidePublish extends Document {
     totalSeats: number;
     totalSeatBooked: number;
     cancellationReason?: string;
+    timezone:string;
     notifications: {
         notified24h: boolean;
         notified1h: boolean;
@@ -35,7 +36,7 @@ export interface IRidePublish extends Document {
     availableSeats: number;
     requestsCount: number;
     remainingDistanceMeters: number;
-    estimatedArrivalTime: number;
+    estimatedArrivalTime: Date;
     lastDriverLocation: [number, number];
     startedAt: Date;
     completedAt: Date;

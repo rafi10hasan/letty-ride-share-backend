@@ -35,6 +35,6 @@ const ratingSchema = new Schema({
 );
 
 
-ratingSchema.index({ trip: 1, giverId: 1 }, { unique: true });
+ratingSchema.index({ trip: 1, giverId: 1,  receiverId:1 }, { unique: true });
 
 export const Rating = mongoose.model('Rating', ratingSchema);

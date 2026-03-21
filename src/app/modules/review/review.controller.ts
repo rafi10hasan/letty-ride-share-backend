@@ -4,18 +4,17 @@ import sendResponse from "../../../shared/sendResponse";
 import { reviewService } from "./review.service";
 
 
-
-const createReview = asyncHandler(async (req: Request, res: Response) => {
-    const result = await reviewService.createReview(req.user, req.body);
-
+const sendReviewToUser = asyncHandler(async (req: Request, res: Response) => {
+    const {tripId} = req.params;
+    const result = await reviewService.createReview(req.user, tripId, req.body);
     sendResponse(res, {
         statusCode: 201,
         success: true,
-        message: 'Review created successfully',
+        message: 'Review added successfully',
         data: result,
     });
 });
 
 export const reviewController = {
-    createReview
+    sendReviewToUser
 };

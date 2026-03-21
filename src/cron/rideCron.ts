@@ -68,7 +68,7 @@ export const initializeRideCrons = () => {
             });
 
             if (result.deletedCount > 0) {
-                console.log(`[Success] ${result.deletedCount}টি রাইড ডিলিট হয়েছে।`);
+                console.log(`[Success] ${result.deletedCount}`);
             }
         } catch (error) {
             console.error('Error:', error);

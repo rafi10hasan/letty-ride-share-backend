@@ -134,9 +134,8 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             default: 0
         },
         estimatedArrivalTime: {
-            type: Number,
+            type: Date,
         },
-
         lastDriverLocation: {
             type: [Number],
 
