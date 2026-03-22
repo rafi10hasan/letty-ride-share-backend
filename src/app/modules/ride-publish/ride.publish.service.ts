@@ -17,7 +17,7 @@ import RidePublish from './ride.publish.model';
 import { generateTripId, timeStringToMinutes } from './ride.publish.utils';
 import { TCreateTripPayload, TSearchTripPayload, TUpdateTripPayload } from './ride.publish.zod';
 
-import { buildDepartureDateTime, buildEstimatedArrivalTime, buildEstimatedDuration, sanitizeDepartureDate } from '../../../helpers/ride.helper';
+import { buildDepartureDateTime, buildEstimatedArrivalTime, sanitizeDepartureDate } from '../../../helpers/ride.helper';
 
 interface IPopulatedDriver {
   _id: Types.ObjectId;
@@ -46,15 +46,10 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
     throw new NotFoundError('Driver profile not found');
   }
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  if (new Date(payload.departureDate) < today) {
-    throw new BadRequestError('Departure date cannot be in the past');
-  }
+  console.log(new Date(payload.departureDate));
 
   if (payload.minimumPassenger > payload.totalSeats) {
-    throw new BadRequestError('Minimum passenger cannot exceed total seats');
+    throw new BadRequestError('Minimum passenger can not exceed total seats');
   }
 
   if (payload.price <= 0) {
@@ -89,54 +84,68 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
     );
   }
 
-
   const departureDate = sanitizeDepartureDate(payload.departureDate);
   const departureDateTime = buildDepartureDateTime(payload.departureDate, payload.departureTimeString, payload.timezone);
 
-  const { etaSeconds } = await getETAFromGoogleMaps(payload.pickUpLocation.coordinates, payload.dropOffLocation.coordinates);
-  console.log(etaSeconds)
-  const estimatedArrivalTime = buildEstimatedArrivalTime(departureDateTime, etaSeconds);
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
+  if (departureDate < today) {
+    throw new BadRequestError('Departure date can not be in the past');
+  }
+ 
+  const isToday = departureDate.getTime() === today.getTime();
+ 
+  if (isToday) {
+    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+    if (departureDateTime < oneHourFromNow) {
+      throw new BadRequestError('Departure time must be at least 1 hour from now');
+    }
+  }
+
+  const { etaSeconds } = await getETAFromGoogleMaps(payload.pickUpLocation.coordinates, payload.dropOffLocation.coordinates);
+  
+  const estimatedArrivalTime = buildEstimatedArrivalTime(departureDateTime, etaSeconds);
 
   const MAX_RETRIES = 3;
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const tripId = await generateTripId();
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        const tripId = await generateTripId();
 
-      const ride = await RidePublish.create({
-        driver: driver._id,
-        status: PUBLISH_STATUS.ACTIVE,
-        tripId,
-        departureDate,
-        departureTimeMinutes: departureTimeInMinutes,
-        departureTimeString: payload.departureTimeString,
-        isLadiesOnly: payload.isLadiesOnly,
-        pickUpLocation: payload.pickUpLocation,
-        dropOffLocation: payload.dropOffLocation,
-        totalDistance: payload.totalDistance,
-        minimumPassenger: payload.minimumPassenger,
-        totalSeats: payload.totalSeats,
-        availableSeats: payload.totalSeats,
-        price: payload.price,
-        estimatedArrivalTime,
-        departureDateTime,
-      });
+        const ride = await RidePublish.create({
+          driver: driver._id,
+          status: PUBLISH_STATUS.ACTIVE,
+          tripId,
+          departureDate,
+          departureTimeMinutes: departureTimeInMinutes,
+          departureTimeString: payload.departureTimeString,
+          isLadiesOnly: payload.isLadiesOnly,
+          pickUpLocation: payload.pickUpLocation,
+          dropOffLocation: payload.dropOffLocation,
+          totalDistance: payload.totalDistance,
+          minimumPassenger: payload.minimumPassenger,
+          totalSeats: payload.totalSeats,
+          availableSeats: payload.totalSeats,
+          price: payload.price,
+          estimatedArrivalTime,
+          departureDateTime,
+        });
 
-      return {
-        departureDate: ride.departureDate,
-        tripId: ride.tripId,
-        rideId: ride._id,
-        pickUpAddress: ride.pickUpLocation.address,
-        dropOffAddress: ride.dropOffLocation.address,
-      };
-    } catch (error: any) {
-      if (error?.code === 11000 && error?.keyPattern?.tripId && attempt < MAX_RETRIES) {
-        continue;
+        return {
+          departureDate: ride.departureDate,
+          tripId: ride.tripId,
+          rideId: ride._id,
+          pickUpAddress: ride.pickUpLocation.address,
+          dropOffAddress: ride.dropOffLocation.address,
+        };
+      } catch (error: any) {
+        if (error?.code === 11000 && error?.keyPattern?.tripId && attempt < MAX_RETRIES) {
+          continue;
+        }
+        throw error;
       }
-      throw error;
     }
-  }
 
   throw new BadRequestError('Failed to generate unique trip ID. Try again later.');
 };

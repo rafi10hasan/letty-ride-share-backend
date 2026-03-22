@@ -16,7 +16,6 @@ const handleLocationEvents = async (io: IOServer, socket: Socket): Promise<void>
     // 1. Get previous cache before overwriting
     const previousCache = driverLocations.get(data.rideId) as { coordinates: [number, number]; updatedAt: Date } | undefined;
 
-    console.log({ previousCache });
 
     // 2. Update driver location in cache
     driverLocations.set(data.rideId, {
