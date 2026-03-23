@@ -36,7 +36,7 @@ const createReview = async (user: IUser, tripId: string, payload: any) => {
   const result = await Rating.create({
     trip: tripId,
     giverId: user._id,
-    receiverId,
+    receiverId: anotherUser?.user,
     stars,
     comment,
   });

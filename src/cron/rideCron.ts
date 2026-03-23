@@ -212,8 +212,7 @@ export const initializeRideCrons = () => {
     cron.schedule('* * * * *', async () => {
         try {
             const now = new Date();
-            const bufferTime = new Date(now.getTime() - 1 * 60 * 1000);
-            console.log({ bufferTime });
+            const bufferTime = new Date(now.getTime() - 15 * 60 * 1000);
             const rides = await RidePublish.find({
                 tripStatus: TRIP_STATUS.UPCOMING,
                 departureDateTime: { $lte: bufferTime },

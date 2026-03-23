@@ -18,6 +18,8 @@ import { generateTripId, timeStringToMinutes } from './ride.publish.utils';
 import { TCreateTripPayload, TSearchTripPayload, TUpdateTripPayload } from './ride.publish.zod';
 
 import { buildDepartureDateTime, buildEstimatedArrivalTime, sanitizeDepartureDate } from '../../../helpers/ride.helper';
+import { passengerRepository } from '../passenger/passenger.repository';
+import { notifyUser } from '../../../cron/rideCron';
 
 interface IPopulatedDriver {
   _id: Types.ObjectId;
@@ -45,8 +47,6 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   if (!driver) {
     throw new NotFoundError('Driver profile not found');
   }
-
-  console.log(new Date(payload.departureDate));
 
   if (payload.minimumPassenger > payload.totalSeats) {
     throw new BadRequestError('Minimum passenger can not exceed total seats');
@@ -93,9 +93,9 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   if (departureDate < today) {
     throw new BadRequestError('Departure date can not be in the past');
   }
- 
+
   const isToday = departureDate.getTime() === today.getTime();
- 
+
   if (isToday) {
     const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
     if (departureDateTime < oneHourFromNow) {
@@ -104,48 +104,48 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   }
 
   const { etaSeconds } = await getETAFromGoogleMaps(payload.pickUpLocation.coordinates, payload.dropOffLocation.coordinates);
-  
+
   const estimatedArrivalTime = buildEstimatedArrivalTime(departureDateTime, etaSeconds);
 
   const MAX_RETRIES = 3;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        const tripId = await generateTripId();
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const tripId = await generateTripId();
 
-        const ride = await RidePublish.create({
-          driver: driver._id,
-          status: PUBLISH_STATUS.ACTIVE,
-          tripId,
-          departureDate,
-          departureTimeMinutes: departureTimeInMinutes,
-          departureTimeString: payload.departureTimeString,
-          isLadiesOnly: payload.isLadiesOnly,
-          pickUpLocation: payload.pickUpLocation,
-          dropOffLocation: payload.dropOffLocation,
-          totalDistance: payload.totalDistance,
-          minimumPassenger: payload.minimumPassenger,
-          totalSeats: payload.totalSeats,
-          availableSeats: payload.totalSeats,
-          price: payload.price,
-          estimatedArrivalTime,
-          departureDateTime,
-        });
+      const ride = await RidePublish.create({
+        driver: driver._id,
+        status: PUBLISH_STATUS.ACTIVE,
+        tripId,
+        departureDate,
+        departureTimeMinutes: departureTimeInMinutes,
+        departureTimeString: payload.departureTimeString,
+        isLadiesOnly: payload.isLadiesOnly,
+        pickUpLocation: payload.pickUpLocation,
+        dropOffLocation: payload.dropOffLocation,
+        totalDistance: payload.totalDistance,
+        minimumPassenger: payload.minimumPassenger,
+        totalSeats: payload.totalSeats,
+        availableSeats: payload.totalSeats,
+        price: payload.price,
+        estimatedArrivalTime,
+        departureDateTime,
+      });
 
-        return {
-          departureDate: ride.departureDate,
-          tripId: ride.tripId,
-          rideId: ride._id,
-          pickUpAddress: ride.pickUpLocation.address,
-          dropOffAddress: ride.dropOffLocation.address,
-        };
-      } catch (error: any) {
-        if (error?.code === 11000 && error?.keyPattern?.tripId && attempt < MAX_RETRIES) {
-          continue;
-        }
-        throw error;
+      return {
+        departureDate: ride.departureDate,
+        tripId: ride.tripId,
+        rideId: ride._id,
+        pickUpAddress: ride.pickUpLocation.address,
+        dropOffAddress: ride.dropOffLocation.address,
+      };
+    } catch (error: any) {
+      if (error?.code === 11000 && error?.keyPattern?.tripId && attempt < MAX_RETRIES) {
+        continue;
       }
+      throw error;
     }
+  }
 
   throw new BadRequestError('Failed to generate unique trip ID. Try again later.');
 };
@@ -230,8 +230,12 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 };
 
 // search available rides
-const searchAvailableRides = async (payload: TSearchTripPayload) => {
-  const { date, time, seats, pickUpLocation, dropOffLocation } = payload;
+const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
+  const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly } = payload;
+
+  if (seats <= 0) {
+    throw new BadRequestError('Seats must be at least 1');
+  }
 
   const dayFrom = new Date(date);
   dayFrom.setUTCHours(0, 0, 0, 0);
@@ -239,15 +243,43 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
   const dayTo = new Date(date);
   dayTo.setUTCHours(23, 59, 59, 999);
 
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  if (dayFrom < today) {
+    throw new BadRequestError('Search date cannot be in the past');
+  }
+
   const searchTimeMinutes = timeStringToMinutes(time);
   const timeMin = Math.max(0, searchTimeMinutes - 120);
   const timeMax = Math.min(1439, searchTimeMinutes + 120);
 
+  const isToday = dayFrom.getTime() === today.getTime();
+  const now = new Date();
+  const currentTimeMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+
+  if (isToday && searchTimeMinutes < currentTimeMinutes) {
+    throw new BadRequestError('Search time cannot be in the past');
+  }
+
+  const passenger = await passengerRepository.findPassengerByUserId(user._id);
+  const bookedRideIds = passenger
+    ? await Booking.find({
+        passenger: passenger._id,
+        status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+      }).distinct('ride')
+    : [];
+
+  const driver = await driverRepository.findDriverByUserId(user._id);
+
   const matchStage: Record<string, any> = {
-    status: 'active',
+    status: PUBLISH_STATUS.ACTIVE,
+    tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
     availableSeats: { $gte: seats },
     departureDate: { $gte: dayFrom, $lte: dayTo },
-    departureTimeMinutes: { $gte: timeMin, $lte: timeMax },
+    departureTimeMinutes: {
+      $gte: isToday ? Math.max(timeMin, currentTimeMinutes) : timeMin,
+      $lte: timeMax,
+    },
     pickUpLocation: {
       $geoWithin: {
         $centerSphere: [pickUpLocation.coordinates, 10 / 6378.1],
@@ -260,11 +292,22 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
     },
   };
 
-  const rides = await RidePublish.aggregate([
-    // 1. Filter rides
-    { $match: matchStage },
+  if (bookedRideIds.length > 0) {
+    matchStage._id = { $nin: bookedRideIds };
+  }
 
-    // 2. Join driver collection
+  if (driver) {
+    matchStage.driver = { $ne: driver._id };
+  }
+
+  if (isLadiesOnly) {
+    matchStage.isLadiesOnly = true;
+  } else {
+    matchStage.isLadiesOnly = { $ne: true };
+  }
+
+  const rides = await RidePublish.aggregate([
+    { $match: matchStage },
     {
       $lookup: {
         from: 'drivers',
@@ -274,8 +317,6 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
       },
     },
     { $unwind: '$driverData' },
-
-    // 3. Join user collection
     {
       $lookup: {
         from: 'users',
@@ -285,8 +326,6 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
       },
     },
     { $unwind: '$userData' },
-
-    // 4. Add plan priority field
     {
       $addFields: {
         driverInfo: {
@@ -308,8 +347,6 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
         },
       },
     },
-
-    // 5. Sort by plan → rating → reviews
     {
       $sort: {
         planPriority: -1,
@@ -317,11 +354,11 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
         'driverInfo.totalReviews': -1,
       },
     },
-
-    // 6. Return only required fields
     {
       $project: {
         _id: 1,
+        tripId: 1,
+        tripStatus: 1,
         driverInfo: 1,
         pickupAddress: '$pickUpLocation.address',
         dropOffAddress: '$dropOffLocation.address',
@@ -329,6 +366,9 @@ const searchAvailableRides = async (payload: TSearchTripPayload) => {
         departureTimeString: 1,
         price: 1,
         availableSeats: 1,
+        totalSeats: 1,
+        genderPreference: 1,
+        isLadiesOnly: 1,
       },
     },
   ]);
@@ -416,8 +456,8 @@ const startRide = async (user: IUser, rideId: string) => {
     throw new UnauthorizedError('This ride is not yours');
   }
 
-  if (ride.tripStatus !== TRIP_STATUS.PENDING) {
-    throw new BadRequestError(`Ride is already ${ride.tripStatus}`);
+  if (ride.tripStatus !== TRIP_STATUS.UPCOMING) {
+    throw new BadRequestError(`Ride cannot be started. Current status: ${ride.tripStatus}`);
   }
 
   if (ride.totalSeatBooked < ride.minimumPassenger) {
@@ -425,15 +465,13 @@ const startRide = async (user: IUser, rideId: string) => {
   }
 
   const now = new Date();
-  const departureDateTime = new Date(ride.departureDate);
-  departureDateTime.setUTCHours(0, 0, 0, 0);
-  departureDateTime.setUTCMinutes(ride.departureTimeMinutes);
 
-  if (now < departureDateTime) {
+  if (now < ride.departureDateTime) {
     throw new BadRequestError('Cannot start ride before departure time');
   }
 
-  const estimatedArrivalTime = new Date(ride.estimatedArrivalTime).toLocaleTimeString();
+  const { etaSeconds } = await getETAFromGoogleMaps(ride.pickUpLocation.coordinates, ride.dropOffLocation.coordinates);
+  const estimatedArrivalTime = new Date(now.getTime() + etaSeconds * 1000);
 
   const updatedRide = await RidePublish.findByIdAndUpdate(
     rideId,
@@ -445,58 +483,34 @@ const startRide = async (user: IUser, rideId: string) => {
     { new: true },
   );
 
-  // Notify accepted passengers in background
-  Promise.all([
-    (async () => {
-      const acceptedBookings = await Booking.find({
-        ride: rideId,
-        status: BOOKING_STATUS.ACCEPTED,
-      }).populate<{ passenger: IPopulatedPassenger }>({
-        path: 'passenger',
-        select: 'user',
-        populate: { path: 'user', select: 'fcmToken _id' },
-      });
+  const acceptedBookings = await Booking.find({
+    ride: rideId,
+    status: BOOKING_STATUS.ACCEPTED,
+  }).populate<{ passenger: IPopulatedPassenger }>({
+    path: 'passenger',
+    select: 'user',
+    populate: { path: 'user', select: 'fcmToken _id' },
+  });
 
-      for (const booking of acceptedBookings) {
-        const passengerId = booking.passenger.user._id;
-        const fcmToken = booking.passenger.user.fcmToken;
-
-        const socketId = onlineUsers.get(passengerId.toString());
-        if (socketId) {
-          const io = getSocketIO();
-          io.to(passengerId.toString()).emit('ride-started', {
-            title: 'Ride Started',
-            message: `Your ride ${ride.tripId} has started`,
-            estimatedArrivalTime,
-          });
-        } else {
-          await Notification.create({
-            title: 'Ride Started',
-            message: `Your ride ${ride.tripId} has started`,
-            receiver: passengerId,
-            type: NOTIFICATION_TYPE.RIDE_STARTED,
-          });
-        }
-
-        if (fcmToken) {
-          try {
-            await sendPushNotification(fcmToken, {
-              title: 'Ride Started',
-              content: `Your ride ${ride.tripId} has started. Estimated arrival: ${moment(estimatedArrivalTime).format('hh:mm A')}`,
+  Promise.all(
+        acceptedBookings.map((booking) => {
+            const { _id: passengerId, fcmToken } = booking.passenger.user;
+            return notifyUser({
+                userId: passengerId.toString(),
+                fcmToken,
+                title: 'Ride Started',
+                message: `Your ride ${ride.tripId} has started. Estimated arrival: ${moment(estimatedArrivalTime).tz(ride.timezone).format('hh:mm A')}`,
+                socketEvent: 'ride-started',
+                notificationType: NOTIFICATION_TYPE.RIDE_STARTED,
             });
-          } catch (error) {
-            logger.error(`FCM failed: ${error}`);
-          }
-        }
-      }
-    })(),
-  ]).catch((error) => logger.error(`Background task failed: ${error}`));
+        })
+    ).catch((error) => logger.error(`Background task failed: ${error}`));
 
   return updatedRide;
 };
 
 // complete ride
-const completeRideByDriver = async (user: IUser, rideId: string, currentLocation: { coordinates: [number, number] }) => {
+const completeRideByDriver = async (user: IUser, rideId: string) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
   if (!driver) {
     throw new NotFoundError('Driver not found');
@@ -513,15 +527,6 @@ const completeRideByDriver = async (user: IUser, rideId: string, currentLocation
   if (ride.driver.toString() !== driver._id.toString()) {
     throw new UnauthorizedError('This ride is not yours');
   }
-
-  if (ride.tripStatus !== TRIP_STATUS.ONGOING) {
-    throw new BadRequestError('Ride is not ongoing');
-  }
-
-  if (ride.remainingDistanceMeters > 10000) {
-    throw new BadRequestError('You are too far from the destination to complete this ride');
-  }
-
   await completeRide(rideId);
 };
 

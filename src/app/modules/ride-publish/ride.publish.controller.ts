@@ -80,7 +80,7 @@ const getAvailableRides = asyncHandler(async (req: Request, res: Response) => {
         },
     };
 
-    const result = await ridePublishService.searchAvailableRides(payload);
+    const result = await ridePublishService.searchAvailableRides(req.user,payload);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
@@ -130,7 +130,7 @@ const startRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
 
 const completeRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { rideId } = req.params;
-    const result = await ridePublishService.completeRideByDriver(req.user, rideId, req.body);
+    const result = await ridePublishService.completeRideByDriver(req.user, rideId);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
