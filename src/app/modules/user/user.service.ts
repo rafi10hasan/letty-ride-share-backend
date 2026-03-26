@@ -6,11 +6,13 @@ import { randomUserImage } from '../../../utilities/randomUserImage';
 import sendMail from '../../../utilities/sendEmail';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 
+import moment from 'moment';
 import { deleteImageFromCloudinary } from '../../cloudinary/deleteImageFromCloudinary';
 import { uploadToCloudinary } from '../../cloudinary/uploadImageToCLoudinary';
 import { sendVerificationOtp } from '../auth/auth.utils';
 import { driverRepository } from '../driver/driver.repository';
 import { passengerRepository } from '../passenger/passenger.repository';
+import { Review } from '../review/review.model';
 import { USER_ROLE } from './user.constant';
 import { IUser, registerPayload, TProfileImage } from './user.interface';
 import User from './user.model';
@@ -156,7 +158,6 @@ const getUserShortInfo = async (user: IUser) => {
 
 }
 
-
 // update user location
 const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) => {
   const session = await mongoose.startSession();
@@ -292,10 +293,69 @@ const switchUserRole = async (user: IUser) => {
   };
 }
 
+// get other user profile
+const getOtherUserProfile = async (user: IUser, profileId: string) => {
+  let profileData: any;
+  let targetUserId: mongoose.Types.ObjectId;
+
+  if (user.currentRole === USER_ROLE.PASSENGER) {
+    const driverProfile = await driverRepository.findByDriverId(new mongoose.Types.ObjectId(profileId));
+    if (!driverProfile) throw new NotFoundError("Driver profile not found");
+
+    targetUserId = driverProfile.user;
+    profileData = {
+      name: driverProfile.fullName,
+      avatar: driverProfile.avatar,
+      bio: driverProfile.bio,
+      carModel: driverProfile.carModel,
+      vehicleType: driverProfile.vehicleType,
+      languages: driverProfile.languages,
+      rating: driverProfile.avgRating || 0,
+      totalReviews: driverProfile.totalReviews || 0,
+      totalTrips: driverProfile.totalTripCompleted || 0,
+    };
+  } else {
+    const passengerProfile = await passengerRepository.findByPassengerId(new mongoose.Types.ObjectId(profileId));
+    if (!passengerProfile) throw new NotFoundError("Passenger profile not found");
+
+    targetUserId = passengerProfile.user;
+    profileData = {
+      name: passengerProfile.fullName,
+      avatar: passengerProfile.avatar,
+      bio: passengerProfile.bio || "",
+      languages: passengerProfile.languages,
+      rating: passengerProfile.avgRating || 0,
+      totalReviews: passengerProfile.totalReviews || 0,
+      totalRides: passengerProfile.totalRides || 0,
+    };
+  }
+
+  const rawReviews = await Review.find({ receiverId: targetUserId })
+    .select("stars comment createdAt giverId")
+    .sort({ createdAt: -1 })
+    .limit(5)
+    .populate("giverId", "fullName avatar")
+    .lean();
+
+  const recentReviews = rawReviews.map((rev: any) => ({
+    name: rev.giverId?.fullName || rev.giverId?.name,
+    avatar: rev.giverId?.avatar || rev.giverId?.profileImage,
+    stars: rev.stars,
+    comment: rev.comment,
+    reviewAt: moment(rev.createdAt).fromNow(),
+  }));
+
+  return {
+    ...profileData,
+    recentReviews
+  };
+};
+
 export const userService = {
   createAccount,
   updateUserLocation,
   switchUserRole,
   updateUserProfileImage,
-  getUserShortInfo
+  getUserShortInfo,
+  getOtherUserProfile
 };

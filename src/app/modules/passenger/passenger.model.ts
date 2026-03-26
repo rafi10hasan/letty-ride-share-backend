@@ -115,7 +115,10 @@ export const passengerSchema = new mongoose.Schema<IPassenger>(
       type: Number,
       default: 0,
     },
-
+    totalReviews: {
+      type: Number,
+      default: 0,
+    },
     totalSpent: {
       type: Number,
       default: 0,

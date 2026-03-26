@@ -17,20 +17,21 @@ const sendSubscriptionPurchaseRequest = async (
     user: IUser,
     payload: TSubscriptionRequestPayload
 ) => {
-    const { plan, mode } = payload;
+    const { plan, mode, price } = payload;
 
     const session = await mongoose.startSession();
 
     try {
         session.startTransaction();
-        
-        if(user.subscription?.requestedAt){
+
+        if (user.subscription?.requestedAt) {
             throw new BadRequestError('you have already sent a request!')
         }
 
         if (user.subscription) {
             user.subscription.requestedPlan = plan;
             user.subscription.requestedMode = mode;
+            user.subscription.requestedPrice = price;
             user.subscription.requestedAt = new Date();
             user.subscription.requestedStatus = SUBSCRIPTION_STATUS.PENDING;
             await user.save({ session });
@@ -48,7 +49,7 @@ const sendSubscriptionPurchaseRequest = async (
         }
 
         // ── 4. Create notification ──────────────────────────────────────
-  
+
         const notificationPayload = {
             title: 'Subscription Request',
             message: `${user.fullName} sent a subscription request to purchase ${plan} plan with ${mode} mode`,

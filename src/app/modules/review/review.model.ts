@@ -1,6 +1,6 @@
 import mongoose, { Schema } from "mongoose";
 
-const ratingSchema = new Schema({
+const reviewSchema = new Schema({
   trip: {
     type: Schema.Types.ObjectId,
     ref: 'TripHistory',
@@ -30,11 +30,11 @@ const ratingSchema = new Schema({
 },
   {
     timestamps: true,
-    versionKey:false
+    versionKey: false
   }
 );
 
 
-ratingSchema.index({ trip: 1, giverId: 1,  receiverId:1 }, { unique: true });
+reviewSchema.index({ trip: 1, giverId: 1, receiverId: 1 });
 
-export const Rating = mongoose.model('Rating', ratingSchema);
+export const Review = mongoose.model('Review', reviewSchema);

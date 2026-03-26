@@ -173,8 +173,8 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
                 select: "fcmToken _id"
             }
         });
-    
-    console.log({booking})
+
+    console.log({ booking })
     if (!booking) {
         throw new NotFoundError('request not found');
     }
@@ -305,14 +305,13 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 // reject booking
 
 const rejectBooking = async (user: IUser, bookingId: string) => {
-
     const driver = await driverRepository.findDriverByUserId(user._id);
     if (!driver) {
         throw new NotFoundError('driver not found');
     }
 
     const booking = await Booking.findById(bookingId)
-        .populate<{ ride: IRidePublish }>("ride", "_id tripId driver")
+        .populate<{ ride: IRidePublish }>("ride", "_id tripId driver tripStatus")
         .populate<{ passenger: IPopulatedPassenger }>({
             path: "passenger",
             select: "user",
@@ -334,6 +333,9 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
         throw new BadRequestError(`Booking is already ${booking.status}`);
     }
 
+    if (user.currentRole === 'passenger' && booking.ride.tripStatus !== TRIP_STATUS.PENDING) {
+        throw new BadRequestError('You can not cancel booking because the trip is already confirmed by driver');
+    }
 
     if (booking.expireAt && booking.expireAt < new Date()) {
         throw new BadRequestError('Booking request has expired');
@@ -342,7 +344,8 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
     await Booking.findByIdAndUpdate(
         bookingId,
         {
-            status: BOOKING_STATUS.REJECTED,
+            status: user.currentRole === 'passenger' ? BOOKING_STATUS.CANCELLED : BOOKING_STATUS.REJECTED,
+            cancelledBy: user.currentRole,
             expireAt: new Date(Date.now() + 10 * 60 * 1000),
         },
     );

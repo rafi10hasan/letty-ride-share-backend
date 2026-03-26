@@ -34,6 +34,12 @@ userRouter.get(
   userController.getUserShortInfoIntoDb,
 );
 
+userRouter.get(
+  '/get-profile/:profileId',
+  authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
+  userController.getOtherUserProfileIntoDb,
+);
+
 userRouter.patch(
   '/change-profile-image',
   authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),

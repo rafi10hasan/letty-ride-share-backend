@@ -5,11 +5,11 @@ import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
 import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
 import { IRidePublish } from '../ride-publish/ride.publish.interface';
+import { ITripHistory } from '../trip-history/trip.history.interface';
 import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
 import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
-import { ITripHistory } from '../trip-history/trip.history.interface';
 
 
 
@@ -112,6 +112,39 @@ const getPassengerProfile = async (user: IUser) => {
   };
 }
 
+const getPassengerRequests = async (user: IUser) => {
+  const passenger = await passengerRepository.findPassengerByUserId(user._id);
+  if (!passenger) throw new NotFoundError('Passenger profile not found');
+
+  const bookings = await Booking.find({
+    passenger: passenger._id,
+    status: BOOKING_STATUS.PENDING,
+  }).populate<{ ride: IRidePublish }>({
+    path: 'ride',
+    match: { tripStatus: TRIP_STATUS.PENDING },
+    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+  });
+
+  console.log(bookings)
+  return bookings
+    .filter((b) => b.ride !== null)
+    .map((b) => {
+      const ride = b.ride;
+      return {
+        rideId: b.ride._id,
+        tripId: ride.tripId,
+        driverId: ride.driver.toString(),
+        tripStatus: ride.tripStatus,
+        departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
+        departureTimeString: ride.departureTimeString,
+        pickUpLocation: ride.pickUpLocation.address,
+        dropOffLocation: ride.dropOffLocation.address,
+        price: ride.price,
+        totalDistance: ride.totalDistance,
+      };
+    });
+};
+
 // passenger  - upcoming rides
 const getPassengerUpcomingRides = async (user: IUser) => {
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
@@ -123,7 +156,7 @@ const getPassengerUpcomingRides = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.UPCOMING },
-    select: 'tripId tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
   });
 
   return bookings
@@ -131,7 +164,9 @@ const getPassengerUpcomingRides = async (user: IUser) => {
     .map((b) => {
       const ride = b.ride;
       return {
+        rideId: b.ride._id,
         tripId: ride.tripId,
+        driverId: ride.driver.toString(),
         tripStatus: ride.tripStatus,
         departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
         departureTimeString: ride.departureTimeString,
@@ -155,7 +190,7 @@ export const getPassengerOngoingRide = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.ONGOING },
-    select: 'tripId tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
   });
 
   return bookings
@@ -163,7 +198,9 @@ export const getPassengerOngoingRide = async (user: IUser) => {
     .map((b) => {
       const ride = b.ride;
       return {
+        rideId: b.ride._id,
         tripId: ride.tripId,
+        driverId: ride.driver.toString(),
         tripStatus: ride.tripStatus,
         departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
         departureTimeString: ride.departureTimeString,
@@ -191,7 +228,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
       path: 'driver',
       select: '_id fullName avatar avgRating totalReviews',
     },
-  }).sort({createdAt: -1});
+  }).sort({ createdAt: -1 });
 
   return bookings.map((b) => {
     const trip = b.tripHistory as unknown as ITripHistory & {
@@ -227,10 +264,12 @@ const getPassengerCompletedRides = async (user: IUser) => {
 };
 
 
+
 export const passengerService = {
   createPassengerProfile,
   updatePassengerProfile,
   getPassengerProfile,
+  getPassengerRequests,
   getPassengerUpcomingRides,
   getPassengerOngoingRide,
   getPassengerCompletedRides,

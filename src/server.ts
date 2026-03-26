@@ -21,8 +21,8 @@ const runServer = async () => {
 
   initializeRideCrons();
 
-  server = app.listen(config.server_port || 5002, config.server_url as string, () => {
-    console.log(`\x1b[33mServer is listening on port http://${config.server_url}:${config.server_port || 5020}\x1b[0m`);
+  server = app.listen(config.server_port || 5002, config.base_url as string, () => {
+    console.log(`\x1b[33mServer is listening on port http://${config.base_url}:${config.server_port || 5020}\x1b[0m`);
   });
 
   seedingAdmin();

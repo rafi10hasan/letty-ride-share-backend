@@ -24,14 +24,14 @@ const updatePassengerProfileIntoDb = asyncHandler(async (req: Request, res: Resp
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'Driver profile has been updated successfully',
+    message: 'Passenger profile has been updated successfully',
     data: result,
   });
 });
 
 
 const getPassengerProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
-  const result = await passengerService.updatePassengerProfile(req.user, req.body);
+  const result = await passengerService.getPassengerProfile(req.user);
   // console.log(result);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -42,37 +42,48 @@ const getPassengerProfileIntoDb = asyncHandler(async (req: Request, res: Respons
 });
 
 
-const passengerUpcomingRides = async (req: Request, res: Response) => {
-    const rides = await passengerService.getPassengerUpcomingRides(req.user);
+const getPassengerRequestsIntoDb = async (req: Request, res: Response) => {
+  const rides = await passengerService.getPassengerRequests(req.user);
 
-    sendResponse(res, {
-        statusCode: 200,
-        success: true,
-        message: 'Upcoming rides fetched successfully',
-        data: rides,
-    });
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Passenger requests retrieved successfully',
+    data: rides,
+  });
+};
+
+const passengerUpcomingRides = async (req: Request, res: Response) => {
+  const rides = await passengerService.getPassengerUpcomingRides(req.user);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Upcoming rides fetched successfully',
+    data: rides,
+  });
 };
 
 const passengerOngoingRides = async (req: Request, res: Response) => {
-    const ride = await passengerService.getPassengerOngoingRide(req.user);
+  const ride = await passengerService.getPassengerOngoingRide(req.user);
 
-    sendResponse(res, {
-        statusCode: 200,
-        success: true,
-        message: 'Ongoing ride fetched successfully',
-        data: ride,
-    });
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Ongoing ride fetched successfully',
+    data: ride,
+  });
 };
 
 const passengerCompletedRides = async (req: Request, res: Response) => {
-    const rides = await passengerService.getPassengerCompletedRides(req.user);
+  const rides = await passengerService.getPassengerCompletedRides(req.user);
 
-    sendResponse(res, {
-        statusCode: 200,
-        success: true,
-        message: 'Completed rides fetched successfully',
-        data: rides,
-    });
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Completed rides fetched successfully',
+    data: rides,
+  });
 };
 
 // publish ride into db
@@ -83,6 +94,7 @@ export const passengerController = {
   updatePassengerProfileIntoDb,
   getPassengerProfileIntoDb,
   passengerUpcomingRides,
+  getPassengerRequestsIntoDb,
   passengerOngoingRides,
   passengerCompletedRides
 };

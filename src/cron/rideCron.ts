@@ -15,7 +15,6 @@ import { completeRide } from '../helpers/completeRide';
 import { getSocketIO, onlineUsers } from '../socket/connectSocket';
 
 
-
 // Helper — notify a user via socket (if online) + FCM + DB notification
 export const notifyUser = async ({
     userId,

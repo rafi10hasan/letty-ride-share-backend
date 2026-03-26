@@ -5,6 +5,7 @@ import { Document, Types } from 'mongoose';
 export interface ITripHistory extends Document {
     ride: Types.ObjectId;
     tripId: string;
+    rideId: Types.ObjectId;
     driver: Types.ObjectId;
     pickUpLocation: {
         address: string;

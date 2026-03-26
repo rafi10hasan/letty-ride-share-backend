@@ -17,9 +17,9 @@ import RidePublish from './ride.publish.model';
 import { generateTripId, timeStringToMinutes } from './ride.publish.utils';
 import { TCreateTripPayload, TSearchTripPayload, TUpdateTripPayload } from './ride.publish.zod';
 
+import { notifyUser } from '../../../cron/rideCron';
 import { buildDepartureDateTime, buildEstimatedArrivalTime, sanitizeDepartureDate } from '../../../helpers/ride.helper';
 import { passengerRepository } from '../passenger/passenger.repository';
-import { notifyUser } from '../../../cron/rideCron';
 
 interface IPopulatedDriver {
   _id: Types.ObjectId;
@@ -264,9 +264,9 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
   const bookedRideIds = passenger
     ? await Booking.find({
-        passenger: passenger._id,
-        status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
-      }).distinct('ride')
+      passenger: passenger._id,
+      status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+    }).distinct('ride')
     : [];
 
   const driver = await driverRepository.findDriverByUserId(user._id);
@@ -493,18 +493,18 @@ const startRide = async (user: IUser, rideId: string) => {
   });
 
   Promise.all(
-        acceptedBookings.map((booking) => {
-            const { _id: passengerId, fcmToken } = booking.passenger.user;
-            return notifyUser({
-                userId: passengerId.toString(),
-                fcmToken,
-                title: 'Ride Started',
-                message: `Your ride ${ride.tripId} has started. Estimated arrival: ${moment(estimatedArrivalTime).tz(ride.timezone).format('hh:mm A')}`,
-                socketEvent: 'ride-started',
-                notificationType: NOTIFICATION_TYPE.RIDE_STARTED,
-            });
-        })
-    ).catch((error) => logger.error(`Background task failed: ${error}`));
+    acceptedBookings.map((booking) => {
+      const { _id: passengerId, fcmToken } = booking.passenger.user;
+      return notifyUser({
+        userId: passengerId.toString(),
+        fcmToken,
+        title: 'Ride Started',
+        message: `Your ride ${ride.tripId} has started. Estimated arrival: ${moment(estimatedArrivalTime).tz(ride.timezone).format('hh:mm A')}`,
+        socketEvent: 'ride-started',
+        notificationType: NOTIFICATION_TYPE.RIDE_STARTED,
+      });
+    })
+  ).catch((error) => logger.error(`Background task failed: ${error}`));
 
   return updatedRide;
 };
@@ -578,7 +578,7 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
 
   await Booking.updateMany(
     { ride: rideId, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] } },
-    { status: BOOKING_STATUS.CANCELLED },
+    { status: BOOKING_STATUS.CANCELLED, cancelledBy: 'driver' },
   );
 
   const io = getSocketIO();

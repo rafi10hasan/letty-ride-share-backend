@@ -15,7 +15,6 @@ passengerRouter.post(
     {
       body: passengerValidationZodSchema.createPassengerProfileSchema,
     }
-
   ),
   passengerController.createPassengerProfileIntoDb,
 );
@@ -34,5 +33,31 @@ passengerRouter.get(
   authMiddleware(USER_ROLE.PASSENGER),
   passengerController.getPassengerProfileIntoDb,
 );
+
+passengerRouter.get(
+  '/upcoming-rides',
+  authMiddleware(USER_ROLE.PASSENGER),
+  passengerController.passengerUpcomingRides,
+);
+
+passengerRouter.get(
+  '/requests',
+  authMiddleware(USER_ROLE.PASSENGER),
+  passengerController.getPassengerRequestsIntoDb,
+);
+
+passengerRouter.get(
+  '/ongoing-rides',
+  authMiddleware(USER_ROLE.PASSENGER),
+  passengerController.passengerOngoingRides,
+);
+
+
+passengerRouter.get(
+  '/completed-rides',
+  authMiddleware(USER_ROLE.PASSENGER),
+  passengerController.passengerCompletedRides,
+);
+
 
 export default passengerRouter;
