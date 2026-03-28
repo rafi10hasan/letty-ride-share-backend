@@ -163,7 +163,7 @@ const getMyPublishedRides = async (user: IUser) => {
 
   const myPublishedRides = await RidePublish.find({ driver: driver._id, tripStatus: TRIP_STATUS.PENDING })
     .select(
-      'pickUpLocation dropOffLocation departureDate departureTimeString totalSeats minimumPassenger tripId availableSeats price tripStatus driverInfo totalDistance status requestsCount',
+      'pickUpLocation dropOffLocation departureDate totalSeatBooked departureTimeString totalSeats minimumPassenger tripId availableSeats price tripStatus driverInfo totalDistance status requestsCount',
     )
     .sort({ createdAt: -1 })
     .lean();
@@ -178,6 +178,8 @@ const getMyPublishedRides = async (user: IUser) => {
       dropOffLocation: ride.dropOffLocation.address,
       minimumPassenger: ride.minimumPassenger,
       totalSeats: ride.totalSeats,
+      availableSeats: ride.availableSeats,
+      seatBooked: ride.totalSeatBooked,
       requestsCount: ride.requestsCount,
       price: ride.price,
       tripId: ride.tripId,
@@ -268,7 +270,8 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
       status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
     }).distinct('ride')
     : [];
-
+  
+  console.log({bookedRideIds})
   const driver = await driverRepository.findDriverByUserId(user._id);
 
   const matchStage: Record<string, any> = {

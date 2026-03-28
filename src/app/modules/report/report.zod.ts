@@ -5,18 +5,18 @@ const createReportSchema = z.object({
     tripId: z
         .string({
             error: (issue) => {
-                if (issue.input === undefined) return 'Receiver ID is required';
-                if (typeof issue.input !== 'string') return 'Receiver ID must be a string';
-                return 'Invalid receiver ID';
+                if (issue.input === undefined) return 'Trip ID is required';
+                if (typeof issue.input !== 'string') return 'Trip ID must be a string';
+                return 'Invalid trip ID';
             },
         }),
 
-    receiverId: z
+    reportedId: z
         .string({
             error: (issue) => {
-                if (issue.input === undefined) return 'Receiver ID is required';
-                if (typeof issue.input !== 'string') return 'Receiver ID must be a string';
-                return 'Invalid receiver ID';
+                if (issue.input === undefined) return 'Reported ID is required';
+                if (typeof issue.input !== 'string') return 'Reported ID must be a string';
+                return 'Invalid reported ID';
             },
         }),
 

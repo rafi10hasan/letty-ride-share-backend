@@ -118,33 +118,43 @@ const getPassengerRequests = async (user: IUser) => {
 
   const bookings = await Booking.find({
     passenger: passenger._id,
-    status: BOOKING_STATUS.PENDING,
+    status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.PENDING },
-    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked',
+    populate: {
+      path: 'driver',
+      select: 'fullName avatar',
+    },
   });
 
-  console.log(bookings)
   return bookings
     .filter((b) => b.ride !== null)
     .map((b) => {
       const ride = b.ride;
+
+      const driverInfo = ride.driver as any;
+
       return {
+        bookingId: b._id,
         rideId: b.ride._id,
         tripId: ride.tripId,
-        driverId: ride.driver.toString(),
-        tripStatus: ride.tripStatus,
+        driverId: driverInfo._id,
+        driverName: driverInfo.fullName,
+        driverImage: driverInfo.avatar,
+        status: b.status,
         departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
         departureTimeString: ride.departureTimeString,
         pickUpLocation: ride.pickUpLocation.address,
         dropOffLocation: ride.dropOffLocation.address,
-        price: ride.price,
+        seatPerPrice: (ride.price / ride.totalSeats),
+        seatBooked: b.seatsBooked,
+        totalPrice: b.seatsBooked * (ride.price / ride.totalSeats),
         totalDistance: ride.totalDistance,
       };
     });
 };
-
 // passenger  - upcoming rides
 const getPassengerUpcomingRides = async (user: IUser) => {
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
@@ -156,7 +166,7 @@ const getPassengerUpcomingRides = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.UPCOMING },
-    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked',
   });
 
   return bookings
@@ -164,6 +174,7 @@ const getPassengerUpcomingRides = async (user: IUser) => {
     .map((b) => {
       const ride = b.ride;
       return {
+        bookingId: b._id,
         rideId: b.ride._id,
         tripId: ride.tripId,
         driverId: ride.driver.toString(),
@@ -172,7 +183,9 @@ const getPassengerUpcomingRides = async (user: IUser) => {
         departureTimeString: ride.departureTimeString,
         pickUpLocation: ride.pickUpLocation.address,
         dropOffLocation: ride.dropOffLocation.address,
-        price: ride.price,
+        seatPerPrice: (ride.price / ride.totalSeats),
+        seatBooked: b.seatsBooked,
+        totalPrice: b.seatsBooked * (ride.price / ride.totalSeats),
         totalDistance: ride.totalDistance,
         totalSeatBooked: ride.totalSeatBooked,
       };
@@ -198,6 +211,7 @@ export const getPassengerOngoingRide = async (user: IUser) => {
     .map((b) => {
       const ride = b.ride;
       return {
+        bookingId: b._id,
         rideId: b.ride._id,
         tripId: ride.tripId,
         driverId: ride.driver.toString(),
@@ -206,7 +220,9 @@ export const getPassengerOngoingRide = async (user: IUser) => {
         departureTimeString: ride.departureTimeString,
         pickUpLocation: ride.pickUpLocation.address,
         dropOffLocation: ride.dropOffLocation.address,
-        price: ride.price,
+        seatPerPrice: (ride.price / ride.totalSeats),
+        seatBooked: b.seatsBooked,
+        totalPrice: b.seatsBooked * (ride.price / ride.totalSeats),
         totalDistance: ride.totalDistance,
         totalSeatBooked: ride.totalSeatBooked,
       };

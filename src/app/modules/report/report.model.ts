@@ -11,12 +11,12 @@ const reportSchema = new Schema<IReport>(
             required: [true, 'Trip Id is required'],
             unique: true
         },
-        giverId: {
+        reporterId: {
             type: Schema.Types.ObjectId,
             ref: 'User',
             required: true
         },
-        receiverId: {
+        reportedId: {
             type: Schema.Types.ObjectId,
             ref: 'User',
             required: true
@@ -32,7 +32,7 @@ const reportSchema = new Schema<IReport>(
     { timestamps: true, versionKey: false }
 );
 
-reportSchema.index({ tripId: 1, receiverId: 1 });
+reportSchema.index({ tripId: 1, reportedId: 1 });
 
 const Report = mongoose.model<IReport>('Report', reportSchema);
 

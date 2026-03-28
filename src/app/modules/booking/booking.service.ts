@@ -16,6 +16,7 @@ import { sendPushNotification } from "../notification/notification.utils";
 import { TRIP_STATUS } from "../ride-publish/ride.publish.constant";
 import { BOOKING_STATUS } from "./booking.constant";
 import { TSendRideRequestPayload } from "./booking.zod";
+import { USER_ROLE } from "../user/user.constant";
 
 
 
@@ -325,15 +326,15 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
         throw new NotFoundError('request not found');
     }
 
-    if (booking.ride.driver.toString() !== driver._id.toString()) {
-        throw new UnauthorizedError('This booking is not yours');
+    if(user.currentRole === USER_ROLE.DRIVER && booking.ride.driver.toString() !== driver._id.toString()){
+         throw new UnauthorizedError('This booking is not yours');
     }
-
+    
     if (booking.status !== BOOKING_STATUS.PENDING) {
         throw new BadRequestError(`Booking is already ${booking.status}`);
     }
 
-    if (user.currentRole === 'passenger' && booking.ride.tripStatus !== TRIP_STATUS.PENDING) {
+    if (user.currentRole === USER_ROLE.PASSENGER && booking.ride.tripStatus !== TRIP_STATUS.PENDING) {
         throw new BadRequestError('You can not cancel booking because the trip is already confirmed by driver');
     }
 

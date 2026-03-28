@@ -31,6 +31,12 @@ rideRouter.get(
 );
 
 rideRouter.patch(
+    '/start/:rideId',
+    authMiddleware(USER_ROLE.DRIVER),
+    ridePublishController.startRideIntoDb,
+);
+
+rideRouter.patch(
     '/update/:rideId',
     authMiddleware(USER_ROLE.DRIVER),
     validateRequest({ body: tripValidationZodSchema.updateTripSchema }

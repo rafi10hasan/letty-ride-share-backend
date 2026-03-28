@@ -31,7 +31,7 @@ bookingRouter.patch(
 
 bookingRouter.patch(
   '/reject/:bookingId',
-  authMiddleware(USER_ROLE.DRIVER),
+  authMiddleware(USER_ROLE.DRIVER,USER_ROLE.PASSENGER),
   bookingController.rejectBookingIntoDb,
 );
 

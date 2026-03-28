@@ -13,11 +13,13 @@ import { notifyUser } from '../cron/rideCron';
 
 // complete ride
 export const completeRide = async (rideId: string) => {
+
   const ride = await RidePublish.findById(rideId).populate<{ driver: IPopulatedDriver }>({
     path: 'driver',
     select: 'user',
     populate: { path: 'user', select: 'fcmToken _id' },
   });
+
 
   if (!ride) {
     logger.error(`completeRide: Ride ${rideId} not found`);
@@ -32,9 +34,10 @@ export const completeRide = async (rideId: string) => {
     select: 'user',
     populate: { path: 'user', select: 'fcmToken _id' },
   });
-
+ 
   const session = await mongoose.startSession();
   session.startTransaction();
+
 
   const now = new Date();
 
@@ -43,7 +46,7 @@ export const completeRide = async (rideId: string) => {
       [
         {
           tripId: ride.tripId,
-          ride: ride._id,
+          rideId: ride._id,
           driver: ride.driver._id,
           pickUpLocation: {
             address: ride.pickUpLocation.address,

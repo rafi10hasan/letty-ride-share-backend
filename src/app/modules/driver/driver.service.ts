@@ -9,6 +9,7 @@ import { driverRepository } from './driver.repository';
 import moment from 'moment';
 import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
+import { IPassenger } from '../passenger/passenger.interface';
 import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
 import RidePublish from '../ride-publish/ride.publish.model';
 import { TripHistory } from '../trip-history/trip.history.model';
@@ -248,6 +249,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
   }
 
   const ride = await RidePublish.findById(rideId).select("driver requestsCount");
+  console.log({ ride })
   if (!ride) {
     throw new NotFoundError('ride not found');
   }
@@ -256,8 +258,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new UnauthorizedError('This ride is not yours');
   }
 
-  const passengers = await Booking.find({ ride: rideId }).sort({ createdAt: -1 });
-
+  const passengers = await Booking.find({ ride: rideId, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] } }).sort({ createdAt: -1 });
   ride.requestsCount = passengers.length;
   await ride.save();
 
@@ -283,7 +284,7 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
   if (!driver) throw new NotFoundError('Driver not found');
 
-  const ride = await RidePublish.findById(rideId).select('driver');
+  const ride = await RidePublish.findById(rideId).select('driver tripId departureTimeString departureDate pickUpLocation dropOffLocation price totalDistance totalSeats totalSeatBooked');
 
   if (ride) {
     // Ongoing/Upcoming ride
@@ -293,16 +294,40 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
 
     const passengers = await Booking.find({
       ride: rideId,
-      status: BOOKING_STATUS.ACCEPTED,
-    }).sort({ createdAt: -1 });
+      status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+    })
+      .populate<{ passenger: IPassenger }>({
+        path: 'passenger',
+        select: 'fullName phone avatar avgRating totalRides',
+      }).sort({ createdAt: -1 });
 
     return passengers.map((passenger) => ({
       bookingId: passenger._id,
-      name: passenger.passengerInfo.name,
-      profileImage: passenger.passengerInfo.profileImg,
+      passengerId: passenger.passenger._id,
+      name: passenger.passenger.fullName,
+      profileImage: passenger.passenger.avatar,
+      avgRating: passenger.passenger.avgRating,
+      totalRides: passenger.passenger.totalRides,
+      departureTime: ride.departureTimeString,
+      departureDate: moment.utc(passenger.bookedAt).format('YYYY-MM-DD'),
+      distance: ride.totalDistance,
+      price: ride.price,
+      contributionPerSeat: ride.price / ride.totalSeats,
       pickUpAddress: passenger.pickUpLocation.address,
       dropOffAddress: passenger.dropOffLocation.address,
       seatBooked: passenger.seatsBooked,
+
+      /*
+        departure time and date. 
+ 
+passenger id - to get passenger info 
+ 
+distance 
+ 
+total price 
+ 
+contribution per seat
+      */
     }));
   }
 
@@ -340,7 +365,7 @@ const getDriverUpcomingRides = async (user: IUser) => {
     tripStatus: TRIP_STATUS.UPCOMING,
   })
     .select(
-      'status tripStatus departureDate tripId departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked'
+      'status tripStatus departureDate tripId departureTimeString pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
     )
     .sort({ departureDateTime: 1 });
 
@@ -355,6 +380,7 @@ const getDriverUpcomingRides = async (user: IUser) => {
       dropOffLocation: ride.dropOffLocation.address,
       price: ride.price,
       totalDistance: ride.totalDistance,
+      totalSeats: ride.totalSeats,
       totalSeatBooked: ride.totalSeatBooked
     }
   })
@@ -372,7 +398,7 @@ const getDriverOngoingRides = async (user: IUser) => {
     tripStatus: TRIP_STATUS.ONGOING,
   })
     .select(
-      'status tripStatus departureDate tripId departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked'
+      'status tripStatus departureDate tripId totalSeats departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked'
     )
     .sort({ departureDateTime: 1 });
 
@@ -387,6 +413,7 @@ const getDriverOngoingRides = async (user: IUser) => {
       dropOffLocation: ride.dropOffLocation.address,
       price: ride.price,
       totalDistance: ride.totalDistance,
+      totalSeats: ride.totalSeats,
       totalSeatBooked: ride.totalSeatBooked
     }
   })
@@ -411,6 +438,7 @@ const getDriverCompletedRides = async (user: IUser) => {
       pickUpLocation: trip.pickUpLocation.address,
       dropOffLocation: trip.dropOffLocation.address,
       price: trip.price,
+      totalSeats: trip.totalSeats,
       totalDistance: trip.totalDistance,
       totalSeatBooked: trip.totalSeatBooked
     }

@@ -9,10 +9,10 @@ import { IUser } from '../user/user.interface';
 import Report from './report.model';
 import { TReportPayload } from './report.zod';
 
-
+// create report
 const createReport = async (user: IUser, payload: TReportPayload) => {
 
-    const { receiverId, tripId, reportReason } = payload;
+    const { reportedId, tripId, reportReason } = payload;
     console.log(user._id)
     const hasTrip = await TripHistory.findOne({ tripId: tripId });
     if (!hasTrip) {
@@ -20,7 +20,7 @@ const createReport = async (user: IUser, payload: TReportPayload) => {
     }
 
     const isExistReportForSameTrip = await Report.findOne({
-        giverId: user._id,
+        reporterId: user._id,
         tripId: tripId
     });
 
@@ -30,9 +30,9 @@ const createReport = async (user: IUser, payload: TReportPayload) => {
 
     let anotherUser;
     if (user.currentRole === USER_ROLE.PASSENGER) {
-        anotherUser = await driverRepository.findByDriverId(new mongoose.Types.ObjectId(receiverId));
+        anotherUser = await driverRepository.findByDriverId(new mongoose.Types.ObjectId(reportedId));
     } else if (user.currentRole === USER_ROLE.DRIVER) {
-        anotherUser = await passengerRepository.findByPassengerId(new mongoose.Types.ObjectId(receiverId));
+        anotherUser = await passengerRepository.findByPassengerId(new mongoose.Types.ObjectId(reportedId));
     }
 
     if (anotherUser && anotherUser.user.toString() === user._id.toString()) {
@@ -41,8 +41,8 @@ const createReport = async (user: IUser, payload: TReportPayload) => {
 
     const result = await Report.create({
         tripId: tripId,
-        giverId: user._id,
-        receiverId: anotherUser?.user,
+        reporterId: user._id,
+        reportedId: anotherUser?.user,
         reportBy: user.currentRole,
         reportReason: reportReason
     });

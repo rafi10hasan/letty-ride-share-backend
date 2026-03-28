@@ -1,14 +1,15 @@
+import jwt from 'jsonwebtoken';
+import moment from 'moment';
 import mongoose from 'mongoose';
 import config from '../../../config';
 import registrationEmailTemplate from '../../../mailTemplate/registrationTemplate';
 import { generateOTP } from '../../../utilities/generateOtp';
 import { randomUserImage } from '../../../utilities/randomUserImage';
 import sendMail from '../../../utilities/sendEmail';
-import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
-
-import moment from 'moment';
 import { deleteImageFromCloudinary } from '../../cloudinary/deleteImageFromCloudinary';
 import { uploadToCloudinary } from '../../cloudinary/uploadImageToCLoudinary';
+import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
+import { jwtPayload } from '../auth/auth.interface';
 import { sendVerificationOtp } from '../auth/auth.utils';
 import { driverRepository } from '../driver/driver.repository';
 import { passengerRepository } from '../passenger/passenger.repository';
@@ -264,32 +265,46 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
 };
 // switch user role
 const switchUserRole = async (user: IUser) => {
-  if (user.currentRole === USER_ROLE.DRIVER) {
+  let nextRole: string;
 
+  if (user.currentRole === USER_ROLE.DRIVER) {
     const passenger = await passengerRepository.findPassengerByUserId(user._id);
     if (!passenger) {
-      return {
-        status: 'INCOMPLETE_PROFILE'
-      }
+      return { success: false, status: 'INCOMPLETE_PROFILE' };
     }
-    user.currentRole = USER_ROLE.PASSENGER;
+    nextRole = USER_ROLE.PASSENGER;
   }
   else if (user.currentRole === USER_ROLE.PASSENGER) {
-
     const driver = await driverRepository.findDriverByUserId(user._id);
-
     if (!driver) {
-      return {
-        status: 'INCOMPLETE_PROFILE'
-      }
+      return { success: false, status: 'INCOMPLETE_PROFILE' };
     }
-    user.currentRole = USER_ROLE.DRIVER;
+    nextRole = USER_ROLE.DRIVER;
+  } else {
+    throw new Error('Invalid user role for switching');
   }
 
-  const updatedUser = await userRepository.updateUser(user._id, { currentRole: user.currentRole });
+  const updatedUser = await userRepository.updateUser(user._id, {
+    currentRole: nextRole
+  });
+
+  if (!updatedUser) {
+    throw new Error('Failed to update user role');
+  }
+
+  const JwtPayload: jwtPayload = {
+    id: user._id.toString(),
+    role: updatedUser.currentRole,
+  };
+
+  const accessToken = jwt.sign(JwtPayload, config.jwt_access_token_secret!, {
+    expiresIn: config.jwt_access_token_expiresin,
+  });
+
   return {
-    userId: updatedUser?._id,
-    currentRole: updatedUser?.currentRole
+    userId: updatedUser._id,
+    currentRole: updatedUser.currentRole,
+    accessToken: accessToken
   };
 }
 
@@ -304,6 +319,7 @@ const getOtherUserProfile = async (user: IUser, profileId: string) => {
 
     targetUserId = driverProfile.user;
     profileData = {
+      profileId: driverProfile._id,
       name: driverProfile.fullName,
       avatar: driverProfile.avatar,
       bio: driverProfile.bio,
@@ -320,6 +336,7 @@ const getOtherUserProfile = async (user: IUser, profileId: string) => {
 
     targetUserId = passengerProfile.user;
     profileData = {
+      profileId: passengerProfile._id,
       name: passengerProfile.fullName,
       avatar: passengerProfile.avatar,
       bio: passengerProfile.bio || "",

@@ -6,6 +6,7 @@ import adminRouter from '../modules/dashboard';
 import driverRouter from '../modules/driver/driver.route';
 import { messageRouter } from '../modules/Message/message.route';
 import passengerRouter from '../modules/passenger/passenger.route';
+import reportRouter from '../modules/report/report.route';
 import reviewRouter from '../modules/review/review.route';
 import passengerouter from '../modules/ride-publish/ride.publish.routes';
 import subscriptionRouter from '../modules/subscription/subscription.routes';
@@ -44,6 +45,11 @@ const appRouters = [
   {
     path: '/reviews',
     router: reviewRouter,
+  },
+
+  {
+    path: '/reports',
+    router: reportRouter,
   },
   {
     path: '/subscription',

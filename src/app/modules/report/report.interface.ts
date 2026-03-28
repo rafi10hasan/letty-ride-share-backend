@@ -3,8 +3,8 @@ import { Types } from "mongoose";
 
 export interface IReport {
     tripId: string;
-    giverId: Types.ObjectId;
-    receiverId: Types.ObjectId;
+    reporterId: Types.ObjectId;
+    reportedId: Types.ObjectId;
     reportBy: 'driver' | 'passenger';
     reportReason: string;
     createdAt: Date;

@@ -11,15 +11,15 @@ const authMiddleware = (...requiredRoles: string[]) => {
     try {
 
       const token = req.headers.authorization?.replace('Bearer ', '') || '';
-
+      console.log({ token })
       // checking if the token is missing
       if (!token) {
         throw new UnauthorizedError('Unauthorized Access');
       }
-
+      console.log({ requiredRoles })
       // checking if the given token is valid
       const decoded = jwtHelpers.verifyToken(token, config.jwt_access_token_secret!) as JwtPayload;
-
+      console.log("decode role:", decoded.role);
       const { id, iat } = decoded;
 
       // checking if the user is exist
@@ -28,8 +28,6 @@ const authMiddleware = (...requiredRoles: string[]) => {
       if (!user) {
         throw new UnauthorizedError('User not exists!');
       }
-
-     
 
       if (user.isDeleted) {
         throw new UnauthorizedError('Unauthorized Access');
@@ -46,9 +44,8 @@ const authMiddleware = (...requiredRoles: string[]) => {
       if (!user.isActive) {
         throw new UnauthorizedError('Unauthorized Access');
       }
-      
 
-      if (requiredRoles.length && !requiredRoles.includes(user.currentRole)) {
+      if (requiredRoles.length && !requiredRoles.includes(decoded.role)) {
         throw new ForbiddenError('You have no access to this route, Forbidden!');
       }
 
