@@ -56,4 +56,10 @@ rideRouter.patch(
     ridePublishController.cancelRideIntoDb,
 );
 
+rideRouter.patch(
+    '/complete/:rideId',
+    authMiddleware(USER_ROLE.DRIVER),
+    ridePublishController.completeRideIntoDb,
+);
+
 export default rideRouter;

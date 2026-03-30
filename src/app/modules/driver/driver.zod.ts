@@ -178,7 +178,7 @@ const updateDriverProfileSchema = z.object({
     .min(3, 'Full name must be at least 3 characters long')
     .max(30, 'Full name cannot exceed 30 characters')
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces').optional(),
-  phone: jordanPhoneSchema,
+  phone: jordanPhoneSchema.optional(),
   languages: z
     .array(
       z.string({

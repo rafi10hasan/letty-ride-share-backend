@@ -1,7 +1,5 @@
 // "08:30 AM" → 510 minutes
 
-import RidePublish from "./ride.publish.model";
-
 
 export function timeStringToMinutes(time: string): number {
     const [timePart, modifier] = time.split(' ');
@@ -12,7 +10,6 @@ export function timeStringToMinutes(time: string): number {
 
     return hours * 60 + minutes;
 }
-
 // 510 → "08:30 AM"
 export function minutesToTimeString(minutes: number): string {
     const hours = Math.floor(minutes / 60);
@@ -25,24 +22,8 @@ export function minutesToTimeString(minutes: number): string {
 
 
 export const generateTripId = async () => {
-    const lastTrip = await RidePublish.findOne(
-        { tripId: { $regex: /^#TRIP/ } },
-        { tripId: 1 },
-        { sort: { createdAt: -1 } }
-    );
-
-    let nextNumber = 1;
-
-    if (lastTrip && lastTrip.tripId) {
-        const lastNumberStr = lastTrip.tripId.slice(5);
-        const lastNumber = parseInt(lastNumberStr);
-
-        if (!isNaN(lastNumber)) {
-            nextNumber = lastNumber + 1;
-        }
-    }
-
-    const formattedNumber = nextNumber.toString().padStart(6, '0');
-
-    return `#TRIP${formattedNumber}`;
+    const prefix = "TRIP";
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
+    return `${prefix}-${timestamp}${randomStr}`;
 };

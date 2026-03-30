@@ -10,6 +10,7 @@ import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
 import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
+import { driverRepository } from '../driver/driver.repository';
 
 
 
@@ -56,6 +57,8 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
 
   const passenger = await passengerRepository.findPassengerByUserId(user._id, '_id');
 
+  const driver = await driverRepository.findDriverByUserId(user._id, '_id');
+
   if (!passenger) {
     throw new NotFoundError('passenger profile not found');
   }
@@ -65,9 +68,12 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
   session.startTransaction();
 
   try {
-
+   
+    if(driver){
+      await driverRepository.updateDriverProfile(driver._id, payload, session);
+    }
     const updatedPassenger = await passengerRepository.updatePassengerProfile(passenger._id, payload, session);
-    console.log({ updatedPassenger })
+
     if (!updatedPassenger) {
       throw new BadRequestError('Failed to update passenger profile. Try again');
     }
@@ -94,7 +100,6 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
   }
 };
 
-
 //
 const getPassengerProfile = async (user: IUser) => {
   const passenger = await passengerRepository.findPassengerByUserId(user._id, "fullName phone");
@@ -111,6 +116,7 @@ const getPassengerProfile = async (user: IUser) => {
     languages: passenger.languages,
   };
 }
+
 
 const getPassengerRequests = async (user: IUser) => {
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
@@ -167,17 +173,25 @@ const getPassengerUpcomingRides = async (user: IUser) => {
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.UPCOMING },
     select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked',
+    populate: {
+      path: 'driver',
+      select: 'fullName avatar',
+    },
   });
 
   return bookings
     .filter((b) => b.ride !== null)
     .map((b) => {
       const ride = b.ride;
+      const driverInfo = ride.driver as any;
       return {
         bookingId: b._id,
         rideId: b.ride._id,
         tripId: ride.tripId,
         driverId: ride.driver.toString(),
+        driverName: driverInfo.fullName,
+        driverImage: driverInfo.avatar,
+        status: b.status,
         tripStatus: ride.tripStatus,
         departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
         departureTimeString: ride.departureTimeString,
@@ -204,17 +218,25 @@ export const getPassengerOngoingRide = async (user: IUser) => {
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.ONGOING },
     select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+    populate: {
+      path: 'driver',
+      select: 'fullName avatar',
+    },
   });
 
   return bookings
     .filter((b) => b.ride !== null)
     .map((b) => {
       const ride = b.ride;
+      const driverInfo = ride.driver as any;
       return {
         bookingId: b._id,
         rideId: b.ride._id,
         tripId: ride.tripId,
         driverId: ride.driver.toString(),
+        driverName: driverInfo.fullName,
+        driverImage: driverInfo.avatar,
+        status: b.status,
         tripStatus: ride.tripStatus,
         departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
         departureTimeString: ride.departureTimeString,

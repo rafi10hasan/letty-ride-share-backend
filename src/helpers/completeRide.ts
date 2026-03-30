@@ -73,7 +73,6 @@ export const completeRide = async (rideId: string) => {
       {
         status: BOOKING_STATUS.COMPLETED,
         tripHistory: tripHistory[0]._id,
-        ride: null,
       },
       { session },
     );

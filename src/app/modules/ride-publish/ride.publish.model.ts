@@ -140,7 +140,10 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             type: [Number],
 
         },
-
+        timezone: {
+            type: String,
+            required: [true, 'Timezone is required'],
+        },
         notifications: {
             notified24h: { type: Boolean, default: false },
             notified1h: { type: Boolean, default: false },

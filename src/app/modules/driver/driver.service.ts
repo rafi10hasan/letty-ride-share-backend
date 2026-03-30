@@ -10,6 +10,7 @@ import moment from 'moment';
 import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
 import { IPassenger } from '../passenger/passenger.interface';
+import { passengerRepository } from '../passenger/passenger.repository';
 import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
 import RidePublish from '../ride-publish/ride.publish.model';
 import { TripHistory } from '../trip-history/trip.history.model';
@@ -102,6 +103,8 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
 
   const driver = await driverRepository.findDriverByUserId(user._id, '_id');
 
+  const passenger = await passengerRepository.findPassengerByUserId(user._id, '_id');
+
   if (!driver) {
     throw new NotFoundError('driver profile not found');
   }
@@ -111,6 +114,10 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
   session.startTransaction();
 
   try {
+
+    if (passenger) {
+      await passengerRepository.updatePassengerProfile(passenger._id, payload, session);
+    }
 
     const updatedDriver = await driverRepository.updateDriverProfile(driver._id, payload, session);
     console.log({ updatedDriver })
@@ -241,6 +248,7 @@ const updateDriverVehicle = async (user: IUser, payload: TDriverCarUpdatePayload
   }
 };
 
+// retrieve passenger request
 const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
 
   const driver = await driverRepository.findDriverByUserId(user._id);
@@ -265,6 +273,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
   const sanitizedPassenger = passengers.map((passenger) => {
     return {
       bookingId: passenger._id,
+      passengerId: passenger.passenger,
       status: passenger.status,
       name: passenger.passengerInfo.name,
       profileImage: passenger.passengerInfo.profileImg,
@@ -282,58 +291,12 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
 // get passenger details by rideId
 const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
-  if (!driver) throw new NotFoundError('Driver not found');
 
-  const ride = await RidePublish.findById(rideId).select('driver tripId departureTimeString departureDate pickUpLocation dropOffLocation price totalDistance totalSeats totalSeatBooked');
+  if (!driver) throw new NotFoundError('Driver not found')
 
-  if (ride) {
-    // Ongoing/Upcoming ride
-    if (ride.driver.toString() !== driver._id.toString()) {
-      throw new UnauthorizedError('This ride is not yours');
-    }
+  const tripHistory = await TripHistory.findOne({ rideId: rideId }).select('driver');
 
-    const passengers = await Booking.find({
-      ride: rideId,
-      status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
-    })
-      .populate<{ passenger: IPassenger }>({
-        path: 'passenger',
-        select: 'fullName phone avatar avgRating totalRides',
-      }).sort({ createdAt: -1 });
-
-    return passengers.map((passenger) => ({
-      bookingId: passenger._id,
-      passengerId: passenger.passenger._id,
-      name: passenger.passenger.fullName,
-      profileImage: passenger.passenger.avatar,
-      avgRating: passenger.passenger.avgRating,
-      totalRides: passenger.passenger.totalRides,
-      departureTime: ride.departureTimeString,
-      departureDate: moment.utc(passenger.bookedAt).format('YYYY-MM-DD'),
-      distance: ride.totalDistance,
-      price: ride.price,
-      contributionPerSeat: ride.price / ride.totalSeats,
-      pickUpAddress: passenger.pickUpLocation.address,
-      dropOffAddress: passenger.dropOffLocation.address,
-      seatBooked: passenger.seatsBooked,
-
-      /*
-        departure time and date. 
- 
-passenger id - to get passenger info 
- 
-distance 
- 
-total price 
- 
-contribution per seat
-      */
-    }));
-  }
-
-  const tripHistory = await TripHistory.findById(rideId).select('driver');
-
-  if (!tripHistory) throw new NotFoundError('Ride not found');
+  if (!tripHistory) throw new NotFoundError('trip not found');
 
   if (tripHistory.driver.toString() !== driver._id.toString()) {
     throw new UnauthorizedError('This ride is not yours');
@@ -342,20 +305,30 @@ contribution per seat
   const passengers = await Booking.find({
     tripHistory: tripHistory._id,
     status: BOOKING_STATUS.COMPLETED,
+  }).populate<{ passenger: IPassenger }>({
+    path: 'passenger',
+    select: 'fullName phone avatar avgRating totalRides',
   }).sort({ createdAt: -1 });
 
   return passengers.map((passenger) => ({
     bookingId: passenger._id,
-    passengerId: passenger.passenger,
-    name: passenger.passengerInfo.name,
-    profileImage: passenger.passengerInfo.profileImg,
+    passengerId: passenger.passenger._id,
+    name: passenger.passenger.fullName,
+    profileImage: passenger.passenger.avatar,
+    avgRating: passenger.passenger.avgRating,
+    totalRides: passenger.passenger.totalRides,
     pickUpAddress: passenger.pickUpLocation.address,
     dropOffAddress: passenger.dropOffLocation.address,
     seatBooked: passenger.seatsBooked,
+    departureTime: moment(tripHistory.
+      departureDateTime).format('hh:mm A'),
+    price: tripHistory.price,
+    contributionPerSeat: tripHistory.price / tripHistory.totalSeats,
+    departureDate: moment.utc(tripHistory.departureDateTime).format('YYYY-MM-DD'),
   }));
 };
 
-
+// get driver upcoming rides
 const getDriverUpcomingRides = async (user: IUser) => {
   const driver = await driverRepository.findDriverByUserId(user._id, '_id');
   if (!driver) throw new NotFoundError('Driver profile not found');
@@ -433,8 +406,10 @@ const getDriverCompletedRides = async (user: IUser) => {
   const sanitizedCompleteRides = completedRides.map((trip) => {
     return {
       tripId: trip.tripId,
-      rideId: trip.ride,
-      departureDateTime: moment(trip.departureDateTime).format('YYYY-MM-DD'),
+      rideId: trip.rideId,
+      tripStatus: "completed",
+      departureDate: moment(trip.departureDateTime).format('YYYY-MM-DD'),
+      departureTimeString: moment(trip.departureDateTime).format('hh:mm A'),
       pickUpLocation: trip.pickUpLocation.address,
       dropOffLocation: trip.dropOffLocation.address,
       price: trip.price,

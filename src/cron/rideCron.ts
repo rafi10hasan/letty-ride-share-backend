@@ -1,8 +1,6 @@
 import cron from 'node-cron';
 import { Booking } from '../app/modules/booking/booking.model';
-
 import RidePublish from '../app/modules/ride-publish/ride.publish.model';
-
 import moment from 'moment';
 import { BOOKING_STATUS } from '../app/modules/booking/booking.constant';
 import { IPopulatedDriver, IPopulatedPassenger } from '../app/modules/booking/booking.service';
@@ -57,20 +55,28 @@ export const notifyUser = async ({
 
 export const initializeRideCrons = () => {
 
+    //   cron.schedule('* * * * *', async () => {
     cron.schedule('* * * * *', async () => {
         try {
             const now = moment();
-            const result = await RidePublish.deleteMany({
+
+            // find rides that are still PENDING but past their departure time
+            const expiredRides = await RidePublish.find({
                 departureDateTime: { $lt: now.toDate() },
                 tripStatus: TRIP_STATUS.PENDING,
-                totalSeatBooked: 0
-            });
+            }).select('_id');
 
-            if (result.deletedCount > 0) {
-                console.log(`[Success] ${result.deletedCount}`);
-            }
+            if (expiredRides.length === 0) return;
+
+            const expiredRideIds = expiredRides.map((r) => r._id);
+
+            // delete those rides + their bookings
+            await Booking.deleteMany({ ride: { $in: expiredRideIds } });
+            await RidePublish.deleteMany({ _id: { $in: expiredRideIds } });
+
+            logger.info(`Deleted ${expiredRides.length} expired rides and their bookings`);
         } catch (error) {
-            console.error('Error:', error);
+            logger.error(`Expired ride cleanup cron failed: ${error}`);
         }
     });
 
@@ -212,11 +218,16 @@ export const initializeRideCrons = () => {
         try {
             const now = new Date();
             const bufferTime = new Date(now.getTime() - 15 * 60 * 1000);
+
             const rides = await RidePublish.find({
                 tripStatus: TRIP_STATUS.UPCOMING,
                 departureDateTime: { $lte: bufferTime },
                 totalSeatBooked: { $gte: 1 },
                 'notifications.autoStarted': false,
+            }).populate<{ driver: IPopulatedDriver }>({
+                path: 'driver',
+                select: 'user',
+                populate: { path: 'user', select: 'fcmToken _id' },
             });
 
             await Promise.all(rides.map(async (ride) => {
@@ -225,7 +236,17 @@ export const initializeRideCrons = () => {
                     startedAt: now,
                     'notifications.autoStarted': true,
                 });
-                console.log("ride start")
+
+                // Driver notify
+                await notifyUser({
+                    userId: ride.driver.user._id.toString(),
+                    fcmToken: ride.driver.user.fcmToken,
+                    title: 'Ride Auto-Started',
+                    message: `Your ride ${ride.tripId} has been automatically started.`,
+                    socketEvent: 'ride-auto-started',
+                    notificationType: NOTIFICATION_TYPE.RIDE_STARTED,
+                });
+
                 logger.info(`Ride ${ride.tripId} auto-started`);
             }));
 
