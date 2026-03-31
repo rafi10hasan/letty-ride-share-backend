@@ -88,4 +88,11 @@ driverRouter.get(
   driverController.getMyAlPassengerDetailsByRideId,
 );
 
+
+driverRouter.get(
+  '/cancel-rides',
+  authMiddleware(USER_ROLE.DRIVER),
+  driverController.getCancelledRideIntoDb,
+);
+
 export default driverRouter;

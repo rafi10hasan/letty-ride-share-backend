@@ -77,6 +77,7 @@ const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Respons
 const getMyAlPassengerDetailsByRideId = asyncHandler(async (req: Request, res: Response) => {
   const { rideId } = req.params;
   const result = await driverService.retrievedPassengerDetails(req.user, rideId);
+  console.log(result)
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -120,6 +121,15 @@ const getCompletedRideIntoDb = asyncHandler(async (req: Request, res: Response) 
     });
 });
 
+const getCancelledRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    const result = await driverService.getDriverCancelledRides(req.user);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Cancelled rides retrieved successfully',
+        data: result,
+    });
+});
 
 
 export const driverController = {
@@ -132,5 +142,6 @@ export const driverController = {
   getDriverProfileIntoDb,
   getUpcomingRideIntoDb,
   getOngoingRideIntoDb,
-  getCompletedRideIntoDb
+  getCompletedRideIntoDb,
+  getCancelledRideIntoDb
 };

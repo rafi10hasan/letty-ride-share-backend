@@ -86,6 +86,17 @@ const passengerCompletedRides = async (req: Request, res: Response) => {
   });
 };
 
+
+const passengerCancelledRides = async (req: Request, res: Response) => {
+  const rides = await passengerService.getPassengerCancelledBookings(req.user);
+
+  sendResponse(res, {
+    statusCode: 200,
+    success: true,
+    message: 'Cancelled rides fetched successfully',
+    data: rides,
+  });
+};
 // publish ride into db
 
 
@@ -96,7 +107,8 @@ export const passengerController = {
   passengerUpcomingRides,
   getPassengerRequestsIntoDb,
   passengerOngoingRides,
-  passengerCompletedRides
+  passengerCompletedRides,
+  passengerCancelledRides
 };
 
 /*

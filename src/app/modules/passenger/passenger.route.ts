@@ -59,5 +59,10 @@ passengerRouter.get(
   passengerController.passengerCompletedRides,
 );
 
+passengerRouter.get(
+  '/cancelled-rides',
+  authMiddleware(USER_ROLE.PASSENGER),
+  passengerController.passengerCancelledRides,
+);
 
 export default passengerRouter;

@@ -89,7 +89,7 @@ const sendSubscriptionPurchaseRequest = async (
 
         await sendMail(mailOptions).catch((err) => {
             // Mail failure should not break the flow
-            console.error('Failed to send subscription request email:', err);
+        console.error('Failed to send subscription request email:', err);
         });
 
         return user.subscription;

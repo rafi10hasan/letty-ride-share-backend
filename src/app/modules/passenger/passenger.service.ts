@@ -11,6 +11,7 @@ import { IUser } from '../user/user.interface';
 import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
 import { driverRepository } from '../driver/driver.repository';
+import { IDriver } from '../driver/driver.interface';
 
 
 
@@ -68,8 +69,8 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
   session.startTransaction();
 
   try {
-   
-    if(driver){
+
+    if (driver) {
       await driverRepository.updateDriverProfile(driver._id, payload, session);
     }
     const updatedPassenger = await passengerRepository.updatePassengerProfile(passenger._id, payload, session);
@@ -280,6 +281,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
     };
 
     return {
+      tripHistoryId: trip._id,
       bookingId: b._id,
       driverId: trip.driver._id,
       tripId: trip._id,
@@ -302,6 +304,50 @@ const getPassengerCompletedRides = async (user: IUser) => {
 };
 
 
+// cancel booking
+
+const getPassengerCancelledBookings = async (user: IUser) => {
+    const passenger = await passengerRepository.findPassengerByUserId(user._id);
+    if (!passenger) throw new NotFoundError('Passenger not found');
+
+    const bookings = await Booking.find({
+        passenger: passenger._id,
+        status: BOOKING_STATUS.CANCELLED,
+        tripHistory: { $ne: null },
+    }).populate<{ tripHistory: ITripHistory & { driver: IDriver } }>({
+        path: 'tripHistory',
+        populate: {
+            path: 'driver',
+            select: 'fullName avatar avgRating totalReviews',
+        },
+    });
+
+    return bookings.map((booking) => {
+        const trip = booking.tripHistory as ITripHistory & { driver: IDriver };
+
+        return {
+            tripHistoryId: trip._id,
+            bookingId: booking._id,
+            driverId: trip.driver._id,
+            tripId: trip.tripId,
+            seatsBooked: booking.seatsBooked,
+            totalPrice: (trip.price / trip.totalSeats) * booking.seatsBooked,
+            departureDateTime: trip.departureDateTime,
+            pickUpLocation: trip.pickUpLocation.address,
+            dropOffLocation: trip.dropOffLocation.address,
+            totalDistance: trip.totalDistance,
+            totalSeatBooked: trip.totalSeatBooked,
+            cancellationReason: trip.cancellationReason,
+            startedAt: trip.startedAt,
+            completedAt: trip.completedAt,
+            driverName: trip.driver.fullName,
+            driverAvatar: trip.driver.avatar,
+            driverRating: trip.driver.avgRating,
+            driverTotalReviews: trip.driver.totalReviews,
+        };
+    });
+};
+
 
 export const passengerService = {
   createPassengerProfile,
@@ -311,4 +357,5 @@ export const passengerService = {
   getPassengerUpcomingRides,
   getPassengerOngoingRide,
   getPassengerCompletedRides,
+  getPassengerCancelledBookings,
 };

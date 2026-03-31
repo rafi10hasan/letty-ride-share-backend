@@ -6,6 +6,7 @@ export interface ITripHistory extends Document {
     ride: Types.ObjectId;
     tripId: string;
     rideId: Types.ObjectId;
+    tripStatus: 'completed' | 'cancelled';
     driver: Types.ObjectId;
     pickUpLocation: {
         address: string;
@@ -15,6 +16,7 @@ export interface ITripHistory extends Document {
         address: string;
         coordinates: [number, number];
     };
+    cancellationReason: string | null;
     departureDateTime: Date;
     totalDistance: string;
     price: number;

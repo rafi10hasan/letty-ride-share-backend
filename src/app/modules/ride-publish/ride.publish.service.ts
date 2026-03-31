@@ -1,15 +1,13 @@
 import moment from 'moment-timezone';
-import { Types } from 'mongoose';
+import mongoose, { Types } from 'mongoose';
 import logger from '../../../config/logger';
 import { completeRide } from '../../../helpers/completeRide';
 import { getETAFromGoogleMaps } from '../../../helpers/getEstimateArrivalTime';
-import { getSocketIO, onlineUsers } from '../../../socket/connectSocket';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../../errors/request/apiError';
 import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
 import { driverRepository } from '../driver/driver.repository';
 import { NOTIFICATION_TYPE } from '../notification/notification.constant';
-import Notification from '../notification/notification.model';
 import { sendPushNotification } from '../notification/notification.utils';
 import { IUser } from '../user/user.interface';
 import { PUBLISH_STATUS, TRIP_STATUS } from './ride.publish.constant';
@@ -20,6 +18,7 @@ import { TCreateTripPayload, TSearchTripPayload, TUpdateTripPayload } from './ri
 import { notifyUser } from '../../../cron/rideCron';
 import { buildDepartureDateTime, buildEstimatedArrivalTime, sanitizeDepartureDate } from '../../../helpers/ride.helper';
 import { passengerRepository } from '../passenger/passenger.repository';
+import { TripHistory } from '../trip-history/trip.history.model';
 
 interface IPopulatedDriver {
   _id: Types.ObjectId;
@@ -233,169 +232,169 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 
 // search available rides
 const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
-    const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly } = payload;
+  const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly } = payload;
 
-    if (seats <= 0) throw new BadRequestError('Seats must be at least 1');
+  if (seats <= 0) throw new BadRequestError('Seats must be at least 1');
 
-    const now = new Date();
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+  const now = new Date();
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
 
-    const searchDate = new Date(date);
-    searchDate.setUTCHours(0, 0, 0, 0);
+  const searchDate = new Date(date);
+  searchDate.setUTCHours(0, 0, 0, 0);
 
-    if (searchDate < today) throw new BadRequestError('Search date cannot be in the past');
+  if (searchDate < today) throw new BadRequestError('Search date cannot be in the past');
 
-    const currentTimeMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-    const specifiedTimeMinutes = time ? timeStringToMinutes(time) : currentTimeMinutes;
-    const diffDays = Math.round((searchDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  const currentTimeMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const specifiedTimeMinutes = time ? timeStringToMinutes(time) : currentTimeMinutes;
+  const diffDays = Math.round((searchDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-    let dateFrom: Date;
-    let dateTo: Date;
-    let timeMin: number;
+  let dateFrom: Date;
+  let dateTo: Date;
+  let timeMin: number;
 
-    if (diffDays === 0) {
-        // Case 1: searching for today ride
-        const adjustedTimeMin = specifiedTimeMinutes + 120;
+  if (diffDays === 0) {
+    // Case 1: searching for today ride
+    const adjustedTimeMin = specifiedTimeMinutes + 120;
 
-        if (adjustedTimeMin < currentTimeMinutes) {
-            // Searched time too far in past → dateTo = tomorrow only
-            dateFrom = new Date(today);
-            dateTo = new Date(today);
-            dateTo.setDate(dateTo.getDate() + 1);
-            timeMin = currentTimeMinutes;
-        } else {
-            // Normal case → dateTo = today + 2 days
-            dateFrom = new Date(today);
-            dateTo = new Date(today);
-            dateTo.setDate(dateTo.getDate() + 2);
-            timeMin = adjustedTimeMin;
-        }
-    } else if (diffDays === 1) {
-        // Case 2: searching for tomorrow's ride
-        dateFrom = new Date(today);
-        dateTo = new Date(searchDate);
-        dateTo.setDate(dateTo.getDate() + 1);
-        timeMin = currentTimeMinutes + 120;
+    if (adjustedTimeMin < currentTimeMinutes) {
+      // Searched time too far in past → dateTo = tomorrow only
+      dateFrom = new Date(today);
+      dateTo = new Date(today);
+      dateTo.setDate(dateTo.getDate() + 1);
+      timeMin = currentTimeMinutes;
     } else {
-        // Case 3: searching for ride 2+ days in the future
-        // searchDate-1 to searchDate+1
-        dateFrom = new Date(searchDate);
-        dateFrom.setDate(dateFrom.getDate() - 1);
-        dateTo = new Date(searchDate);
-        dateTo.setDate(dateTo.getDate() + 1);
-        timeMin = 0;
+      // Normal case → dateTo = today + 2 days
+      dateFrom = new Date(today);
+      dateTo = new Date(today);
+      dateTo.setDate(dateTo.getDate() + 2);
+      timeMin = adjustedTimeMin;
     }
+  } else if (diffDays === 1) {
+    // Case 2: searching for tomorrow's ride
+    dateFrom = new Date(today);
+    dateTo = new Date(searchDate);
+    dateTo.setDate(dateTo.getDate() + 1);
+    timeMin = currentTimeMinutes + 120;
+  } else {
+    // Case 3: searching for ride 2+ days in the future
+    // searchDate-1 to searchDate+1
+    dateFrom = new Date(searchDate);
+    dateFrom.setDate(dateFrom.getDate() - 1);
+    dateTo = new Date(searchDate);
+    dateTo.setDate(dateTo.getDate() + 1);
+    timeMin = 0;
+  }
 
-    dateTo.setUTCHours(23, 59, 59, 999);
+  dateTo.setUTCHours(23, 59, 59, 999);
 
-    console.log({ dateFrom, dateTo, timeMin, diffDays });
+  console.log({ dateFrom, dateTo, timeMin, diffDays });
 
-    const passenger = await passengerRepository.findPassengerByUserId(user._id);
-    const bookedRideIds = passenger
-        ? await Booking.find({
-            passenger: passenger._id,
-            status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
-        }).distinct('ride')
-        : [];
+  const passenger = await passengerRepository.findPassengerByUserId(user._id);
+  const bookedRideIds = passenger
+    ? await Booking.find({
+      passenger: passenger._id,
+      status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+    }).distinct('ride')
+    : [];
 
-    const driver = await driverRepository.findDriverByUserId(user._id);
+  const driver = await driverRepository.findDriverByUserId(user._id);
 
-    const matchStage: Record<string, any> = {
-        status: PUBLISH_STATUS.ACTIVE,
-        tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
-        availableSeats: { $gte: seats },
-        departureDate: { $gte: dateFrom, $lte: dateTo },
-        departureTimeMinutes: { $gte: timeMin, $lte: 1439 },
-        pickUpLocation: {
-            $geoWithin: {
-                $centerSphere: [pickUpLocation.coordinates, 10 / 6378.1],
-            },
+  const matchStage: Record<string, any> = {
+    status: PUBLISH_STATUS.ACTIVE,
+    tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
+    availableSeats: { $gte: seats },
+    departureDate: { $gte: dateFrom, $lte: dateTo },
+    departureTimeMinutes: { $gte: timeMin, $lte: 1439 },
+    pickUpLocation: {
+      $geoWithin: {
+        $centerSphere: [pickUpLocation.coordinates, 10 / 6378.1],
+      },
+    },
+    dropOffLocation: {
+      $geoWithin: {
+        $centerSphere: [dropOffLocation.coordinates, 10 / 6378.1],
+      },
+    },
+  };
+
+  if (bookedRideIds.length > 0) matchStage._id = { $nin: bookedRideIds };
+  if (driver) matchStage.driver = { $ne: driver._id };
+
+  if (isLadiesOnly) {
+    matchStage.isLadiesOnly = true;
+  } else {
+    matchStage.isLadiesOnly = { $ne: true };
+  }
+
+  const rides = await RidePublish.aggregate([
+    { $match: matchStage },
+    {
+      $lookup: {
+        from: 'drivers',
+        localField: 'driver',
+        foreignField: '_id',
+        as: 'driverData',
+      },
+    },
+    { $unwind: '$driverData' },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'driverData.user',
+        foreignField: '_id',
+        as: 'userData',
+      },
+    },
+    { $unwind: '$userData' },
+    {
+      $addFields: {
+        driverInfo: {
+          name: '$driverData.fullName',
+          photo: '$driverData.avatar',
+          hasAc: '$driverData.hasAc',
+          rating: '$driverData.avgRating',
+          totalReviews: '$driverData.totalReviews',
         },
-        dropOffLocation: {
-            $geoWithin: {
-                $centerSphere: [dropOffLocation.coordinates, 10 / 6378.1],
-            },
+        planPriority: {
+          $switch: {
+            branches: [
+              { case: { $eq: ['$userData.subscription.currentPlan', 'premium-plus'] }, then: 4 },
+              { case: { $eq: ['$userData.subscription.currentPlan', 'all-access'] }, then: 3 },
+              { case: { $eq: ['$userData.subscription.currentPlan', 'premium'] }, then: 2 },
+            ],
+            default: 1,
+          },
         },
-    };
+      },
+    },
+    {
+      $sort: {
+        planPriority: -1,
+        'driverInfo.rating': -1,
+        'driverInfo.totalReviews': -1,
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        tripId: 1,
+        tripStatus: 1,
+        driverInfo: 1,
+        pickupAddress: '$pickUpLocation.address',
+        dropOffAddress: '$dropOffLocation.address',
+        departureDate: 1,
+        departureTimeString: 1,
+        price: 1,
+        availableSeats: 1,
+        totalSeats: 1,
+        genderPreference: 1,
+        isLadiesOnly: 1,
+      },
+    },
+  ]);
 
-    if (bookedRideIds.length > 0) matchStage._id = { $nin: bookedRideIds };
-    if (driver) matchStage.driver = { $ne: driver._id };
-
-    if (isLadiesOnly) {
-        matchStage.isLadiesOnly = true;
-    } else {
-        matchStage.isLadiesOnly = { $ne: true };
-    }
-
-    const rides = await RidePublish.aggregate([
-        { $match: matchStage },
-        {
-            $lookup: {
-                from: 'drivers',
-                localField: 'driver',
-                foreignField: '_id',
-                as: 'driverData',
-            },
-        },
-        { $unwind: '$driverData' },
-        {
-            $lookup: {
-                from: 'users',
-                localField: 'driverData.user',
-                foreignField: '_id',
-                as: 'userData',
-            },
-        },
-        { $unwind: '$userData' },
-        {
-            $addFields: {
-                driverInfo: {
-                    name: '$driverData.fullName',
-                    photo: '$driverData.avatar',
-                    hasAc: '$driverData.hasAc',
-                    rating: '$driverData.avgRating',
-                    totalReviews: '$driverData.totalReviews',
-                },
-                planPriority: {
-                    $switch: {
-                        branches: [
-                            { case: { $eq: ['$userData.subscription.currentPlan', 'premium-plus'] }, then: 4 },
-                            { case: { $eq: ['$userData.subscription.currentPlan', 'all-access'] }, then: 3 },
-                            { case: { $eq: ['$userData.subscription.currentPlan', 'premium'] }, then: 2 },
-                        ],
-                        default: 1,
-                    },
-                },
-            },
-        },
-        {
-            $sort: {
-                planPriority: -1,
-                'driverInfo.rating': -1,
-                'driverInfo.totalReviews': -1,
-            },
-        },
-        {
-            $project: {
-                _id: 1,
-                tripId: 1,
-                tripStatus: 1,
-                driverInfo: 1,
-                pickupAddress: '$pickUpLocation.address',
-                dropOffAddress: '$dropOffLocation.address',
-                departureDate: 1,
-                departureTimeString: 1,
-                price: 1,
-                availableSeats: 1,
-                totalSeats: 1,
-                genderPreference: 1,
-                isLadiesOnly: 1,
-            },
-        },
-    ]);
-
-    return rides;
+  return rides;
 };
 
 //confirm ride
@@ -593,53 +592,79 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
     },
   });
 
-  await RidePublish.findByIdAndUpdate(rideId, {
-    status: PUBLISH_STATUS.CANCELLED,
-    tripStatus: TRIP_STATUS.CANCELLED,
-    cancellationReason,
-  });
+  const session = await mongoose.startSession();
+  session.startTransaction();
 
-  await Booking.updateMany(
-    { ride: rideId, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] } },
-    { status: BOOKING_STATUS.CANCELLED, cancelledBy: 'driver' },
-  );
+  try {
+    
+    const tripHistory = await TripHistory.create(
+      [
+        {
+          tripId: ride.tripId,
+          ride: ride._id,
+          driver: ride.driver,
+          pickUpLocation: {
+            address: ride.pickUpLocation.address,
+            coordinates: ride.pickUpLocation.coordinates,
+          },
+          dropOffLocation: {
+            address: ride.dropOffLocation.address,
+            coordinates: ride.dropOffLocation.coordinates,
+          },
+          departureDateTime: ride.departureDateTime,
+          totalDistance: ride.totalDistance,
+          price: ride.price,
+          totalSeats: ride.totalSeats,
+          totalSeatBooked: ride.totalSeatBooked,
+          startedAt: ride.startedAt || null,
+          completedAt: null,
+          tripStatus: 'cancelled',
+          cancellationReason,
+        },
+      ],
+      { session }
+    );
 
-  const io = getSocketIO();
+    await Booking.updateMany(
+      { ride: rideId, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] } },
+      {
+        status: BOOKING_STATUS.CANCELLED,
+        cancelledBy: 'driver',
+        cancelReason: cancellationReason,
+        tripHistory: tripHistory[0]._id, 
+        ride: null,
+      },
+      { session }
+    );
 
+    await RidePublish.findByIdAndDelete(rideId, { session });  
+
+    await session.commitTransaction();
+
+  } catch (error) {
+    await session.abortTransaction();
+    throw error;
+  } finally {
+    await session.endSession();
+  }
+
+  // Background notify
   Promise.all(
-    bookings.map(async (booking) => {
+    bookings.map((booking) => {
       const passengerId = booking.passenger?.user?._id;
       const fcmToken = booking.passenger?.user?.fcmToken;
 
-      if (!passengerId) return;
+      if (!passengerId) return Promise.resolve();
 
-      const socketId = onlineUsers.get(passengerId.toString());
-      if (socketId) {
-        io.to(passengerId.toString()).emit('ride-cancelled', {
-          title: 'Ride Cancelled',
-          message: `Your trip ${ride.tripId} has been cancelled. Reason: ${cancellationReason}`,
-          rideId,
-        });
-      } else {
-        await Notification.create({
-          title: 'Ride Cancelled',
-          message: `Your trip ${ride.tripId} has been cancelled. Reason: ${cancellationReason}`,
-          receiver: passengerId,
-          type: NOTIFICATION_TYPE.RIDE_CANCELLED,
-        });
-      }
-
-      if (fcmToken) {
-        try {
-          await sendPushNotification(fcmToken, {
-            title: 'Ride Cancelled',
-            content: `Your trip ${ride.tripId} has been cancelled by driver. Reason: ${cancellationReason}`,
-          });
-        } catch (error) {
-          logger.error(`FCM failed for passenger ${passengerId}: ${error}`);
-        }
-      }
-    }),
+      return notifyUser({
+        userId: passengerId.toString(),
+        fcmToken,
+        title: 'Ride Cancelled',
+        message: `Your trip ${ride.tripId} has been cancelled. Reason: ${cancellationReason}`,
+        socketEvent: 'ride-cancelled',
+        notificationType: NOTIFICATION_TYPE.RIDE_CANCELLED,
+      });
+    })
   ).catch((error) => logger.error(`Background task failed: ${error}`));
 };
 
