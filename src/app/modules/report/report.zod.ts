@@ -2,15 +2,6 @@ import z from "zod";
 
 const createReportSchema = z.object({
 
-    tripId: z
-        .string({
-            error: (issue) => {
-                if (issue.input === undefined) return 'Trip ID is required';
-                if (typeof issue.input !== 'string') return 'Trip ID must be a string';
-                return 'Invalid trip ID';
-            },
-        }),
-
     reportedId: z
         .string({
             error: (issue) => {

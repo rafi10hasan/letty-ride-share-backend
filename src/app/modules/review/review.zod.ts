@@ -27,7 +27,7 @@ const createReviewSchema = z.object({
                 return 'Invalid comment';
             },
         })
-        .min(10, 'Comment must be at least 10 characters').optional(),
+        .min(4, 'Comment must be at least 4 characters').optional(),
 }).superRefine((data, ctx) => {
 
     if (data.stars === undefined && data.comment === undefined) {

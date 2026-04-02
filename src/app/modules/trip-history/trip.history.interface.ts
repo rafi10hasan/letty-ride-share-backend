@@ -22,7 +22,8 @@ export interface ITripHistory extends Document {
     price: number;
     totalSeats: number;
     totalSeatBooked: number;
-    startedAt: Date;
-    completedAt: Date;
-
+    startedAt: Date | null;
+    completedAt: Date | null;
+    createdAt: Date;
+    updatedAt: Date;
 }

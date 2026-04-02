@@ -7,7 +7,6 @@ import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
 
 import moment from 'moment';
-import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
 import { IPassenger } from '../passenger/passenger.interface';
 import { passengerRepository } from '../passenger/passenger.repository';
@@ -266,7 +265,8 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new UnauthorizedError('This ride is not yours');
   }
 
-  const passengers = await Booking.find({ ride: rideId, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] } }).sort({ createdAt: -1 });
+  const passengers = await Booking.find({ ride: rideId }).sort({ createdAt: -1 });
+  console.log({ passengers })
   ride.requestsCount = passengers.length;
   await ride.save();
 
@@ -284,7 +284,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
       arrivalTime: moment.utc(passenger.bookedAt).format('hh:mm A')
     }
   });
-
+  console.log({ sanitizedPassenger })
   return sanitizedPassenger;
 };
 
@@ -303,16 +303,17 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
 
     const passengers = await Booking.find({
       ride: rideId,
-      status: BOOKING_STATUS.ACCEPTED,
     }).populate<{ passenger: IPassenger }>({
       path: 'passenger',
       select: 'fullName phone avatar avgRating totalRides',
     }).sort({ createdAt: -1 });
 
+    // console.log({ passengers })
     return passengers.map((passenger) => ({
       bookingId: passenger._id,
       tripId: ride.tripId,
       passengerId: passenger.passenger._id,
+      driverId: ride.driver,
       name: passenger.passenger.fullName,
       profileImage: passenger.passenger.avatar,
       avgRating: passenger.passenger.avgRating,
@@ -320,6 +321,8 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
       pickUpAddress: passenger.pickUpLocation.address,
       dropOffAddress: passenger.dropOffLocation.address,
       seatBooked: passenger.seatsBooked,
+      cancelBy: passenger.cancelledBy,
+      cancelletionReason: passenger.cancelReason,
       departureTime: moment(ride.departureDateTime).format('hh:mm A'),
       price: ride.price,
       contributionPerSeat: ride.price / ride.totalSeats,
@@ -336,7 +339,6 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
 
   const passengers = await Booking.find({
     tripHistory: tripHistory._id,
-    status: BOOKING_STATUS.COMPLETED,
   }).populate<{ passenger: IPassenger }>({
     path: 'passenger',
     select: 'fullName phone avatar avgRating totalRides',
@@ -344,6 +346,7 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
 
   return passengers.map((passenger) => ({
     bookingId: passenger._id,
+    driverId: tripHistory.driver,
     tripId: tripHistory.tripId,
     passengerId: passenger.passenger._id,
     name: passenger.passenger.fullName,
@@ -354,7 +357,9 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
     dropOffAddress: passenger.dropOffLocation.address,
     seatBooked: passenger.seatsBooked,
     departureTime: moment(tripHistory.
-    departureDateTime).format('hh:mm A'),
+      departureDateTime).format('hh:mm A'),
+    cancelBy: passenger.cancelledBy,
+    cancelletionReason: passenger.cancelReason,
     price: tripHistory.price,
     contributionPerSeat: tripHistory.price / tripHistory.totalSeats,
     departureDate: moment.utc(tripHistory.departureDateTime).format('YYYY-MM-DD'),
@@ -433,6 +438,7 @@ const getDriverCompletedRides = async (user: IUser) => {
   if (!driver) throw new NotFoundError('Driver profile not found');
 
   const completedRides = await TripHistory.find({
+    tripStatus: TRIP_STATUS.COMPLETED,
     driver: driver._id,
   }).populate('driver', '_id');
 
@@ -457,25 +463,27 @@ const getDriverCompletedRides = async (user: IUser) => {
 
 
 const getDriverCancelledRides = async (user: IUser) => {
-    const driver = await driverRepository.findDriverByUserId(user._id);
-    if (!driver) throw new NotFoundError('Driver not found');
+  const driver = await driverRepository.findDriverByUserId(user._id);
+  if (!driver) throw new NotFoundError('Driver not found');
 
-    const trips = await TripHistory.find({
-        driver: driver._id,
-        status: 'cancelled',
-    });
+  const trips = await TripHistory.find({
+    driver: driver._id,
+    tripStatus: TRIP_STATUS.CANCELLED,
+  });
 
-    return trips.map((trip) => ({
-        tripHistoryId: trip._id,
-        tripId: trip.tripId,
-        totalPrice: (trip.price / trip.totalSeats) * trip.totalSeatBooked,
-        departureDateTime: trip.departureDateTime,
-        pickUpLocation: trip.pickUpLocation.address,
-        dropOffLocation: trip.dropOffLocation.address,
-        totalDistance: trip.totalDistance,
-        totalSeatBooked: trip.totalSeatBooked,
-        cancellationReason: trip.cancellationReason,
-    }));
+  return trips.map((trip) => ({
+    tripHistoryId: trip._id,
+    rideId: trip.rideId,
+    tripId: trip.tripId,
+    totalPrice: (trip.price / trip.totalSeats) * trip.totalSeatBooked,
+    totalSeat: trip.totalSeats,
+    departureDateTime: trip.departureDateTime,
+    pickUpLocation: trip.pickUpLocation.address,
+    dropOffLocation: trip.dropOffLocation.address,
+    totalDistance: trip.totalDistance,
+    totalSeatBooked: trip.totalSeatBooked,
+    cancellationReason: trip.cancellationReason,
+  }));
 };
 
 export const driverService = {

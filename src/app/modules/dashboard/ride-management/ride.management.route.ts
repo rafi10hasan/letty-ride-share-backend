@@ -15,7 +15,16 @@ rideManagementRouter.get(
   rideManagementController.getRideOverviewIntoDb,
 );
 
+rideManagementRouter.get(
+  '/all',
+  authMiddleware(USER_ROLE.SUPER_ADMIN),
+  rideManagementController.getAllRidesIntoDb,
+);
 
-
+rideManagementRouter.get(
+  '/details/:rideId',
+  authMiddleware(USER_ROLE.SUPER_ADMIN),
+  rideManagementController.getRideDetailsIntoDb,
+);
 
 export default rideManagementRouter

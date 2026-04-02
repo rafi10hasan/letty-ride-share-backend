@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
+import { IDriver } from '../driver/driver.interface';
+import { driverRepository } from '../driver/driver.repository';
 import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
 import { IRidePublish } from '../ride-publish/ride.publish.interface';
 import { ITripHistory } from '../trip-history/trip.history.interface';
@@ -10,9 +12,6 @@ import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
 import { passengerRepository } from './passenger.repository';
 import { TPassengerProfilePayload, TPassengerUpdatedProfilePayload } from './passenger.zod';
-import { driverRepository } from '../driver/driver.repository';
-import { IDriver } from '../driver/driver.interface';
-
 
 
 // create passenger profile
@@ -189,7 +188,7 @@ const getPassengerUpcomingRides = async (user: IUser) => {
         bookingId: b._id,
         rideId: b.ride._id,
         tripId: ride.tripId,
-        driverId: ride.driver.toString(),
+        driverId: ride.driver._id,
         driverName: driverInfo.fullName,
         driverImage: driverInfo.avatar,
         status: b.status,
@@ -218,7 +217,7 @@ export const getPassengerOngoingRide = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.ONGOING },
-    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+    select: 'tripId driver tripStatus departureDate departureTimeString totalSeats pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
     populate: {
       path: 'driver',
       select: 'fullName avatar',
@@ -234,7 +233,7 @@ export const getPassengerOngoingRide = async (user: IUser) => {
         bookingId: b._id,
         rideId: b.ride._id,
         tripId: ride.tripId,
-        driverId: ride.driver.toString(),
+        driverId: ride.driver._id,
         driverName: driverInfo.fullName,
         driverImage: driverInfo.avatar,
         status: b.status,
@@ -282,12 +281,14 @@ const getPassengerCompletedRides = async (user: IUser) => {
 
     return {
       tripHistoryId: trip._id,
+      rideId: trip.rideId,
       bookingId: b._id,
       driverId: trip.driver._id,
       tripId: trip._id,
       seatsBooked: b.seatsBooked,
       totalPrice: (trip.price / trip.totalSeatBooked) * b.seatsBooked,
       tripStringId: trip.tripId,
+      totalSeats: trip.totalSeats,
       departureDateTime: trip.departureDateTime,
       pickUpLocation: trip.pickUpLocation.address,
       dropOffLocation: trip.dropOffLocation.address,
@@ -305,47 +306,45 @@ const getPassengerCompletedRides = async (user: IUser) => {
 
 
 // cancel booking
-
 const getPassengerCancelledBookings = async (user: IUser) => {
-    const passenger = await passengerRepository.findPassengerByUserId(user._id);
-    if (!passenger) throw new NotFoundError('Passenger not found');
+  const passenger = await passengerRepository.findPassengerByUserId(user._id);
+  if (!passenger) throw new NotFoundError('Passenger not found');
 
-    const bookings = await Booking.find({
-        passenger: passenger._id,
-        status: BOOKING_STATUS.CANCELLED,
-        tripHistory: { $ne: null },
-    }).populate<{ tripHistory: ITripHistory & { driver: IDriver } }>({
-        path: 'tripHistory',
-        populate: {
-            path: 'driver',
-            select: 'fullName avatar avgRating totalReviews',
-        },
-    });
+  const bookings = await Booking.find({
+    passenger: passenger._id,
+    status: BOOKING_STATUS.CANCELLED,
+    tripHistory: { $ne: null },
+  }).populate<{ tripHistory: ITripHistory & { driver: IDriver } }>({
+    path: 'tripHistory',
+    populate: {
+      path: 'driver',
+      select: 'fullName avatar avgRating totalReviews',
+    },
+  });
 
-    return bookings.map((booking) => {
-        const trip = booking.tripHistory as ITripHistory & { driver: IDriver };
+  return bookings.map((booking) => {
+    const trip = booking.tripHistory as ITripHistory & { driver: IDriver };
 
-        return {
-            tripHistoryId: trip._id,
-            bookingId: booking._id,
-            driverId: trip.driver._id,
-            tripId: trip.tripId,
-            seatsBooked: booking.seatsBooked,
-            totalPrice: (trip.price / trip.totalSeats) * booking.seatsBooked,
-            departureDateTime: trip.departureDateTime,
-            pickUpLocation: trip.pickUpLocation.address,
-            dropOffLocation: trip.dropOffLocation.address,
-            totalDistance: trip.totalDistance,
-            totalSeatBooked: trip.totalSeatBooked,
-            cancellationReason: trip.cancellationReason,
-            startedAt: trip.startedAt,
-            completedAt: trip.completedAt,
-            driverName: trip.driver.fullName,
-            driverAvatar: trip.driver.avatar,
-            driverRating: trip.driver.avgRating,
-            driverTotalReviews: trip.driver.totalReviews,
-        };
-    });
+    return {
+      tripHistoryId: trip._id,
+      rideId: trip.rideId,
+      bookingId: booking._id,
+      driverId: trip.driver._id,
+      tripId: trip.tripId,
+      seatsBooked: booking.seatsBooked,
+      totalPrice: (trip.price / trip.totalSeats) * booking.seatsBooked,
+      departureDateTime: trip.departureDateTime,
+      pickUpLocation: trip.pickUpLocation.address,
+      dropOffLocation: trip.dropOffLocation.address,
+      totalDistance: trip.totalDistance,
+      totalSeatBooked: trip.totalSeatBooked,
+      cancellationReason: trip.cancellationReason,
+      driverName: trip.driver.fullName,
+      driverAvatar: trip.driver.avatar,
+      driverRating: trip.driver.avgRating,
+      driverTotalReviews: trip.driver.totalReviews,
+    };
+  });
 };
 
 

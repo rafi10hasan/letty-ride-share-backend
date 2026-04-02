@@ -6,6 +6,7 @@ import { IPopulatedDriver, IPopulatedPassenger } from '../app/modules/booking/bo
 import Driver from '../app/modules/driver/driver.model';
 import { NOTIFICATION_TYPE } from '../app/modules/notification/notification.constant';
 import Passenger from '../app/modules/passenger/passenger.model';
+import { TRIP_STATUS } from '../app/modules/ride-publish/ride.publish.constant';
 import RidePublish from '../app/modules/ride-publish/ride.publish.model';
 import { TripHistory } from '../app/modules/trip-history/trip.history.model';
 import logger from '../config/logger';
@@ -34,7 +35,7 @@ export const completeRide = async (rideId: string) => {
     select: 'user',
     populate: { path: 'user', select: 'fcmToken _id' },
   });
- 
+
   const session = await mongoose.startSession();
   session.startTransaction();
 
@@ -56,6 +57,7 @@ export const completeRide = async (rideId: string) => {
             address: ride.dropOffLocation.address,
             coordinates: ride.dropOffLocation.coordinates,
           },
+          tripStatus: TRIP_STATUS.COMPLETED,
           departureDateTime: ride.departureDateTime,
           totalDistance: ride.totalDistance,
           price: ride.price,

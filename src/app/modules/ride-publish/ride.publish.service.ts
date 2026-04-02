@@ -47,6 +47,8 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
     throw new NotFoundError('Driver profile not found');
   }
 
+
+
   if (payload.minimumPassenger > payload.totalSeats) {
     throw new BadRequestError('Minimum passenger can not exceed total seats');
   }
@@ -117,6 +119,7 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
         status: PUBLISH_STATUS.ACTIVE,
         tripId,
         departureDate,
+        timezone: payload.timezone,
         departureTimeMinutes: departureTimeInMinutes,
         departureTimeString: payload.departureTimeString,
         isLadiesOnly: payload.isLadiesOnly,

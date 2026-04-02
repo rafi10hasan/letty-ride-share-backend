@@ -5,15 +5,15 @@ import { Router } from 'express';
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
 import { USER_ROLE } from '../user/user.constant';
-import reportValidationZodSchema from './report.zod';
 import { reportController } from './report.controller';
+import reportValidationZodSchema from './report.zod';
 
 
 
 const reportRouter = Router();
 
 reportRouter.post(
-    '/send',
+    '/send/:rideId',
     authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
     validateRequest(
         {

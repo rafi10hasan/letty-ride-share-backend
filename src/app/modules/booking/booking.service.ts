@@ -218,6 +218,8 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
         if (!updatedRide) {
             throw new BadRequestError('Not enough seats available');
         }
+        
+        console.log({updatedRide});
 
         if (updatedRide.totalSeatBooked >= updatedRide.minimumPassenger) {
             await RidePublish.findByIdAndUpdate(
@@ -347,7 +349,7 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
         {
             status: user.currentRole === 'passenger' ? BOOKING_STATUS.CANCELLED : BOOKING_STATUS.REJECTED,
             cancelledBy: user.currentRole,
-            expireAt: new Date(Date.now() + 10 * 60 * 1000),
+            expireAt: null,
         },
     );
 
