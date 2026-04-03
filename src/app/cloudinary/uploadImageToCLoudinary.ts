@@ -1,5 +1,5 @@
-import cloudinary from "../../config/cloudinary.config";
 import streamifier from 'streamifier';
+import cloudinary from "../../config/cloudinary.config";
 
 export const uploadToCloudinary = (
   file: Express.Multer.File,
@@ -10,10 +10,12 @@ export const uploadToCloudinary = (
       {
         folder: folderName,
         resource_type: 'image',
+        format: 'jpg',
+        overwrite: true,
         quality: 'auto',
         fetch_format: 'auto',
         transformation: [{ quality: 'auto' }],
-        max_file_size: 5 * 1024 * 1024, 
+        max_file_size: 5 * 1024 * 1024,
       },
       (error, result) => {
         if (error || !result) {

@@ -11,6 +11,7 @@ import { uploadToCloudinary } from '../../cloudinary/uploadImageToCLoudinary';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { jwtPayload } from '../auth/auth.interface';
 import { sendVerificationOtp } from '../auth/auth.utils';
+import Conversation from '../conversation/conversation.model';
 import { driverRepository } from '../driver/driver.repository';
 import { passengerRepository } from '../passenger/passenger.repository';
 import { Review } from '../review/review.model';
@@ -138,7 +139,7 @@ const createAccount = async (payload: registerPayload) => {
 
 const getUserShortInfo = async (user: IUser) => {
   let currentProfile;
-
+  console.log({ user })
   if (user.currentRole === USER_ROLE.PASSENGER) {
     currentProfile = await passengerRepository.findPassengerByUserId(user._id, "avgRating");
   }
@@ -218,6 +219,9 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
   // 4. New image upload
   let newProfileImageUrl: string;
 
+  if (!files.profile_image[0] || !files.profile_image[0].buffer) {
+    console.log("File buffer is missing");
+  }
   try {
     const result = await uploadToCloudinary(
       files.profile_image[0],
@@ -229,6 +233,7 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
     }
 
     newProfileImageUrl = result.secure_url;
+    console.log({ newProfileImageUrl })
   } catch (error) {
     throw new BadRequestError('Image upload failed');
   }
@@ -318,8 +323,17 @@ const getOtherUserProfile = async (user: IUser, profileId: string) => {
     if (!driverProfile) throw new NotFoundError("Driver profile not found");
 
     targetUserId = driverProfile.user;
+    const existingConversation = await Conversation.findOne({
+      participants: {
+        $all: [user._id, targetUserId],
+        $size: 2
+      },
+    })
+
     profileData = {
       profileId: driverProfile._id,
+      userId: driverProfile.user,
+      conversationId: existingConversation?._id ?? null,
       name: driverProfile.fullName,
       avatar: driverProfile.avatar,
       bio: driverProfile.bio,
@@ -330,13 +344,22 @@ const getOtherUserProfile = async (user: IUser, profileId: string) => {
       totalReviews: driverProfile.totalReviews || 0,
       totalTrips: driverProfile.totalTripCompleted || 0,
     };
+
   } else {
     const passengerProfile = await passengerRepository.findByPassengerId(new mongoose.Types.ObjectId(profileId));
     if (!passengerProfile) throw new NotFoundError("Passenger profile not found");
 
     targetUserId = passengerProfile.user;
+    const existingConversation = await Conversation.findOne({
+      participants: {
+        $all: [user._id, targetUserId],
+        $size: 2
+      },
+    })
     profileData = {
       profileId: passengerProfile._id,
+      userId: passengerProfile.user,
+      conversationId: existingConversation?._id ?? null,
       name: passengerProfile.fullName,
       avatar: passengerProfile.avatar,
       bio: passengerProfile.bio || "",

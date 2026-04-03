@@ -261,7 +261,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
     status: BOOKING_STATUS.COMPLETED,
   }).populate({
     path: 'tripHistory',
-    select: '_id tripId pickUpLocation dropOffLocation departureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
+    select: '_id tripId pickUpLocation dropOffLocation rideId departureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
     populate: {
       path: 'driver',
       select: '_id fullName avatar avgRating totalReviews',

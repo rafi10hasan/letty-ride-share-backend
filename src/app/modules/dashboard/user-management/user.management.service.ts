@@ -257,7 +257,7 @@ const getUserDetails = async (id: string) => {
 // change user subscription staus
 const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusPayload) => {
     try {
-        const user = await User.findById(id).select("_id subscription isActive email fullName");
+        const user = await User.findById(id).select("_id subscription isActive email fullName fcmToken");
         if (!user) throw new NotFoundError('User not found');
         if (!user.subscription) throw new NotFoundError('User subscription not found');
 
@@ -324,7 +324,8 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: TUserStatusP
         }
 
         await user.save();
-
+         
+        
         // ৪. Notification ebong Email Logic
         if (isSubscriptionChanged) {
             const statusText = payload.subscriptionStatus === 'approved' ? 'Approved' : 'Rejected';

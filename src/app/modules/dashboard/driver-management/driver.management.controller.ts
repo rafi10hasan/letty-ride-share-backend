@@ -26,7 +26,30 @@ const getAllDriversIntoDb = asyncHandler(async (req: Request, res: Response) => 
     });
 });
 
+const updateDriverStatus = asyncHandler(async (req: Request, res: Response) => {
+    const result = await adminDriverService.updateDriverStatus(req.params.userId, req.body);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Driver status updated successfully',
+        data: result,
+    });
+});
+
+const getDriverDetailsIntoDb = asyncHandler(async (req: Request, res: Response) => {
+    const result = await adminDriverService.getDriverDetails(req.params.driverId);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Driver details retrieved successfully',
+        data: result,
+    });
+});
+
+
 export const adminDriverController = {
     getDriverStatsIntoDb,
-    getAllDriversIntoDb
+    getAllDriversIntoDb,
+    updateDriverStatus,
+    getDriverDetailsIntoDb
 };

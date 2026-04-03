@@ -6,8 +6,6 @@ import { USER_ROLE } from '../../user/user.constant';
 import { adminDriverController } from './driver.management.controller';
 
 
-
-
 const driverManagementRouter = Router();
 
 driverManagementRouter.get(
@@ -22,10 +20,16 @@ driverManagementRouter.get(
     adminDriverController.getAllDriversIntoDb,
 );
 
-// driverManagementRouter.get(
-//   '/details/:rideId',
-//   authMiddleware(USER_ROLE.SUPER_ADMIN),
-//   rideManagementController.getRideDetailsIntoDb,
-// );
+driverManagementRouter.patch(
+    '/change-status/:userId',
+    authMiddleware(USER_ROLE.SUPER_ADMIN),
+    adminDriverController.updateDriverStatus,
+);
+
+driverManagementRouter.get(
+    '/details/:driverId',
+    authMiddleware(USER_ROLE.SUPER_ADMIN),
+    adminDriverController.getDriverDetailsIntoDb,
+);
 
 export default driverManagementRouter

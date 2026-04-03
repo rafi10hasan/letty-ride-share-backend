@@ -26,7 +26,7 @@ const createReport = async (user: IUser, rideId: string, payload: TReportPayload
     else if (!ride) {
         const hasTrip = await TripHistory.findOne({ rideId: rideId });
         if (!hasTrip) {
-            throw new BadRequestError(`you can't give a report in unknown trip`);
+            throw new BadRequestError(`You can't give a report in an unknown trip`);
         }
         tripId = hasTrip.tripId;
     }
@@ -38,7 +38,7 @@ const createReport = async (user: IUser, rideId: string, payload: TReportPayload
     });
 
     if (isExistReportForSameTrip) {
-        throw new BadRequestError(`you already give a report for this trip`);
+        throw new BadRequestError(`You already give a report for this trip`);
     }
 
 

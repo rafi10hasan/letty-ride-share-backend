@@ -1,50 +1,48 @@
-import mongoose from "mongoose";
 import config from "../../../../config";
 import logger from "../../../../config/logger";
 import { onlineUsers } from "../../../../socket/connectSocket";
 import sendMail from "../../../../utilities/sendEmail";
 import { BadRequestError, NotFoundError } from "../../../errors/request/apiError";
-import Driver from "../../driver/driver.model";
-import { driverRepository } from "../../driver/driver.repository";
 import { sendPushNotification } from "../../notification/notification.utils";
+import Passenger from "../../passenger/passenger.model";
 import { IUser } from "../../user/user.interface";
 import { userRepository } from "../../user/user.repository";
 
 
-const getDriverStats = async () => {
+const getPassengerStats = async () => {
     const [
-        totalDrivers,
-        allDrivers,
+        totalPassengers,
+        allPassengers,
     ] = await Promise.all([
-        Driver.countDocuments(),
-        Driver.find()
+        Passenger.countDocuments(),
+        Passenger.find()
             .populate<{ user: IUser }>({ path: 'user', select: '_id isActive' })
             .lean(),
     ]);
 
-    const onlineDrivers = allDrivers.filter((d) =>
-        d.user && onlineUsers.has(d.user._id.toString())
+    const onlinePassengers = allPassengers.filter((p) =>
+        p.user && onlineUsers.has(p.user._id.toString())
     ).length;
 
-    const activeAccountDrivers = allDrivers.filter((d) => d.user?.isActive).length;
-    const inactiveAccountDrivers = allDrivers.filter((d) => !d.user?.isActive).length;
+    const activeAccountPassengers = allPassengers.filter((p) => p.user?.isActive).length;
+    const inactiveAccountPassengers = allPassengers.filter((p) => !p.user?.isActive).length;
 
     return {
-        totalDrivers,
-        onlineDrivers,
-        activeAccounts: activeAccountDrivers,
-        inactiveAccounts: inactiveAccountDrivers,
+        totalPassengers,
+        onlinePassengers: onlinePassengers,
+        activeAccounts: activeAccountPassengers,
+        inactiveAccounts: inactiveAccountPassengers,
     };
 };
 
 // get 
-const getAllDrivers = async (query: Record<string, unknown>) => {
+const getAllPassengers = async (query: Record<string, unknown>) => {
     const { page = 1, limit = 10, searchTerm, status } = query;
 
     const matchStage: any = {};
     if (status) matchStage.status = status;
 
-    const result = await Driver.aggregate([
+    const result = await Passenger.aggregate([
         { $match: matchStage },
         {
             $lookup:
@@ -88,8 +86,7 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
                             vehicle: 1,
                             avgRating: 1,
                             totalReviews: 1,
-                            totalTripCompleted: 1,
-                            totalEarning: 1,
+                            totalRides: 1,
                             createdAt: 1,
                         },
                     },
@@ -99,13 +96,13 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
         },
     ]);
 
-    const drivers = result[0].data;
+    const passengers = result[0].data;
     const total = result[0].total[0]?.count || 0;
 
 
-    const data = drivers.map((driver: any) => ({
-        ...driver,
-        isOnline: onlineUsers.has(driver.userId.toString()),
+    const data = passengers.map((passenger: any) => ({
+        ...passenger,
+        isOnline: onlineUsers.has(passenger.userId.toString()),
     }));
 
     return {
@@ -121,19 +118,20 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
 };
 
 
-// update driver status
-const updateDriverStatus = async (id: string, payload: { status: true | false }) => {
+// update passenger status
+const updatePassengerStatus = async (id: string, payload: { status: "true" | "false" }) => {
 
-    if (!payload.status) {
+    console.log(id)
+    if (payload.status === undefined) {
         throw new BadRequestError('status is required')
     }
     const user = await userRepository.findById(id, "isActive fcmToken email");
-
+    console.log(user)
     if (!user) {
         throw new NotFoundError('User not found');
     }
 
-    user.isActive = payload.status;
+    user.isActive = Boolean(payload.status);
     await user.save();
 
 
@@ -155,7 +153,7 @@ const updateDriverStatus = async (id: string, payload: { status: true | false })
                         content: `Admin has changed your account status`,
                     });
                 } catch (error) {
-                    logger.error(`FCM failed for driver: ${error}`);
+                    logger.error(`FCM failed for passenger: ${error}`);
                 }
 
             })(),
@@ -165,7 +163,7 @@ const updateDriverStatus = async (id: string, payload: { status: true | false })
                 try {
                     await sendMail(mailOptions);
                 } catch (error) {
-                    logger.error(`email send failed to driver: ${error}`);
+                    logger.error(`email send failed to passenger: ${error}`);
                 }
 
             })(),
@@ -176,31 +174,8 @@ const updateDriverStatus = async (id: string, payload: { status: true | false })
         isActive: user.isActive
     }
 }
-
-
-const getDriverDetails = async (id: string) => {
-
-    const driver = await driverRepository.findByDriverId(new mongoose.Types.ObjectId(id));
-    console.log({ driver })
-    if (!driver) {
-        throw new NotFoundError("Driver not found");
-    }
-
-    return {
-        carImages: driver.carGalleries,
-        verificationImage: driver.verificationImage,
-        carModel: driver.carModel,
-        licensePlate: driver.licensePlate,
-        vehicleType: driver.vehicleType,
-        languages: driver.languages,
-        governorate: driver.governorate,
-        licenseNumber: driver.licenseNumber,
-    }
-}
-
-export const adminDriverService = {
-    getAllDrivers,
-    getDriverStats,
-    updateDriverStatus,
-    getDriverDetails
+export const adminPassengerService = {
+    getAllPassengers,
+    getPassengerStats,
+    updatePassengerStatus
 };

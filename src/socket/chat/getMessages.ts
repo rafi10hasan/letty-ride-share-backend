@@ -1,8 +1,9 @@
 
+import { Types } from 'mongoose';
 import { Socket } from 'socket.io';
-
 import Conversation from '../../app/modules/conversation/conversation.model';
 import Message from '../../app/modules/Message/message.model';
+import { onlineUsers } from '../connectSocket';
 import { SOCKET_EVENTS } from '../socket.constant';
 
 
@@ -12,6 +13,17 @@ interface MessagePageData {
   conversationId: string;
   page?: number;
   limit?: number;
+}
+
+interface ParticipantSummary {
+  _id: Types.ObjectId;
+  fullName: string;
+  avatar?: string;
+}
+
+interface ConversationWithParticipants {
+  participants: ParticipantSummary[];
+  lastSeen?: Map<string, unknown> | Record<string, unknown>;
 }
 
 // chat/getMessages.ts
@@ -24,10 +36,11 @@ export async function handleMessagePage(
     const { conversationId, page = 1, limit = 50 } = data;
     const skip = (page - 1) * limit;
 
-    const conversation = await Conversation.findById(conversationId)
+    const conversation = (await Conversation.findById(conversationId)
       .populate('participants', 'fullName avatar')
-      .lean();
+      .lean()) as ConversationWithParticipants | null;
 
+    console.log(conversation?.participants);
     if (!conversation) {
       socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
         errorMessage: 'Conversation not found',
@@ -108,7 +121,10 @@ export async function handleMessagePage(
           : null,
     }));
 
-    socket.emit('message-page', {
+    socket.emit('message-data', {
+      fullName: otherUser?.fullName,
+      profileImage: otherUser?.avatar || '',
+      isOnline: otherUser ? onlineUsers.has(otherUser._id.toString()) : false,
       conversationId,
       messages: messagesWithStatus,
       hasMore: messages.length === limit,
