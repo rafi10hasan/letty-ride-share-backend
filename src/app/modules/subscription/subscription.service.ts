@@ -9,7 +9,9 @@ import Notification from "../notification/notification.model";
 import { IUser } from "../user/user.interface";
 import User from "../user/user.model";
 
-import { SUBSCRIPTION_STATUS, USER_ROLE } from "../user/user.constant";
+import { USER_ROLE } from "../user/user.constant";
+import { REQUESTED_SUBSCRIPTION_STATUS } from "./subscription.constant";
+import Subscription from "./subscription.model";
 import { TSubscriptionRequestPayload } from "./subscription.zod";
 
 // send subscription request
@@ -18,28 +20,39 @@ const sendSubscriptionPurchaseRequest = async (
     payload: TSubscriptionRequestPayload
 ) => {
     const { plan, mode, price } = payload;
-
     const session = await mongoose.startSession();
 
     try {
         session.startTransaction();
 
-        if (user.subscription?.requestedAt) {
-            throw new BadRequestError('you have already sent a request!')
+        // 1. Check if there's already a pending request in the Subscription model
+        const existingRequest = await Subscription.findOne({
+            user: user._id,
+            "upgradeRequest.status": REQUESTED_SUBSCRIPTION_STATUS.PENDING
+        }).session(session);
+
+        if (existingRequest) {
+            throw new BadRequestError('You have already sent a request!');
         }
 
-        if (user.subscription) {
-            user.subscription.requestedPlan = plan;
-            user.subscription.requestedMode = mode;
-            user.subscription.requestedPrice = price;
-            user.subscription.requestedAt = new Date();
-            user.subscription.requestedStatus = SUBSCRIPTION_STATUS.PENDING;
-            await user.save({ session });
-        }
+        // 2. Find or Create Subscription record for this user
+        const subscriptionData = await Subscription.findOneAndUpdate(
+            { user: user._id },
+            {
+                $set: {
+                    "upgradeRequest.targetPlan": plan,
+                    "upgradeRequest.requestedMode": mode,
+                    "upgradeRequest.requestedPrice": price,
+                    "upgradeRequest.requestedAt": new Date(),
+                    "upgradeRequest.status": REQUESTED_SUBSCRIPTION_STATUS.PENDING,
+                }
+            },
+            { upsert: true, new: true, session }
+        );
 
-        // ── 3. Find super admin ─────────────────────────────────────────
+        // 3. Find super admin
         const superAdmin = await User.findOne(
-            { currentRole: USER_ROLE.SUPER_ADMIN },
+            { email: config.gmail_app_user, currentRole: USER_ROLE.SUPER_ADMIN },
             null,
             { session }
         );
@@ -48,8 +61,7 @@ const sendSubscriptionPurchaseRequest = async (
             throw new NotFoundError('Super admin not found');
         }
 
-        // ── 4. Create notification ──────────────────────────────────────
-
+        // 4. Create notification
         const notificationPayload = {
             title: 'Subscription Request',
             message: `${user.fullName} sent a subscription request to purchase ${plan} plan with ${mode} mode`,
@@ -59,21 +71,23 @@ const sendSubscriptionPurchaseRequest = async (
 
         await Notification.create([notificationPayload], { session });
 
-        // ── 5. Commit transaction ───────────────────────────────────────
+        // 5. Commit transaction
         await session.commitTransaction();
 
         // ── 6. Side effects (after commit) ──────────────────────────────
 
         // Socket emit
-        const socketId = onlineUsers.get(superAdmin._id.toString());
+        const superAdminIdStr = superAdmin._id.toString();
+        const socketId = onlineUsers.get(superAdminIdStr);
         if (socketId) {
             const io = getSocketIO();
-            io.to(superAdmin._id.toString()).emit('receive-subscription-request', {
+            io.to(superAdminIdStr).emit('receive-subscription-request', {
                 title: notificationPayload.title,
+                message: notificationPayload.message,
             });
         }
 
-        // Send mail (non-critical, won't rollback DB)
+        // Send mail
         const mailOptions = {
             from: user.email,
             to: config.gmail_app_user,
@@ -87,12 +101,11 @@ const sendSubscriptionPurchaseRequest = async (
             ),
         };
 
-        await sendMail(mailOptions).catch((err) => {
-            // Mail failure should not break the flow
-        console.error('Failed to send subscription request email:', err);
+        sendMail(mailOptions).catch((err) => {
+            console.error('Failed to send subscription request email:', err);
         });
 
-        return user.subscription;
+        return subscriptionData;
 
     } catch (error) {
         await session.abortTransaction();

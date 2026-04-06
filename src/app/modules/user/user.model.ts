@@ -1,7 +1,8 @@
 import bcrypt from 'bcrypt';
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { BADGE, PROVIDER, SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS, USER_ROLE } from './user.constant';
+import { SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../subscription/subscription.constant';
+import { BADGE, PROVIDER, USER_ROLE } from './user.constant';
 import { IUser, IUserModel } from './user.interface';
 
 const geoSchema = new Schema(
@@ -114,52 +115,25 @@ export const userSchema = new mongoose.Schema<IUser>(
     },
 
     subscription: {
-      currentPlan: {
+      id: {
+        type: Schema.Types.ObjectId,
+        ref: 'Subscription',
+        default: null
+      },
+      plan: {
         type: String,
         enum: Object.values(SUBSCRIPTION_PLAN),
-        default: SUBSCRIPTION_PLAN.FREE
-      },
-      currentMode: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_MODE),
+        default: null
       },
       status: {
         type: String,
         enum: Object.values(SUBSCRIPTION_STATUS),
-        default: SUBSCRIPTION_STATUS.APPROVED
+        default: SUBSCRIPTION_STATUS.ACTIVE
       },
-      price: {
+      totalAmountPaid: {
         type: Number,
         default: 0
-      },
-      expiryDate: {
-        type: Date,
-        default: null
-      },
-
-      requestedPlan: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_PLAN),
-        default: null
-      },
-      requestedMode: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_MODE),
-        default: null
-      },
-      requestedStatus: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_STATUS),
-        default: null
-      },
-      requestedPrice: {
-        type: Number,
-        default: 0
-      },
-      requestedAt: {
-        type: Date,
-        default: null
-      },
+      }
     },
     passwordResetOtp: {
       type: String,

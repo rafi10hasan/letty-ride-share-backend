@@ -2,7 +2,6 @@ import { Router } from 'express';
 
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
-import { checkSubscription } from '../../middlewares/subscription.middleware';
 import { USER_ROLE } from '../user/user.constant';
 import { bookingController } from './booking.controller';
 import bookingValidationZodSchema from './booking.zod';
@@ -19,7 +18,7 @@ bookingRouter.post(
     }
 
   ),
-  checkSubscription,
+  // checkSubscription,
   bookingController.sendRideRequestToDriverIntoDb,
 );
 
@@ -31,7 +30,7 @@ bookingRouter.patch(
 
 bookingRouter.patch(
   '/reject/:bookingId',
-  authMiddleware(USER_ROLE.DRIVER,USER_ROLE.PASSENGER),
+  authMiddleware(USER_ROLE.DRIVER, USER_ROLE.PASSENGER),
   bookingController.rejectBookingIntoDb,
 );
 

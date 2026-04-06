@@ -273,10 +273,13 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
     }
   } else if (diffDays === 1) {
     // Case 2: searching for tomorrow's ride
-    dateFrom = new Date(today);
+    dateFrom = new Date(searchDate);
     dateTo = new Date(searchDate);
-    dateTo.setDate(dateTo.getDate() + 1);
-    timeMin = currentTimeMinutes + 120;
+    timeMin = 0;
+    // dateFrom = new Date(today);
+    // dateTo = new Date(searchDate);
+    // dateTo.setDate(dateTo.getDate() + 1);
+    // timeMin = currentTimeMinutes + 120;
   } else {
     // Case 3: searching for ride 2+ days in the future
     // searchDate-1 to searchDate+1
@@ -360,9 +363,9 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
         planPriority: {
           $switch: {
             branches: [
-              { case: { $eq: ['$userData.subscription.currentPlan', 'premium-plus'] }, then: 4 },
-              { case: { $eq: ['$userData.subscription.currentPlan', 'all-access'] }, then: 3 },
-              { case: { $eq: ['$userData.subscription.currentPlan', 'premium'] }, then: 2 },
+              { case: { $eq: ['$userData.subscription.plan', 'premium-plus'] }, then: 4 },
+              { case: { $eq: ['$userData.subscription.plan', 'all-access'] }, then: 3 },
+              { case: { $eq: ['$userData.subscription.plan', 'premium'] }, then: 2 },
             ],
             default: 1,
           },
@@ -597,7 +600,7 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
   session.startTransaction();
 
   try {
-    
+
     const tripHistory = await TripHistory.create(
       [
         {
@@ -632,13 +635,13 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
         status: BOOKING_STATUS.CANCELLED,
         cancelledBy: 'driver',
         cancelReason: cancellationReason,
-        tripHistory: tripHistory[0]._id, 
+        tripHistory: tripHistory[0]._id,
         ride: null,
       },
       { session }
     );
 
-    await RidePublish.findByIdAndDelete(rideId, { session });  
+    await RidePublish.findByIdAndDelete(rideId, { session });
 
     await session.commitTransaction();
 

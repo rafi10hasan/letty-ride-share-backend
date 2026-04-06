@@ -1,5 +1,6 @@
 import z from "zod";
-import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN } from "../user/user.constant";
+import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN } from "./subscription.constant";
+
 
 
 const subscriptionRequestPayload = z.object({

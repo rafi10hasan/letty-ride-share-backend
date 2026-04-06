@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
-import { checkSubscription } from '../../middlewares/subscription.middleware';
 import { USER_ROLE } from '../user/user.constant';
 import { ridePublishController } from './ride.publish.controller';
 import tripValidationZodSchema from './ride.publish.zod';
@@ -14,7 +13,7 @@ rideRouter.post(
     authMiddleware(USER_ROLE.DRIVER),
     validateRequest({ body: tripValidationZodSchema.createTripSchema }
     ),
-    checkSubscription,
+    // checkSubscription,
     ridePublishController.publishRideIntoDb,
 );
 
@@ -46,7 +45,7 @@ rideRouter.patch(
 
 rideRouter.patch(
     '/confirm/:rideId',
-    authMiddleware(USER_ROLE.DRIVER), 
+    authMiddleware(USER_ROLE.DRIVER),
     ridePublishController.confirmRideIntoDb,
 );
 

@@ -1,6 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
 import { GENDER } from './passenger.constant';
 import { IPassenger } from './passenger.interface';
 
@@ -69,30 +68,6 @@ export const passengerSchema = new mongoose.Schema<IPassenger>(
 
     bio: {
       type: String,
-    },
-
-
-    subscription: {
-      plan: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_PLAN),
-        default: SUBSCRIPTION_PLAN.FREE
-      },
-      mode: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_MODE),
-      },
-      requestedAt: {
-        type: Date,
-        default: null,
-      },
-      status: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_STATUS),
-      },
-      expiryDate: {
-        type: Date,
-      }
     },
     avatar: {
       type: String,

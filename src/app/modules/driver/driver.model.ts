@@ -1,6 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
-import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../user/user.constant';
 import { GOVERNORATE, VEHICLE_TYPE } from './driver.constant';
 import { IDriver } from './driver.interface';
 
@@ -82,28 +81,6 @@ export const driverSchema = new mongoose.Schema<IDriver>(
     avatar: {
       type: String,
       required: false,
-    },
-    subscription: {
-      plan: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_PLAN),
-        default: SUBSCRIPTION_PLAN.FREE
-      },
-      mode: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_MODE),
-        default: SUBSCRIPTION_MODE.MONTHLY
-      },
-      requestedAt: {
-        type: Date,
-      },
-      status: {
-        type: String,
-        enum: Object.values(SUBSCRIPTION_STATUS),
-      },
-      expiryDate: {
-        type: Date,
-      }
     },
 
     languages: {

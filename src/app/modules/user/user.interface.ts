@@ -1,5 +1,7 @@
 import { Document, Model, Types } from 'mongoose';
-import { TBadge, TProvider, TSubscriptionMode, TSubscriptionPlan, TSubscriptionStatus, TUserRole } from './user.constant';
+import { TSubscriptionPlan, TSubscriptionStatus } from '../subscription/subscription.constant';
+import { TBadge, TProvider, TUserRole } from './user.constant';
+
 
 export interface registerPayload {
   email: string;
@@ -31,18 +33,10 @@ export interface ILocation {
 
 export interface ISubscription {
   // Active
-  currentPlan: TSubscriptionPlan | null;
-  currentMode: TSubscriptionMode | null;
+  id: Types.ObjectId;
+  plan: TSubscriptionPlan | null;
   status: TSubscriptionStatus;
-  price: number;
-  expiryDate: Date | null;
-
-  // Requested
-  requestedPlan: TSubscriptionPlan | null;
-  requestedMode: TSubscriptionMode | null;
-  requestedAt: Date | null;
-  requestedStatus: TSubscriptionStatus | null;
-  requestedPrice: number | null;
+  totalAmountPaid: number;
 }
 
 // Instance methods

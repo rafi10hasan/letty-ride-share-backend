@@ -1,12 +1,25 @@
+
+
+
 import { TRIP_STATUS } from "../../ride-publish/ride.publish.constant";
 import RidePublish from "../../ride-publish/ride.publish.model";
 import { SUBSCRIPTION_STATUS } from "../../subscription/subscription.constant";
 import Subscription from "../../subscription/subscription.model";
 import User from "../../user/user.model";
 
-// ─── 1. STATS OVERALL OVERVIEW ─────────────────────────────────────────
 const getStatsOverview = async () => {
-    const [totalRevenueResult, activeRides, activeUsers] = await Promise.all([
+    const now = new Date();
+
+    // Last 1 week (7 days ago)
+    const lastWeek = new Date();
+    lastWeek.setDate(now.getDate() - 7);
+
+    // Last 1 month (30 days ago)
+    const lastMonth = new Date();
+    lastMonth.setDate(now.getDate() - 30);
+
+    const [revenueStats, activeRides, activeUsers] = await Promise.all([
+
         Subscription.aggregate([
             {
                 $match: {
@@ -16,16 +29,27 @@ const getStatsOverview = async () => {
             {
                 $group: {
                     _id: null,
-                    total: { $sum: "$amountPaid" }
+                    totalRevenue: { $sum: "$amountPaid" },
+                    weeklyRevenue: {
+                        $sum: {
+                            $cond: [{ $gte: ["$activatedAt", lastWeek] }, "$amountPaid", 0]
+                        }
+                    },
+                    monthlyRevenue: {
+                        $sum: {
+                            $cond: [{ $gte: ["$activatedAt", lastMonth] }, "$amountPaid", 0]
+                        }
+                    }
                 }
             }
         ]),
 
-        // Active Rides (Upcoming + Ongoing)
+        // 2. Active Rides (Upcoming + Ongoing)
         RidePublish.countDocuments({
             tripStatus: { $in: [TRIP_STATUS.UPCOMING, TRIP_STATUS.ONGOING] }
         }),
 
+        // 3. Active Users
         User.countDocuments({
             isActive: true,
             isDeleted: false,
@@ -33,14 +57,18 @@ const getStatsOverview = async () => {
         })
     ]);
 
+    const stats = revenueStats[0] || { totalRevenue: 0, weeklyRevenue: 0, monthlyRevenue: 0 };
+
     return {
-        totalRevenue: totalRevenueResult[0]?.total || 0,
+        totalRevenue: stats.totalRevenue,
+        weeklyRevenue: stats.weeklyRevenue,
+        monthlyRevenue: stats.monthlyRevenue,
         activeRides,
         activeUsers
     };
 };
 
-// ─── 2. REVENUE ANALYTICS (MONTHLY) ────────────────────────────────────
+// get revenue analytics
 const getRevenueAnalytics = async (year: number) => {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -73,7 +101,8 @@ const getRevenueAnalytics = async (year: number) => {
     });
 };
 
-// ─── 3. USER GROWTH (MONTHLY) ──────────────────────────────────────────
+
+
 const getUserGrowth = async (year: number) => {
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -81,10 +110,10 @@ const getUserGrowth = async (year: number) => {
         {
             $match: {
                 isDeleted: false,
-                currentRole: { $nin: ['admin', 'super-admin'] },
+                isActive: true,
                 createdAt: {
                     $gte: new Date(`${year}-01-01`),
-                    $lte: new Date(`${year}-12-31T23:59:59`)
+                    $lte: new Date(`${year}-12-31`)
                 }
             }
         },
@@ -106,28 +135,27 @@ const getUserGrowth = async (year: number) => {
     });
 };
 
-// ─── 4. RECENT ACTIVE RIDES ────────────────────────────────────────────
+
 const getRecentActiveRides = async () => {
     const rides = await RidePublish.find({
         tripStatus: TRIP_STATUS.ONGOING
     })
         .populate<{ driver: { fullName: string, avatar: string } }>('driver', 'fullName avatar')
-        .select('tripId pickUpLocation dropOffLocation tripStatus driver')
-        .sort({ createdAt: -1 })
-        .limit(10) // Optimization: dashboard er jonno limit kora bhalo
-        .lean();
+        .select('tripId pickUpLocation dropOffLocation tripStatus');
 
-    return rides.map(ride => ({
+    const formattedRides = rides.map(ride => ({
         tripId: ride.tripId,
         pickupLocation: ride.pickUpLocation,
         dropOffLocation: ride.dropOffLocation,
         tripStatus: ride.tripStatus,
-        driverName: ride.driver?.fullName || 'N/A',
-        driverAvatar: ride.driver?.avatar || null,
+        driverName: ride.driver.fullName,
+        driverAvatar: ride.driver.avatar,
     }));
+
+    return formattedRides;
 };
 
-export const overviewUserService = {
+export const financialService = {
     getStatsOverview,
     getRevenueAnalytics,
     getUserGrowth,

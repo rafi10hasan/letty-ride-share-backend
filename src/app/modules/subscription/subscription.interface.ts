@@ -1,19 +1,29 @@
 // import { Types } from "mongoose";
 // import { TSubscriptionMode, TSubscriptionPlan, TSubscriptionStatus } from "../user/user.constant";
 
-// export interface ISubscription {
-//     // Active
-//     user: Types.ObjectId;
-//     currentPlan: TSubscriptionPlan | null;
-//     currentMode: TSubscriptionMode | null;
-//     status: TSubscriptionStatus;
-//     price: number;
-//     expiryDate: Date | null;
+import { Types } from "mongoose";
+import { TRequestedSubscriptionStatus, TSubscriptionMode, TSubscriptionPlan, TSubscriptionStatus } from "./subscription.constant";
 
-//     // Requested
-//     requestedPlan: TSubscriptionPlan | null;
-//     requestedMode: TSubscriptionMode | null;
-//     requestedAt: Date | null;
-//     requestedStatus: TSubscriptionStatus | null;
-//     requestedPrice: number | null;
-// }
+
+export interface ISubscription {
+    // Active
+    user: Types.ObjectId;
+    plan: TSubscriptionPlan | null;
+    billingCycle: TSubscriptionMode | null;
+    status: TSubscriptionStatus;
+    amountPaid: number;
+    activatedAt: Date | null;
+    expiryDate: Date | null;
+
+    // Requested
+    upgradeRequest: {
+        targetPlan: TSubscriptionPlan;
+        requestedMode: TSubscriptionMode | null;
+        requestedPrice: number;
+        status: TRequestedSubscriptionStatus | null;
+        requestedAt: Date | null;
+    },
+}
+
+
+

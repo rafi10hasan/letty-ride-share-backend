@@ -1,6 +1,8 @@
 
 import nodemailer from 'nodemailer';
 
+import config from '../../../config';
+import { BadRequestError } from '../../errors/request/apiError';
 import { TNotification } from './notification.constant';
 import { INotificationPayload } from './notification.interface';
 import Notification from './notification.model';
@@ -8,12 +10,11 @@ import {
   NotificationPayloads,
   notificationTemplates,
 } from './notification.template';
-import config from '../../../config';
-import { BadRequestError } from '../../errors/request/apiError';
 
-import getUserNotificationCount from '../../../utilities/getUserNotificationCount';
-import { getSocketIO } from '../../../socket/connectSocket';
+import type { Message } from 'firebase-admin/messaging';
 import firebaseAdmin from '../../../config/firebase.config';
+import { getSocketIO } from '../../../socket/connectSocket';
+import getUserNotificationCount from '../../../utilities/getUserNotificationCount';
 
 export const sendNotificationByEmail = async (
   email: string,
@@ -69,26 +70,42 @@ export const sendPushNotification = async (
   data: {
     title: string;
     content: string;
+    type?: string;
+    rideId?: string
   }
 ) => {
   try {
-    const message = {
+    const message: Message = {
       notification: {
         title: data.title,
         body: data.content,
+      },
+
+      android: {
+        notification: {
+          channelId: "ride-updates",
+          priority: "high",
+          sound: "default",
+        },
+      },
+
+      data: {
+        type: data.type || "default",
+        rideId: data.rideId || "",
       },
       token: fcmToken,
     };
 
     const response = await firebaseAdmin.messaging().send(message);
+    console.log('fcm response', response);
 
     return response;
   } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.log(error.message);
-      } else {
-        console.log(error);
-      }
+    if (error instanceof Error) {
+      console.log(error.message);
+    } else {
+      console.log(error);
+    }
     throw new BadRequestError(
       error instanceof Error ? error.message : String(error)
     );

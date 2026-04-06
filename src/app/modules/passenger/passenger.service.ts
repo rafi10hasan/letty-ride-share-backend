@@ -124,7 +124,7 @@ const getPassengerRequests = async (user: IUser) => {
 
   const bookings = await Booking.find({
     passenger: passenger._id,
-    status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+    status: BOOKING_STATUS.PENDING,
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.PENDING },
@@ -261,7 +261,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
     status: BOOKING_STATUS.COMPLETED,
   }).populate({
     path: 'tripHistory',
-    select: '_id tripId pickUpLocation dropOffLocation rideId departureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
+    select: '_id tripId pickUpLocation dropOffLocation rideIddepartureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
     populate: {
       path: 'driver',
       select: '_id fullName avatar avgRating totalReviews',

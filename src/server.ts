@@ -4,6 +4,7 @@ import app from './app';
 import config from './config';
 
 import { initializeRideCrons } from './cron/rideCron';
+import { subscriptionCron } from './cron/subscriptionCron';
 import { connectSocket } from './socket/connectSocket';
 import seedingAdmin from './utilities/seeding';
 
@@ -20,6 +21,7 @@ const runServer = async () => {
   console.log('\x1b[32mDatabase has been connected successfully\x1b[0m');
 
   initializeRideCrons();
+  subscriptionCron();
 
   server = app.listen(config.server_port || 5002, config.base_url as string, () => {
     console.log(`\x1b[33mServer is listening on port http://${config.base_url}:${config.server_port || 5020}\x1b[0m`);
