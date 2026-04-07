@@ -1,10 +1,12 @@
 import express from 'express';
 import authRouter from '../modules/auth/auth.route';
 import bookingRouter from '../modules/booking/booking.routes';
+import callRouter from '../modules/call/call.route';
 import { contentRouter } from '../modules/Content/content.route';
 import adminRouter from '../modules/dashboard';
 import driverRouter from '../modules/driver/driver.route';
 import { messageRouter } from '../modules/Message/message.route';
+import notificationRouter from '../modules/notification/notification.routes';
 import passengerRouter from '../modules/passenger/passenger.route';
 import reportRouter from '../modules/report/report.route';
 import reviewRouter from '../modules/review/review.route';
@@ -51,6 +53,17 @@ const appRouters = [
     path: '/reports',
     router: reportRouter,
   },
+
+  {
+    path: '/notifications',
+    router: notificationRouter,
+  },
+
+  {
+    path: '/call',
+    router: callRouter,
+  },
+
   {
     path: '/subscription',
     router: subscriptionRouter,

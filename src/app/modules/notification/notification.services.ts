@@ -1,25 +1,82 @@
-import { Types } from 'mongoose';
-
-import QueryBuilder from '../../../builder/QueryBuilder';
+import moment from 'moment';
+import { PipelineStage, Types } from 'mongoose';
 import Notification from './notification.model';
 
 const getAllNotifications = async (query: Record<string, unknown>, userId: string) => {
-  const baseQuery = Notification.find({ receiver: userId });
+  // Pagination params
+  const page = Number(query.page) || 1;
+  const limit = Number(query.limit) || 10;
+  const skip = (page - 1) * limit;
 
-  const builder = new QueryBuilder(baseQuery, query);
+  // Search filter
+  const searchCondition =
+    query.searchTerm
+      ? {
+        $or: [
+          { title: { $regex: query.searchTerm, $options: 'i' } },
+          { message: { $regex: query.searchTerm, $options: 'i' } },
+        ],
+      }
+      : {};
 
-  builder.search(['title', 'message']).filter().sort().paginate().fields();
+  // Sort
+  const sortField = (query.sort as string)?.startsWith('-')
+    ? (query.sort as string).slice(1)
+    : (query.sort as string) || 'createdAt';
+  const sortOrder = (query.sort as string)?.startsWith('-') ? -1 : 1;
 
-  const data = await builder.modelQuery.exec();
+  const pipeline: PipelineStage[] = [
+    // Match by receiver + optional search
+    {
+      $match: {
+        receiver: new Types.ObjectId(userId),
+        ...searchCondition,
+      },
+    },
 
-  const meta = await builder.countTotal();
+    // Sort
+    { $sort: { [sortField]: sortOrder } },
+
+    // Facet: data + total একসাথে
+    {
+      $facet: {
+        data: [
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              _id: 1,
+              title: 1,
+              message: 1,
+              isRead: 1,
+              createdAt: 1,
+            },
+          },
+        ],
+        totalCount: [{ $count: 'count' }],
+      },
+    },
+  ];
+
+  const [result] = await Notification.aggregate(pipeline);
+
+  const rawData = result?.data || [];
+  const total = result?.totalCount?.[0]?.count || 0;
+  const totalPages = Math.ceil(total / limit);
+
+  // createdAt → moment দিয়ে format
+  const data = rawData.map((item: any) => ({
+    ...item,
+    createdAt: moment(item.createdAt).format('DD MMM YYYY, hh:mm A'),   // "07 Apr 2025, 03:45 PM"
+    timeAgo: moment(item.createdAt).fromNow(),                           // "2 hours ago"
+  }));
 
   return {
     meta: {
-      page: meta.page,
-      limit: meta.limit,
-      total: meta.total,
-      totalPages: meta.totalPage,
+      page,
+      limit,
+      total,
+      totalPages,
     },
     data,
   };

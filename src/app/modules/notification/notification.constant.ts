@@ -12,6 +12,7 @@ export const NOTIFICATION_TYPE = {
   RIDE_COMPLETED: 'ride_completed',
   RIDE_STARTED: 'ride_started',
   RIDE_CANCELLED: 'ride_cancelled',
+  CANCEL_BOOKING: 'cancel_booking',
   NEAR_DESTINATION: 'near_destination',
   MINIMUM_PASSENGER_REACHED: 'minimum_passenger_reached',
   SUBSCRIPTION_REQUEST: 'subscription-request',

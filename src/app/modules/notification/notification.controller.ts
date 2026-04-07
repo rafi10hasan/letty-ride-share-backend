@@ -12,7 +12,8 @@ const getNotifications = asyncHandler(async (req: Request, res: Response) => {
     statusCode: StatusCodes.OK,
     success: true,
     message: 'user notification has been retrieved successfully',
-    data: data,
+    meta: data.meta,
+    data: data.data,
   });
 });
 

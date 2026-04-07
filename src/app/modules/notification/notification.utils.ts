@@ -1,53 +1,46 @@
 
-import nodemailer from 'nodemailer';
 
-import config from '../../../config';
 import { BadRequestError } from '../../errors/request/apiError';
-import { TNotification } from './notification.constant';
 import { INotificationPayload } from './notification.interface';
 import Notification from './notification.model';
-import {
-  NotificationPayloads,
-  notificationTemplates,
-} from './notification.template';
 
 import type { Message } from 'firebase-admin/messaging';
 import firebaseAdmin from '../../../config/firebase.config';
 import { getSocketIO } from '../../../socket/connectSocket';
 import getUserNotificationCount from '../../../utilities/getUserNotificationCount';
 
-export const sendNotificationByEmail = async (
-  email: string,
-  type: TNotification,
-  data: NotificationPayloads
-) => {
-  try {
-    const transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: config.gmail_app_user,
-        pass: config.gmail_app_password,
-      },
-    });
+// export const sendNotificationByEmail = async (
+//   email: string,
+//   type: TNotification,
+//   data: NotificationPayloads
+// ) => {
+//   try {
+//     const transporter = nodemailer.createTransport({
+//       service: 'gmail',
+//       auth: {
+//         user: config.gmail_app_user,
+//         pass: config.gmail_app_password,
+//       },
+//     });
 
-    const html = notificationTemplates[type](data);
+//     const html = notificationTemplates[type](data);
 
-    const mailOptions = {
-      from: config.gmail_app_user,
-      to: email,
-      subject: `Steady Hands - ${type.replace('_', ' ')}`,
-      html,
-    };
+//     const mailOptions = {
+//       from: config.gmail_app_user,
+//       to: email,
+//       subject: `Steady Hands - ${type.replace('_', ' ')}`,
+//       html,
+//     };
 
-    await transporter.sendMail(mailOptions);
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.log(error);
-    throw new BadRequestError(
-      'Failed to send email'
-    );
-  }
-};
+//     await transporter.sendMail(mailOptions);
+//   } catch (error) {
+//     // eslint-disable-next-line no-console
+//     console.log(error);
+//     throw new BadRequestError(
+//       'Failed to send email'
+//     );
+//   }
+// };
 
 export const sendNotificationBySocket = async (
   notificationData: INotificationPayload
@@ -82,10 +75,26 @@ export const sendPushNotification = async (
       },
 
       android: {
+        priority: "high",
         notification: {
           channelId: "ride-updates",
-          priority: "high",
           sound: "default",
+          priority: "high",
+          clickAction: "TOP_STORY_ACTIVITY",
+        },
+      },
+
+      apns: {
+        payload: {
+          aps: {
+            alert: {
+              title: data.title,
+              body: data.content,
+            },
+            sound: "default",
+            badge: 1,
+            contentAvailable: true,
+          },
         },
       },
 
@@ -97,7 +106,7 @@ export const sendPushNotification = async (
     };
 
     const response = await firebaseAdmin.messaging().send(message);
-    console.log('fcm response', response);
+    console.log('fcm response successfully', response);
 
     return response;
   } catch (error: unknown) {
