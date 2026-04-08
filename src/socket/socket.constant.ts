@@ -11,6 +11,7 @@ export const SOCKET_EVENTS = {
   MESSAGE_PAGE: 'message-page',
   SEND_MESSAGE: 'send-message',
   SOCKET_ERROR: 'socket-error',
+  NOTIFICATION_UPDATE_COUNT: 'notification-update-count',
   NOTIFICATION: 'notification',
   CONNECTION: 'connection',
   DISCONNECT: 'disconnect',

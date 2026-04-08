@@ -12,7 +12,7 @@ import { IUser } from "../user/user.interface";
 import { Booking } from "./booking.model";
 
 import logger from "../../../config/logger";
-import { sendPushNotification } from "../notification/notification.utils";
+import { sendNotificationBySocket, sendPushNotification } from "../notification/notification.utils";
 import { TRIP_STATUS } from "../ride-publish/ride.publish.constant";
 import { USER_ROLE } from "../user/user.constant";
 import { BOOKING_STATUS } from "./booking.constant";
@@ -105,22 +105,12 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
     Promise.all([
 
         (async () => {
-            const socketId = onlineUsers.get(userId.toString());
-            if (socketId) {
-                const io = getSocketIO();
-                io.to(userId.toString()).emit('receive-booking-request', {
-                    title: 'New Booking Request',
-                    message: `${user.fullName} sent a bookings request ${ride.tripId}. please review it because the will remain 30 miniutes`,
-                    tripId: ride.tripId
-                });
-            } else {
-                await Notification.create({
-                    title: 'New Booking Request',
-                    message: `${user.fullName} sent a bookings request ${ride.tripId} please review it because the will remain 30 miniutes`,
-                    receiver: userId,
-                    type: NOTIFICATION_TYPE.BOOKING_REQUEST,
-                });
+            const notificationData = {
+                title: 'New Booking Request',
+                message: `${user.fullName} sent a bookings request ${ride.tripId}. please review it because the will remain 30 miniutes`,
+                receiver: userId.toString(),
             }
+            await sendNotificationBySocket(notificationData, NOTIFICATION_TYPE.BOOKING_REQUEST);
         })(),
 
         // FCM notification

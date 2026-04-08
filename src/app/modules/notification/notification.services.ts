@@ -1,8 +1,13 @@
 import moment from 'moment';
 import { PipelineStage, Types } from 'mongoose';
+import { getSocketIO } from '../../../socket/connectSocket';
+import { SOCKET_EVENTS } from '../../../socket/socket.constant';
+import getUserNotificationCount from '../../../utilities/getUserNotificationCount';
+import { IUser } from '../user/user.interface';
+import User from '../user/user.model';
 import Notification from './notification.model';
 
-const getAllNotifications = async (query: Record<string, unknown>, userId: string) => {
+const getAllNotifications = async (query: Record<string, unknown>, userId: string, role: string) => {
   // Pagination params
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
@@ -30,7 +35,9 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
     {
       $match: {
         receiver: new Types.ObjectId(userId),
+        for: { $in: ['all', role, null] },
         ...searchCondition,
+
       },
     },
 
@@ -60,6 +67,10 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
 
   const [result] = await Notification.aggregate(pipeline);
 
+  await User.findByIdAndUpdate(userId, { lastReadAt: new Date() });
+  const io = getSocketIO();
+  io.to(userId.toString()).emit(SOCKET_EVENTS.NOTIFICATION_UPDATE_COUNT, { unseenCount: 0 });
+
   const rawData = result?.data || [];
   const total = result?.totalCount?.[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
@@ -82,25 +93,20 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
   };
 };
 
-const markNotificationAsSeen = async (notificationId: string) => {
+const markNotificationAsSeen = async (user: IUser, notificationId: string) => {
+  const isYourNotification = await Notification.findOne({ _id: notificationId, receiver: user._id });
+  if (!isYourNotification) {
+    throw new Error('Notification not found or not owned by user');
+  }
   const updated = await Notification.findByIdAndUpdate(notificationId, { isRead: true }, { new: true });
-  return updated;
+  return {
+    isRead: updated?.isRead
+  };
 };
 
 const getAllUnseenNotificationCount = async (userId: string) => {
-  const result = await Notification.aggregate([
-    {
-      $match: {
-        receiver: new Types.ObjectId(userId),
-        isRead: false,
-      },
-    },
-    {
-      $count: 'unseenCount',
-    },
-  ]);
-
-  return result[0]?.unseenCount || 0;
+  const result = await getUserNotificationCount(userId);
+  return result;
 };
 
 export default {

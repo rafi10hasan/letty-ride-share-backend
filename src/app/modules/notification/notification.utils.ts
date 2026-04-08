@@ -1,13 +1,15 @@
 
 
 import { BadRequestError } from '../../errors/request/apiError';
-import { INotificationPayload } from './notification.interface';
+
 import Notification from './notification.model';
 
 import type { Message } from 'firebase-admin/messaging';
 import firebaseAdmin from '../../../config/firebase.config';
-import { getSocketIO } from '../../../socket/connectSocket';
+import { getSocketIO, onlineUsers } from '../../../socket/connectSocket';
+import { SOCKET_EVENTS } from '../../../socket/socket.constant';
 import getUserNotificationCount from '../../../utilities/getUserNotificationCount';
+import { TNotificationPayload } from './notification.zod';
 
 // export const sendNotificationByEmail = async (
 //   email: string,
@@ -43,21 +45,32 @@ import getUserNotificationCount from '../../../utilities/getUserNotificationCoun
 // };
 
 export const sendNotificationBySocket = async (
-  notificationData: INotificationPayload
+  notificationData: TNotificationPayload,
+  type: string
 ) => {
   const io = getSocketIO();
-  await Notification.create(notificationData);
 
-  const updatedNotification = await getUserNotificationCount(
+  const newNotification = await Notification.create({
+    ...notificationData,
+    type
+  });
+
+  const socketId = onlineUsers.get(notificationData.receiver.toString());
+  if (socketId) {
+    io.to(notificationData.receiver.toString()).emit(
+      SOCKET_EVENTS.NOTIFICATION,
+      newNotification
+    );
+  }
+
+  const countData = await getUserNotificationCount(
     notificationData.receiver.toString()
   );
 
-  io.to(notificationData.receiver.toString()).emit(
-    'notification',
-    updatedNotification
-  );
+  io.to(notificationData.receiver.toString()).emit(SOCKET_EVENTS.NOTIFICATION_UPDATE_COUNT, countData);
 };
 
+// send push notifiaction
 export const sendPushNotification = async (
   fcmToken: string,
   data: {

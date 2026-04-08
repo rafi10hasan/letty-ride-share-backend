@@ -6,6 +6,7 @@ import { Server as ChatServer, Socket } from 'socket.io';
 
 import { BadRequestError } from '../app/errors/request/apiError';
 import Conversation from '../app/modules/conversation/conversation.model';
+import { USER_ROLE } from '../app/modules/user/user.constant';
 import User from '../app/modules/user/user.model';
 import getUnreadMessageCount from '../helpers/getUnreadMessageCount';
 import handleChatEvents from './handleChatEvents';
@@ -74,6 +75,13 @@ const connectSocket = (server: HTTPServer) => {
 
     console.log(`User connected: ${currentUserId}`);
 
+    const user = await User.findById(currentUserId).select("currentRole");
+
+    if (user?.currentRole === USER_ROLE.DRIVER) {
+      socket.join("driver_channel");
+    } else if (user?.currentRole === USER_ROLE.PASSENGER) {
+      socket.join("passenger_channel");
+    }
     socket.join(currentUserId);
     onlineUsers.set(currentUserId, socket.id);
 
@@ -153,3 +161,4 @@ const getSocketIO = () => {
 };
 
 export { connectSocket, getSocketIO, onlineUsers };
+

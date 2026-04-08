@@ -27,7 +27,7 @@ const handleChatEvents = async (
     }
 
   });
- console.log('🎯 Listening for event:', SOCKET_EVENTS.CREATE_CONVERSATION);
+  console.log('🎯 Listening for event:', SOCKET_EVENTS.CREATE_CONVERSATION);
   // join conversation
   socket.on(SOCKET_EVENTS.JOIN_CONVERSATION, async (conversationId: string) => {
     socket.join(conversationId);

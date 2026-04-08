@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const jordanPhoneSchema = z.string()
   .transform((val: string) => val.replace(/\s+/g, "")) // Space remove korbe
   .superRefine((val: string, ctx) => {
-    
+
     // 1. Shudhu 07 ba 7 chara any prefix block korbe (Like +962, 00962, 02, 06)
     if (!/^(07|7)/.test(val)) {
       ctx.addIssue({
@@ -50,7 +50,7 @@ export const jordanPhoneSchema = z.string()
     return val; // Already 07... thakle setai thakbe
   });
 
-  
+
 const createAuthSchema = z.object({
   fullName: z
     .string({
@@ -139,7 +139,6 @@ const updateUserLocationSchema = z.object({
     ])
   })
 })
-
 
 
 export type TUserLocationPayload = z.infer<

@@ -59,54 +59,59 @@ const getUserActivities = async () => {
 };
 
 // --- 2. Get All Users (with Subscription Lookup) ---
-const getAllUsers = async (query: any) => {
+const getAllSubscriptionRequests = async (query: any) => {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
     const skip = (page - 1) * limit;
 
-    const filter: Record<string, any> = {
-        currentRole: { $nin: [USER_ROLE.ADMIN, USER_ROLE.SUPER_ADMIN] }
-    };
-
-    if (query.searchTerm) {
-        const escapedSearch = query.searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        filter.$or = [
-            { fullName: { $regex: escapedSearch, $options: 'i' } },
-            { email: { $regex: escapedSearch, $options: 'i' } },
-            { phone: { $regex: escapedSearch, $options: 'i' } }
-        ];
-    }
-
-    // Filter by current plan in User model
-    if (query.plan && query.plan !== 'all') {
-        filter['subscription.plan'] = query.plan;
-    }
-
     const pipeline: PipelineStage[] = [
-        { $match: filter },
-        // Lookup to get the detailed subscription/request data
+        // 1. Prothome Subscription collection theke shudhu PENDING request gulo khujbo
+        {
+            $match: {
+                "upgradeRequest.status": REQUESTED_SUBSCRIPTION_STATUS.PENDING
+            }
+        },
+        // 2. Oi subscription-er user details niye asbo
         {
             $lookup: {
-                from: 'subscriptions',
-                localField: '_id',
-                foreignField: 'user',
-                as: 'subDetails'
+                from: 'users',
+                localField: 'user',
+                foreignField: '_id',
+                as: 'userDetails'
             }
         },
-        { $unwind: { path: "$subDetails", preserveNullAndEmptyArrays: true } },
-        { $sort: { createdAt: -1 } },
+        { $unwind: "$userDetails" },
+
+        // 3. Search filter (optional: admin chaile name/email diye search korte parbe)
+        ...(query.searchTerm ? [{
+            $match: {
+                $or: [
+                    { "userDetails.fullName": { $regex: query.searchTerm, $options: 'i' } },
+                    { "userDetails.email": { $regex: query.searchTerm, $options: 'i' } }
+                ]
+            }
+        }] : []),
+
+        // 4. Sort by requested time (shobar noutun request upore)
+        { $sort: { "upgradeRequest.requestedAt": -1 } },
+
+        // 5. Data formatting jeta frontend-e lagbe
         {
             $project: {
-                _id: 1, accountId: 1, fullName: 1, email: 1, phone: 1, isActive: 1, createdAt: 1,
-                "subscription.plan": 1,
-                "subscription.status": 1,
-                // Merging data from Subscription model for the UI
-                requestedPlan: "$subDetails.upgradeRequest.targetPlan",
-                requestedStatus: "$subDetails.upgradeRequest.status",
-                requestedAt: "$subDetails.upgradeRequest.requestedAt",
-                expiryDate: "$subDetails.expiryDate"
+                _id: 1,
+                userId: "$userDetails._id",
+                fullName: "$userDetails.fullName",
+                email: "$userDetails.email",
+                phone: "$userDetails.phone",
+                currentPlan: "$plan", // Purono plan ki chilo
+                requestedPlan: "$upgradeRequest.targetPlan",
+                requestedMode: "$upgradeRequest.requestedMode",
+                requestedPrice: "$upgradeRequest.requestedPrice",
+                requestedAt: "$upgradeRequest.requestedAt",
+                status: "$upgradeRequest.status"
             }
         },
+        // 6. Pagination facet
         {
             $facet: {
                 metadata: [{ $count: "total" }],
@@ -115,9 +120,17 @@ const getAllUsers = async (query: any) => {
         }
     ];
 
-    const result = await User.aggregate(pipeline);
+    const result = await Subscription.aggregate(pipeline);
+
+    const totalCount = result[0]?.metadata[0]?.total || 0;
+
     return {
-        meta: { page, limit, total: result[0]?.metadata[0]?.total || 0 },
+        meta: {
+            page,
+            limit,
+            total: totalCount,
+            totalPages: Math.ceil(totalCount / limit)
+        },
         data: result[0]?.data || []
     };
 };
@@ -229,7 +242,7 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: any) => {
 
 export const adminUserService = {
     getUserActivities,
-    getAllUsers,
+    getAllSubscriptionRequests,
     getUserDetails,
     changeUserSubscriptionAndStatus
 };

@@ -15,12 +15,21 @@ const notificationSchema = new Schema<INotification>(
     receiver: {
       type: Schema.Types.ObjectId,
       ref: 'User',
-      required: true,
+      default: null,
+    },
+    isRead: {
+      type: Boolean,
+      default: false,
     },
     type: {
       type: String,
       enum: Object.values(NOTIFICATION_TYPE),
       required: true,
+    },
+    for: {
+      type: String,
+      enum: ["all", "driver", "passenger", "specific"],
+      default: null,
     },
     redirectId: {
       type: String,
