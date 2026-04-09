@@ -6,6 +6,7 @@ import { validateFileSizes } from '../../middlewares/validateFileSize';
 import { USER_ROLE } from './user.constant';
 import { userController } from './user.controller';
 import userValidationZodSchema from './user.validations';
+import { checkSubscription, requireBothModes } from '../../middlewares/subscription.middleware';
 
 const userRouter = Router();
 
@@ -16,7 +17,6 @@ userRouter.post(
   }),
   userController.createAccountIntoDb,
 );
-
 
 userRouter.patch(
   '/change-location',
@@ -51,6 +51,8 @@ userRouter.patch(
 userRouter.patch(
   '/switch-mode',
   authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
+  checkSubscription,
+  requireBothModes,
   userController.switchUserRoleIntoDb,
 );
 

@@ -130,10 +130,6 @@ export const userSchema = new mongoose.Schema<IUser>(
         enum: Object.values(SUBSCRIPTION_STATUS),
         default: SUBSCRIPTION_STATUS.ACTIVE
       },
-      totalAmountPaid: {
-        type: Number,
-        default: 0
-      }
     },
     passwordResetOtp: {
       type: String,

@@ -50,9 +50,10 @@ const sendSubscriptionPurchaseRequest = async (
             { upsert: true, new: true, session }
         );
 
+        console.log(config.admin_email)
         // 3. Find super admin
         const superAdmin = await User.findOne(
-            { email: config.gmail_app_user, currentRole: USER_ROLE.SUPER_ADMIN },
+            { email: config.admin_email, currentRole: USER_ROLE.SUPER_ADMIN },
             null,
             { session }
         );

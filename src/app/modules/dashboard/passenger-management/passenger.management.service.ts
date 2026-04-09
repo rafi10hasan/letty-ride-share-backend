@@ -118,6 +118,151 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
 };
 
 
+// const getAllPassengers = async (query: Record<string, any>) => {
+//     const { page = 1, limit = 10, searchTerm, status } = query;
+
+//     const pageNumber = Math.max(Number(page), 1);
+//     const limitNumber = Math.max(Number(limit), 1);
+//     const skip = (pageNumber - 1) * limitNumber;
+
+//     const pipeline: any[] = [];
+
+//     // search
+//     if (searchTerm) {
+
+//         pipeline.push({
+//             $search: {
+//                 index: 'default',
+//                 compound: {
+//                     should: [
+//                         {
+//                             autocomplete: {
+//                                 query: searchTerm,
+//                                 path: 'fullName',
+//                                 fuzzy: { maxEdits: 1 },
+//                                 tokenOrder: "any"
+//                             },
+//                         },
+//                         {
+//                             autocomplete: {
+//                                 query: searchTerm,
+//                                 path: 'phone',
+//                                 fuzzy: { maxEdits: 1 },
+//                                 tokenOrder: "any"
+//                             },
+//                         },
+//                         {
+//                             autocomplete: {
+//                                 query: searchTerm,
+//                                 path: 'email',
+//                                 fuzzy: { maxEdits: 1 },
+//                                 tokenOrder: "any"
+//                             },
+//                         }
+//                     ],
+//                     minimumShouldMatch: 1,
+//                     ...(status && {
+//                         filter: [{
+//                             text: {
+//                                 query: status,
+//                                 path: 'status'
+//                             }
+//                         }]
+//                     })
+//                 },
+//                 count: { type: 'total' }
+//             }
+//         });
+
+//         pipeline.push({
+//             $addFields: {
+//                 totalCountMetadata: "$$SEARCH_META.count.total"
+//             }
+//         });
+//     } else {
+//         const matchStage: any = {};
+//         if (status) matchStage.status = status;
+//         pipeline.push({ $match: matchStage });
+
+//         pipeline.push({ $sort: { createdAt: -1 } });
+//     }
+
+
+//     pipeline.push({ $skip: skip }, { $limit: limitNumber });
+
+
+//     pipeline.push({
+//         $lookup: {
+//             from: 'users',
+//             localField: 'user',
+//             foreignField: '_id',
+//             pipeline: [
+//                 { $project: { accountId: 1, isActive: 1, _id: 1 } }
+//             ],
+//             as: 'userData'
+//         }
+//     });
+
+//     pipeline.push(
+//         {
+//             $addFields: {
+//                 userData: { $arrayElemAt: ['$userData', 0] }
+//             }
+//         },
+//         {
+//             $project: {
+//                 _id: 0,
+//                 driverId: '$_id',
+//                 accountId: '$userData.accountId',
+//                 isActive: '$userData.isActive',
+//                 userId: '$userData._id',
+//                 fullName: 1,
+//                 phone: 1,
+//                 email: 1,
+//                 avatar: 1,
+//                 vehicle: 1,
+//                 avgRating: 1,
+//                 totalReviews: 1,
+//                 totalRides: 1,
+//                 createdAt: 1,
+//                 totalCountMetadata: 1
+//             }
+//         }
+//     );
+
+
+//     const result = await Passenger.aggregate(pipeline);
+
+
+//     let total = 0;
+//     if (searchTerm) {
+//         total = result.length > 0 ? result[0].totalCountMetadata : 0;
+//     } else {
+
+//         const matchStage: any = {};
+//         if (status) matchStage.status = status;
+//         total = await Passenger.countDocuments(matchStage);
+//     }
+
+//     const data = result.map((passenger: any) => {
+//         const { totalCountMetadata, ...rest } = passenger;
+//         return {
+//             ...rest,
+//             isOnline: onlineUsers.has(rest.userId?.toString()),
+//         };
+//     });
+
+//     return {
+//         meta: {
+//             page: pageNumber,
+//             limit: limitNumber,
+//             total,
+//             totalPages: Math.ceil(total / limitNumber),
+//         },
+//         data,
+//     };
+// };
+
 // update passenger status
 const updatePassengerStatus = async (id: string, payload: { status: "true" | "false" }) => {
 

@@ -4,11 +4,17 @@ import { BadRequestError, NotFoundError } from "../../../errors/request/apiError
 import Driver from "../../driver/driver.model";
 
 
+import config from "../../../../config";
+import logger from "../../../../config/logger";
+import subscriptionApprovalEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
+import sendMail from "../../../../utilities/sendEmail";
+import { sendPushNotification } from "../../notification/notification.utils";
 import Passenger from "../../passenger/passenger.model";
 import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from "../../subscription/subscription.constant";
 import Subscription from "../../subscription/subscription.model";
 import { BADGE, USER_ROLE } from "../../user/user.constant";
 import User from "../../user/user.model";
+import { TUserSubscriptionStatusPayload } from "./subscription.management.zod";
 
 
 
@@ -100,6 +106,7 @@ const getAllSubscriptionRequests = async (query: any) => {
             $project: {
                 _id: 1,
                 userId: "$userDetails._id",
+                accountId: "$userDetails.accountId",
                 fullName: "$userDetails.fullName",
                 email: "$userDetails.email",
                 phone: "$userDetails.phone",
@@ -158,7 +165,7 @@ const getUserDetails = async (id: string) => {
 };
 
 // --- 4. Change Subscription Status (Core Logic Update) ---
-const changeUserSubscriptionAndStatus = async (id: string, payload: any) => {
+const changeUserSubscriptionAndStatus = async (id: string, payload: TUserSubscriptionStatusPayload) => {
     const session = await mongoose.startSession();
     session.startTransaction();
 
@@ -176,40 +183,68 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: any) => {
         if (payload.subscriptionStatus && subRecord.upgradeRequest?.status === REQUESTED_SUBSCRIPTION_STATUS.PENDING) {
 
             if (payload.subscriptionStatus === 'approved') {
-                const expiry = new Date(payload.expirationDate);
-                if (expiry <= new Date()) throw new BadRequestError('Expiry must be in future');
+                const now = new Date();
+                let expiry: Date | null = null;
+
+                // --- Auto Expiry Logic Start ---
+                if (payload.expirationDate) {
+                    // Admin jodi manual date dey
+                    expiry = new Date(payload.expirationDate);
+                } else {
+
+                    const mode = subRecord.upgradeRequest.requestedMode;
+
+                    if (mode === 'monthly') {
+                        expiry = new Date(now);
+                        expiry.setMonth(now.getMonth() + 1);
+                    } else if (mode === 'yearly') {
+                        expiry = new Date(now);
+                        expiry.setFullYear(now.getFullYear() + 1);
+                    } else if (mode === 'lifetime') {
+                        expiry = null; // Lifetime er jonno expiry date thakbe na
+                    }
+                }
+
+                // Date validation (jodi expiry thake)
+                if (expiry && expiry <= now) {
+                    throw new BadRequestError('Expiry date must be in the future');
+                }
+                // --- Auto Expiry Logic End ---
 
                 // Update Subscription Model
-                subRecord.plan = subRecord.upgradeRequest.targetPlan;
+                const targetPlan = subRecord.upgradeRequest.targetPlan;
+                subRecord.plan = targetPlan;
                 subRecord.billingCycle = subRecord.upgradeRequest.requestedMode;
                 subRecord.amountPaid = subRecord.upgradeRequest.requestedPrice;
                 subRecord.status = SUBSCRIPTION_STATUS.ACTIVE;
-                subRecord.activatedAt = new Date();
-                subRecord.expiryDate = expiry;
+                subRecord.activatedAt = now;
+                subRecord.expiryDate = expiry as any;
 
-                // Update User Model (Summary)
+                // Update User Model Summary
                 if (user.subscription) {
-                    user.subscription.plan = subRecord.upgradeRequest.targetPlan as any;
+                    user.subscription.id = subRecord._id;
+                    user.subscription.plan = targetPlan as any;
                     user.subscription.status = SUBSCRIPTION_STATUS.ACTIVE;
-                    user.subscription.totalAmountPaid += subRecord.upgradeRequest.requestedPrice;
                 }
 
-                // Update Badge
-                if (subRecord.plan === SUBSCRIPTION_PLAN.PREMIUM) user.badge = BADGE.BLUE;
-                else if (subRecord.plan === SUBSCRIPTION_PLAN.PREMIUM_PLUS) user.badge = BADGE.PURPLE;
-                else if (subRecord.plan === SUBSCRIPTION_PLAN.ALL_ACCESS) user.badge = BADGE.GOLD;
+                // Update Badge based on Plan
+                if (targetPlan === SUBSCRIPTION_PLAN.PREMIUM) user.badge = BADGE.BLUE;
+                else if (targetPlan === SUBSCRIPTION_PLAN.PREMIUM_PLUS) user.badge = BADGE.PURPLE;
+                else if (targetPlan === SUBSCRIPTION_PLAN.ALL_ACCESS) user.badge = BADGE.GOLD;
 
                 statusText = 'Approved';
             } else {
                 statusText = 'Rejected';
             }
 
-            // Cleanup Request
+            // Cleanup Request and Update Status
             subRecord.upgradeRequest = {
                 targetPlan: null as any,
                 requestedMode: null,
                 requestedPrice: 0,
-                status: payload.subscriptionStatus === 'approved' ? REQUESTED_SUBSCRIPTION_STATUS.APPROVED : REQUESTED_SUBSCRIPTION_STATUS.REJECTED,
+                status: payload.subscriptionStatus === 'approved'
+                    ? REQUESTED_SUBSCRIPTION_STATUS.APPROVED
+                    : REQUESTED_SUBSCRIPTION_STATUS.REJECTED,
                 requestedAt: null
             };
 
@@ -217,18 +252,43 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: any) => {
             await subRecord.save({ session });
         }
 
-        // 2. Handle User Account Status
-        if (payload.status !== undefined) {
-            user.isActive = payload.status;
-        }
-
         await user.save({ session });
         await session.commitTransaction();
 
-        // 3. Post-Commit Actions (Notifications/Emails)
+        // 2. Post-Commit Actions
         if (isSubscriptionChanged) {
-            // ... (Your notification and email logic here using statusText)
-            // Use subRecord.plan for the email/notification details
+
+            Promise.all([
+                (async () => {
+                    const fcmToken = user?.fcmToken;
+                    if (fcmToken) {
+                        try {
+                            console.log("sending fcm token", fcmToken)
+                            await sendPushNotification(fcmToken, {
+                                title: 'subscription status has been changed in Rakib!',
+                                content: statusText,
+                            });
+                        } catch (error) {
+                            logger.error(`FCM failed: ${error}`);
+                        }
+                    }
+                })(),
+
+                (async () => {
+                    const mailOptions = {
+                        from: config.gmail_app_user,
+                        to: user.email,
+                        subject: `Subscription ${statusText}`,
+                        html: subscriptionApprovalEmailTemplate(
+                            user.fullName,
+                            subRecord.plan,
+                            statusText
+                        ),
+                    };
+                    await sendMail(mailOptions);
+                })(),
+            ])
+
         }
 
         return user;
@@ -240,7 +300,7 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: any) => {
     }
 };
 
-export const adminUserService = {
+export const adminSubscriptionService = {
     getUserActivities,
     getAllSubscriptionRequests,
     getUserDetails,

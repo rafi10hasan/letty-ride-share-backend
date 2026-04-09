@@ -5,11 +5,11 @@ import { getPassengerMonthlyTripCount } from '../../helpers/getPassengerMonthlyT
 import sendResponse from '../../shared/sendResponse';
 import Driver from '../modules/driver/driver.model';
 import Passenger from '../modules/passenger/passenger.model';
-import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../modules/subscription/subscription.constant';
+import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS} from '../modules/subscription/subscription.constant';
 import Subscription from '../modules/subscription/subscription.model';
 
 
-const BOTH_MODES_PLANS = [SUBSCRIPTION_PLAN.ALL_ACCESS, SUBSCRIPTION_PLAN.PREMIUM_PLUS];
+const BOTH_MODES_PLANS = [SUBSCRIPTION_PLAN.ALL_ACCESS, SUBSCRIPTION_PLAN.PREMIUM_PLUS, SUBSCRIPTION_PLAN.FREE];
 
 const PAID_PLANS = [
     SUBSCRIPTION_PLAN.PREMIUM,
@@ -30,9 +30,9 @@ export const checkSubscription = async (
         const user = req.user;
 
         // NEW LOGIC: Direct fetch from Subscription collection
-        const subscription = await Subscription.findOne({ user: user._id }).lean();
 
-        if (!subscription || !subscription.plan) {
+
+        if (!user.subscription || !user.subscription.plan) {
             sendResponse(res, {
                 statusCode: StatusCodes.FORBIDDEN,
                 success: false,
@@ -40,12 +40,12 @@ export const checkSubscription = async (
             });
             return;
         }
-
+        const subscription = await Subscription.findOne({ user: user._id }).lean();
         // 1. Paid plan validation (Status & Expiry)
-        if (PAID_PLANS.includes(subscription.plan as any)) {
+        if (PAID_PLANS.includes(subscription?.plan as any)) {
             // Check if active
-            if (subscription.status !== SUBSCRIPTION_STATUS.ACTIVE) {
-                const isPending = subscription.upgradeRequest?.status === REQUESTED_SUBSCRIPTION_STATUS.PENDING;
+            if (subscription?.status !== SUBSCRIPTION_STATUS.ACTIVE) {
+                const isPending = subscription?.upgradeRequest?.status === REQUESTED_SUBSCRIPTION_STATUS.PENDING;
 
                 sendResponse(res, {
                     statusCode: StatusCodes.FORBIDDEN,
@@ -69,7 +69,7 @@ export const checkSubscription = async (
         }
 
         // 2. Free plan limit check
-        if (subscription.plan === SUBSCRIPTION_PLAN.FREE) {
+        if (subscription?.plan === SUBSCRIPTION_PLAN.FREE) {
             // Profile dorkar helper function gulo id string ney bole
             let profileId: string | undefined;
             if (user.currentRole === 'passenger') {
@@ -91,22 +91,22 @@ export const checkSubscription = async (
 
             if (user.currentRole === 'passenger') {
                 const riderTotalTrip = await getPassengerMonthlyTripCount(profileId);
-                if (riderTotalTrip >= 3) { // Limit 3 trips
+                if (riderTotalTrip >= 2) { // Limit 3 trips
                     sendResponse(res, {
                         statusCode: StatusCodes.FORBIDDEN,
                         success: false,
-                        message: 'Monthly limit reached (3 free rides). Please upgrade.',
+                        message: 'Monthly limit reached (2 free rides). Please upgrade.',
                         data: { upgradeOptions: PAID_PLANS },
                     });
                     return;
                 }
             } else {
                 const driverTotalTrip = await getDriverRideCountCurrentMonth(profileId);
-                if (driverTotalTrip >= 3) { // Consistent limit 3
+                if (driverTotalTrip >= 1) { // Consistent limit 3
                     sendResponse(res, {
                         statusCode: StatusCodes.FORBIDDEN,
                         success: false,
-                        message: 'Monthly limit reached (3 free trips as driver). Please upgrade.',
+                        message: 'Monthly limit reached (1 free trip as driver). Please upgrade.',
                         data: { upgradeOptions: PAID_PLANS },
                     });
                     return;

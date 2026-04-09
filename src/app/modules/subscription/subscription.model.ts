@@ -14,7 +14,7 @@ const SubscriptionSchema = new Schema<ISubscription>(
         plan: {
             type: String,
             enum: [...Object.values(SUBSCRIPTION_PLAN), null],
-            default: null
+            default: SUBSCRIPTION_PLAN.FREE
         },
         billingCycle: {
             type: String,

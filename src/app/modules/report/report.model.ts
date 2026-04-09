@@ -26,6 +26,11 @@ const reportSchema = new Schema<IReport>(
             enum: [USER_ROLE.DRIVER, USER_ROLE.PASSENGER],
             default: null,
         },
+        status: {
+            type: String,
+            enum: ['pending', 'resolved'],
+            default: 'pending',
+        },
         reportReason: { type: String, default: null },
 
     },

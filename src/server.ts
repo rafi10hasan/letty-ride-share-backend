@@ -17,7 +17,10 @@ process.on('uncaughtException', (error) => {
 });
 
 const runServer = async () => {
-  await mongoose.connect(config.mongodb_url as string);
+  await mongoose.connect(config.mongodb_url as string, {
+    maxPoolSize: 5,
+    minPoolSize: 2
+  });
   console.log('\x1b[32mDatabase has been connected successfully\x1b[0m');
 
   initializeRideCrons();
