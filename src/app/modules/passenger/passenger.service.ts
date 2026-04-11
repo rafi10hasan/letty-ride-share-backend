@@ -102,7 +102,7 @@ const updatePassengerProfile = async (user: IUser, payload: TPassengerUpdatedPro
 
 //
 const getPassengerProfile = async (user: IUser) => {
-  const passenger = await passengerRepository.findPassengerByUserId(user._id, "fullName phone");
+  const passenger = await passengerRepository.findPassengerByUserId(user._id, "fullName phone avatar email bio dateOfBirth languages");
   if (!passenger) {
     throw new NotFoundError('passenger profile not found');
   }
@@ -112,7 +112,6 @@ const getPassengerProfile = async (user: IUser) => {
     avatar: passenger.avatar,
     phone: passenger.phone,
     bio: passenger.bio || '',
-    dateOfBirth: passenger.dateOfBirth,
     languages: passenger.languages,
   };
 }

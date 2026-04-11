@@ -68,7 +68,15 @@ app.use(applyRateLimit());
 app.use('/api', routers);
 
 // send html design with a button 'click to see server health' and integrate an api to check server health
-app.get('/', rootDesign);
+app.get('/root', rootDesign);
+
+app.get('/', (_req: Request, res: Response) => {
+  res.status(StatusCodes.OK).json({
+    message: 'Server is running.',
+    status: 'OK',
+    success: true
+  });
+});
 
 app.get('/health_check', (_req: Request, res: Response) => {
   res.status(StatusCodes.OK).json({
