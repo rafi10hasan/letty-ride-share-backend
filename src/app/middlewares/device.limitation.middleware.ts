@@ -21,7 +21,7 @@ export const deviceAccountLimitMiddleware = async (
     });
 
     if (accountCountByDevice >= 10) {
-      throw new BadRequestError('Maximum 1 account allowed from this device.');
+      throw new BadRequestError('Maximum 10 account allowed from this device.');
     }
 
     next();
