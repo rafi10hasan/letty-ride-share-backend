@@ -22,69 +22,28 @@ import { userRepository } from './user.repository';
 import { generateAccountId } from './user.utils';
 import { TUserLocationPayload } from './user.validations';
 
-// register Account
-// const createAccount = async (payload: registerPayload) => {
-//   // 1. Check if user already exists
-//   const existingUser = await userRepository.findByEmail(payload.email);
-
-//   if (existingUser && existingUser.isDeleted) {
-//     throw new BadRequestError('this email is blocked. Please contact support to reactivate.');
-//   }
-
-//   if (existingUser && !existingUser.isEmailVerified) {
-//     await sendVerificationOtp(existingUser, payload.email);
-//     return {
-//       status: 'UNVERIFIED'
-//     };
-//   }
-
-//   if (existingUser && existingUser.isEmailVerified) {
-//     throw new BadRequestError('this email is already exist.');
-//   }
-
-//   // 3. Generate OTP
-//   const verificationOtp = generateOTP();
-//   const profileImage = randomUserImage();
-//   const accountId = await generateAccountId();
-//   // 4. Prepare user payload
-//   const userPayload = {
-//     ...payload,
-//     verificationOtpExpiry: new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000),
-//     verificationOtp,
-//     avatar: profileImage,
-//     accountId: accountId,
-//     currentRole: USER_ROLE.NORMAL_USER,
-//   };
-
-//   // 5. Create user in DB
-//   const newUser = await userRepository.createUser(userPayload);
-//   if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
-
-//   const mailOptions = {
-//     from: config.gmail_app_user,
-//     to: newUser.email,
-//     subject: 'Email Verification',
-//     html: registrationEmailTemplate(verificationOtp, Number(config.otp_expires_in), 'ride_share'),
-//   };
-
-//   await sendMail(mailOptions);
-
-//   return { id: newUser._id, email: newUser.email };
-// };
-
-const createAccount = async (payload: registerPayload) => {
+// registered account
+const createAccount = async (payload: registerPayload, deviceId: string) => {
   const existingUser = await userRepository.findByEmail(payload.email);
 
   if (existingUser?.isDeleted) {
     throw new BadRequestError('This email is blocked. Please contact support to reactivate.');
   }
 
-  if (existingUser && !existingUser.isEmailVerified) {
+  if (existingUser && !existingUser.verification.emailVerifiedAt) {
+    const now = new Date();
+    const otpStillValid =
+      existingUser.verificationOtpExpiry && existingUser.verificationOtpExpiry > now;
+
+    if (otpStillValid) {
+      return { status: 'UNVERIFIED' };
+    }
+
     await sendVerificationOtp(existingUser, payload.email);
     return { status: 'UNVERIFIED' };
   }
 
-  if (existingUser?.isEmailVerified) {
+  if (existingUser?.verification.emailVerifiedAt) {
     throw new BadRequestError('An account with this email already exists.');
   }
 
@@ -105,37 +64,24 @@ const createAccount = async (payload: registerPayload) => {
     throw new BadRequestError('Failed to send verification email. Please try again.');
   }
 
-  const MAX_RETRIES = 3;
+  const accountId = await generateAccountId();
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      const accountId = await generateAccountId();
+  const userPayload = {
+    ...payload,
+    verificationOtp,
+    verificationOtpExpiry: new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000),
+    avatar: profileImage,
+    accountId,
+    deviceId,
+    currentRole: USER_ROLE.NORMAL_USER,
+  };
 
-      const userPayload = {
-        ...payload,
-        verificationOtp,
-        verificationOtpExpiry: new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000),
-        avatar: profileImage,
-        accountId,
-        currentRole: USER_ROLE.NORMAL_USER,
-      };
+  const newUser = await userRepository.createUser(userPayload);
+  if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
 
-      const newUser = await userRepository.createUser(userPayload);
-      if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
+  return { id: newUser._id, email: newUser.email };
 
-      return { id: newUser._id, email: newUser.email };
-
-    } catch (error: any) {
-
-      if (error?.code === 11000 && error?.keyPattern?.accountId && attempt < MAX_RETRIES) {
-        continue;
-      }
-      throw error;
-    }
-  }
-
-  throw new BadRequestError('Failed to generate unique account ID. Try again later.');
-};
+}
 
 
 const getUserShortInfo = async (user: IUser) => {

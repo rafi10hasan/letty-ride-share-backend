@@ -9,9 +9,9 @@ import { SessionModel } from '../session/session.model';
 
 import { IUser } from '../user/user.interface';
 
+import { ADMIN_ROLE } from '../admin/admin.constant';
 import { adminRepository } from '../admin/admin.repository';
 import { jwtPayload, loginPayload, socialLoginPayload } from './admin.auth.interface';
-import { ADMIN_ROLE } from '../admin/admin.constant';
 
 const googleClient = new OAuth2Client();
 
@@ -86,7 +86,7 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
     if (!admin) {
       throw new BadRequestError('Failed to create admin');
     }
-    admin.isEmailVerified = true;
+    admin.verification.emailVerifiedAt = true;
     admin.isActive = true;
     admin.isSocialLogin = true;
     admin.avatar = picture;
@@ -122,7 +122,7 @@ const verifyAccountByOtp = async (email: string, otp: string) => {
     throw new BadRequestError('User not found!');
   }
 
-  if (admin.isEmailVerified) {
+  if (admin.verification.emailVerifiedAt) {
     throw new BadRequestError('This account is already verified!');
   }
 
@@ -140,7 +140,7 @@ const verifyAccountByOtp = async (email: string, otp: string) => {
   }
 
   // Mark admin as verified
-  admin.isEmailVerified = true;
+  admin.verification.emailVerifiedAt = true;
   admin.verificationOtp = undefined;
   admin.verificationOtpExpiry = undefined;
   await admin.save();
@@ -167,7 +167,7 @@ const resendEmailVerificationOtpAgain = async (email: string) => {
     throw new UnauthorizedError('User not found!');
   }
 
-  if (admin.isEmailVerified) {
+  if (admin.verification.emailVerifiedAt) {
     throw new BadRequestError('This account is already verified!');
   }
 
@@ -298,7 +298,7 @@ const verifyForgetPasswordByOtp = async (email: string, otp: string) => {
   if (!isResetPasswordOtpMatched) {
     throw new BadRequestError('OTP is Incorrect');
   }
-  
+
   admin.isOtpVerified = true;
   await admin.save();
   return null;
@@ -308,9 +308,9 @@ const verifyForgetPasswordByOtp = async (email: string, otp: string) => {
 const resetPassword = async (email: string, newPassword: string) => {
   const admin = await adminRepository.findByEmail(email);
   if (!admin) throw new BadRequestError('User not found');
-   
-  if(!admin.isOtpVerified){
-     throw new BadRequestError('invalid otp! verify otp again');
+
+  if (!admin.isOtpVerified) {
+    throw new BadRequestError('invalid otp! verify otp again');
   }
   if (!admin.passwordResetOtp && !admin.passwordResetExpiry) {
     throw new BadRequestError('No password reset request found');

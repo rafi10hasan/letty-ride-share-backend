@@ -11,15 +11,13 @@ const authMiddleware = (...requiredRoles: string[]) => {
     try {
 
       const token = req.headers.authorization?.replace('Bearer ', '') || '';
-      console.log({ token })
       // checking if the token is missing
       if (!token) {
         throw new UnauthorizedError('Unauthorized Access');
       }
-      console.log({ requiredRoles })
       // checking if the given token is valid
       const decoded = jwtHelpers.verifyToken(token, config.jwt_access_token_secret!) as JwtPayload;
-      console.log("decode role:", decoded.role);
+ 
       const { id, iat } = decoded;
 
       // checking if the user is exist
@@ -33,10 +31,13 @@ const authMiddleware = (...requiredRoles: string[]) => {
         throw new UnauthorizedError('Unauthorized Access');
       }
 
-      if (!user.isEmailVerified) {
+      if (!user.verification.emailVerifiedAt) {
         throw new UnauthorizedError('Unauthorized Access');
       }
 
+      if (user.verification.emailVerifiedAt < user.createdAt) {
+        throw new UnauthorizedError('Unauthorized Access');
+      }
       if (user.passwordChangedAt && user.isJWTIssuedBeforePasswordChanged(iat)) {
         throw new UnauthorizedError('Password changed, please login again');
       }

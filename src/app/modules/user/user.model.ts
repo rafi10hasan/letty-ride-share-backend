@@ -83,9 +83,16 @@ export const userSchema = new mongoose.Schema<IUser>(
     accountId: {
       type: String,
     },
-    isEmailVerified: {
-      type: Boolean,
-      default: false,
+    
+    verification: {
+      emailVerifiedAt: {
+        type: Date,
+        default: null
+      },
+      phoneVerifiedAt: {
+        type: Date,
+        default: null
+      }
     },
 
     location: { type: locationSchema },
@@ -123,7 +130,7 @@ export const userSchema = new mongoose.Schema<IUser>(
       plan: {
         type: String,
         enum: Object.values(SUBSCRIPTION_PLAN),
-        default: null
+        default: SUBSCRIPTION_PLAN.FREE
       },
       status: {
         type: String,
@@ -133,6 +140,10 @@ export const userSchema = new mongoose.Schema<IUser>(
     },
     passwordResetOtp: {
       type: String,
+    },
+    deviceId: {
+      type: String,
+      default: null
     },
     passwordResetExpiry: {
       type: Date,
@@ -215,7 +226,8 @@ userSchema.set('toJSON', {
 userSchema.index({ "accountId": 1 })
 userSchema.index({ "email": 1 })
 userSchema.index({ "fullName": 1 })
-userSchema.index({ "subscription.currentPlan": 1 })
+userSchema.index({ "deviceId": 1 })
+userSchema.index({ "subscription.plan": 1 })
 
 
 const User = mongoose.model<IUser, IUserModel>('User', userSchema);

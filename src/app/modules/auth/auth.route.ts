@@ -31,6 +31,7 @@ authRouter.post(
   validateRequest({
     body: authValidationZodSchema.verifyEmailByOtpSchema,
   }),
+  otpRateLimiter,
   authController.verifyEmailByOtp,
 );
 

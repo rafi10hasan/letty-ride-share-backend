@@ -30,11 +30,11 @@ const generateTokens = async (payload: JwtPayload) => {
 
   await SessionModel.findOneAndUpdate(
     { user: payload.id },
-    { refreshToken: refreshToken, expiresAt: decoded.exp * 1000, sessionId: payload.sessionId, lastLoginAt: new Date()},
+    { refreshToken: refreshToken, expiresAt: decoded.exp * 1000, lastLoginAt: new Date()},
     { upsert: true, new: true },
   );
 
-  return { accessToken, refreshToken, sessionId:payload.sessionId };
+  return { accessToken, refreshToken};
 };
 
 const jwtHelpers = {

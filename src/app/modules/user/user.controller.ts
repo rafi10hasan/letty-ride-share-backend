@@ -10,13 +10,15 @@ import { userService } from './user.service';
 // register user
 const createAccountIntoDb = asyncHandler(async (req: Request, res: Response) => {
   const userPayload = req.body;
-  const result = await userService.createAccount(userPayload);
+  const deviceId = (req.headers['x-device-id'] as string);
+
+  const result = await userService.createAccount(userPayload,deviceId);
   // console.log(result);
   const isVerificationRequired = result.status === 'UNVERIFIED';
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.CREATED,
     success: isVerificationRequired ? false : true,
-    message: isVerificationRequired ? 'Your Account is not verified. Please verify your email to complete registration' : 'User has been registered successfully.Check your email to verify your Account',
+    message: isVerificationRequired ? 'Your Account is not verified. Please check your email to complete registration' : 'Check your email to verify your Account',
     data: result,
   });
 });

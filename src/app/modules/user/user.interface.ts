@@ -47,6 +47,7 @@ export interface IUser extends Document {
   phone: string;
   avatar?: string;
   accountId?: string;
+  deviceId?: string;
   location?: ILocation;
   password: string;
   passwordChangedAt?: Date;
@@ -54,7 +55,10 @@ export interface IUser extends Document {
   passwordResetOtp?: string;
   passwordResetExpiry?: Date;
   isOtpVerified?: boolean;
-  isEmailVerified: boolean;
+  verification: {
+    emailVerifiedAt: Date | null;
+    phoneVerifiedAt: Date | null;
+  },
   verificationOtp?: string;
   verificationOtpExpiry?: Date;
   currentRole: TUserRole;

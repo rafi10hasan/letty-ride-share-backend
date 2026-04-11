@@ -22,7 +22,7 @@ const loginWithOAuth = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'Welcome back! You have successfully logged in.',
+    message: 'Logged in successfully.',
     data: result,
   });
 });
@@ -35,7 +35,7 @@ const verifyEmailByOtp = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'Email has been verified successfully!',
+    message: 'user has been registered successfully!',
     data: result,
   });
 });

@@ -9,7 +9,7 @@ import Admin from '../modules/admin/admin.model';
 const adminAuthMiddleware = (...requiredRoles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
-      
+
       const token = req.headers.authorization?.replace('Bearer ', '') || '';
 
       // checking if the token is missing
@@ -33,7 +33,7 @@ const adminAuthMiddleware = (...requiredRoles: string[]) => {
         throw new UnauthorizedError('Unauthorized Access');
       }
 
-      if (!admin.isEmailVerified) {
+      if (!admin.verification.emailVerifiedAt) {
         throw new UnauthorizedError('Unauthorized Access');
       }
 
@@ -44,9 +44,9 @@ const adminAuthMiddleware = (...requiredRoles: string[]) => {
       if (!admin.isActive) {
         throw new UnauthorizedError('Unauthorized Access');
       }
- 
-      if(!['super-admin', 'admin'].includes(admin.role)){
-         throw new ForbiddenError('You have no access to this route, Forbidden!');
+
+      if (!['super-admin', 'admin'].includes(admin.role)) {
+        throw new ForbiddenError('You have no access to this route, Forbidden!');
       }
 
       if (requiredRoles.length && !requiredRoles.includes(admin.role)) {
