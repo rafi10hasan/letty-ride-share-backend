@@ -5,7 +5,7 @@ import { getPassengerMonthlyTripCount } from '../../helpers/getPassengerMonthlyT
 import sendResponse from '../../shared/sendResponse';
 import Driver from '../modules/driver/driver.model';
 import Passenger from '../modules/passenger/passenger.model';
-import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS} from '../modules/subscription/subscription.constant';
+import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from '../modules/subscription/subscription.constant';
 import Subscription from '../modules/subscription/subscription.model';
 
 
@@ -136,7 +136,7 @@ export const requireBothModes = (
     next: NextFunction
 ): void => {
     const subscription = req.subscription;
-
+    console.log(subscription)
     if (!subscription || !BOTH_MODES_PLANS.includes(subscription.plan as any)) {
         sendResponse(res, {
             statusCode: StatusCodes.FORBIDDEN,
