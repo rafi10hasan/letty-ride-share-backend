@@ -61,7 +61,7 @@ const createAccount = async (payload: registerPayload, deviceId: string) => {
     // await sendOtpSms(payload.phone, verificationOtp);
     await sendMail(mailOptions);
   } catch (error) {
-    throw new BadRequestError('Failed to send verification email. Please try again.');
+    throw new BadRequestError('Failed to send verification email. !Please try again.');
   }
 
   const accountId = await generateAccountId();
