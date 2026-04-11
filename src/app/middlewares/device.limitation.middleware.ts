@@ -20,7 +20,7 @@ export const deviceAccountLimitMiddleware = async (
       'verification.emailVerifiedAt': { $exists: true, $ne: null },
     });
 
-    if (accountCountByDevice >= 1) {
+    if (accountCountByDevice >= 10) {
       throw new BadRequestError('Maximum 1 account allowed from this device.');
     }
 
