@@ -58,6 +58,40 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   return responseData;
 };
 
+const loginWithCredentialByAdmin = async (credential: TLoginPayload) => {
+  const { email, password, fcmToken } = credential;
+
+  const user = await userRepository.findByEmail(email);
+  if (!user) throw new UnauthorizedError('User not found with this email');
+
+  if (user.isDeleted) throw new UnauthorizedError('Unauthorized Access');
+  if (!user.isActive) throw new UnauthorizedError('Unauthorized Access');
+
+  if (![USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN].includes(user.currentRole as any)) {
+    throw new UnauthorizedError('Only super admin can login with credential');
+  }
+
+  const isPasswordMatch = await user.isPasswordMatched(password);
+  if (!isPasswordMatch) throw new BadRequestError(`Password didn't match`);
+
+
+  if (fcmToken) {
+    user.fcmToken = fcmToken;
+    await user.save();
+  }
+
+  const JwtPayload: jwtPayload = {
+    id: user._id.toString(),
+    role: user.currentRole,
+  };
+
+  const tokens = await jwtHelpers.generateTokens(JwtPayload);
+  const responseData: any = { ...tokens };
+
+  return responseData;
+};
+
+
 // authentication with Google
 const loginWithOAuth = async (credential: socialLoginPayload) => {
   const { provider, token } = credential;
@@ -170,7 +204,7 @@ const verifyAccountByOtp = async (
 
   return {
     ...tokens,
-    isProfileCompleted: false, 
+    isProfileCompleted: false,
     userId: user._id,
   };
 };
@@ -423,6 +457,7 @@ const generateNewAccessTokenByRefreshToken = async (refreshToken: string) => {
 
 export const userAuthService = {
   loginWithCredential,
+  loginWithCredentialByAdmin,
   loginWithOAuth,
   verifyAccountByOtp,
   resendEmailVerificationOtpAgain,

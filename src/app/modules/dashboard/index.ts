@@ -1,11 +1,20 @@
 import { Router } from 'express';
+import authMiddleware from '../../middlewares/auth.middleware';
+
+import { uploadFile } from '../../../helpers/fileuploader';
+import { validateRequest } from '../../middlewares/request.validator';
+import { validateFileSizes } from '../../middlewares/validateFileSize';
+import adminController from '../admin/admin.controller';
+import adminValidationZodSchema from '../admin/admin.zod';
+import { authController } from '../auth/auth.controller';
+import { USER_ROLE } from '../user/user.constant';
 import userOverviewRouter from './business-overview/overview.route';
 import driverManagementRouter from './driver-management/driver.management.route';
 import adminNotificationRouter from './notification-management/notification.management.route';
 import passengerManagementRouter from './passenger-management/passenger.management.route';
+import adminReportRouter from './report-management/report.management.route';
 import rideManagementRouter from './ride-management/ride.management.route';
 import userManagementRouter from './subscription-management/subscription.management.routes';
-import adminReportRouter from './report-management/report.management.route';
 
 
 const adminRouter = Router();
@@ -17,5 +26,20 @@ adminRouter.use('/drivers', driverManagementRouter);
 adminRouter.use('/passengers', passengerManagementRouter);
 adminRouter.use('/notifications', adminNotificationRouter);
 adminRouter.use('/reports', adminReportRouter);
+adminRouter.post('/login', authController.loginWithCredentialForAdmin);
+adminRouter.patch(
+    '/update-profile',
+    authMiddleware(USER_ROLE.SUPER_ADMIN),
+    validateRequest({ body: adminValidationZodSchema.updateAdminSchema }),
+    adminController.updateAdminIntoDb
+);
+
+adminRouter.patch(
+    '/change-profile-image',
+    authMiddleware(USER_ROLE.SUPER_ADMIN),
+    uploadFile(),
+    validateFileSizes,
+    adminController.updateAdminProfileImage
+);
 
 export default adminRouter;

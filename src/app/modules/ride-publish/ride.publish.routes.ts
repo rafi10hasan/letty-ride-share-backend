@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import authMiddleware from '../../middlewares/auth.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
+import { checkSubscription } from '../../middlewares/subscription.middleware';
 import { USER_ROLE } from '../user/user.constant';
 import { ridePublishController } from './ride.publish.controller';
 import tripValidationZodSchema from './ride.publish.zod';
-import { checkSubscription } from '../../middlewares/subscription.middleware';
 
 
 const rideRouter = Router();
@@ -27,7 +27,9 @@ rideRouter.get(
 rideRouter.get(
     '/search',
     authMiddleware(USER_ROLE.PASSENGER),
-    ridePublishController.getAvailableRides
+    validateRequest({ query: tripValidationZodSchema.searchTripSchema }
+    ),
+    ridePublishController.searchAvailableRides
 );
 
 rideRouter.patch(

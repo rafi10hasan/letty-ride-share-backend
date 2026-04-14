@@ -1,13 +1,13 @@
-import cron from 'node-cron';
-import { Booking } from '../app/modules/booking/booking.model';
-import RidePublish from '../app/modules/ride-publish/ride.publish.model';
 import moment from 'moment';
+import cron from 'node-cron';
 import { BOOKING_STATUS } from '../app/modules/booking/booking.constant';
+import { Booking } from '../app/modules/booking/booking.model';
 import { IPopulatedDriver, IPopulatedPassenger } from '../app/modules/booking/booking.service';
 import { NOTIFICATION_TYPE } from '../app/modules/notification/notification.constant';
 import Notification from '../app/modules/notification/notification.model';
 import { sendPushNotification } from '../app/modules/notification/notification.utils';
 import { TRIP_STATUS } from '../app/modules/ride-publish/ride.publish.constant';
+import RidePublish from '../app/modules/ride-publish/ride.publish.model';
 import logger from '../config/logger';
 import { completeRide } from '../helpers/completeRide';
 import { getSocketIO, onlineUsers } from '../socket/connectSocket';
@@ -213,11 +213,11 @@ export const initializeRideCrons = () => {
         }
     });
 
-    // Cron 4 — departure + 15 min buffer: auto-start ride
+    // Cron 4 — departure + 5 min buffer: auto-start ride
     cron.schedule('* * * * *', async () => {
         try {
             const now = new Date();
-            const bufferTime = new Date(now.getTime() - 15 * 60 * 1000);
+            const bufferTime = new Date(now.getTime() - 5 * 60 * 1000);
 
             const rides = await RidePublish.find({
                 tripStatus: TRIP_STATUS.UPCOMING,

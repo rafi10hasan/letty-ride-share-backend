@@ -40,6 +40,8 @@ export const checkSubscription = async (
             });
             return;
         }
+
+        console.log("user.subscription", user.subscription);
         const subscription = await Subscription.findOne({ user: user._id }).lean();
         // 1. Paid plan validation (Status & Expiry)
         if (PAID_PLANS.includes(subscription?.plan as any)) {
@@ -115,7 +117,7 @@ export const checkSubscription = async (
         }
 
         // Request object e save korchi porer middleware er jonno
-        req.subscription = subscription;
+        req.subscription = user.subscription;
         next();
     } catch (error) {
         console.error('Subscription Middleware Error:', error);

@@ -5,7 +5,13 @@ import { USER_ROLE } from '../../user/user.constant';
 import { overviewUserController } from './overview.controller';
 
 
-const  userOverviewRouter = Router();
+const userOverviewRouter = Router();
+
+userOverviewRouter.get(
+  '/top',
+  authMiddleware(USER_ROLE.SUPER_ADMIN),
+  overviewUserController.getTopOverviewIntoDb,
+);
 
 userOverviewRouter.get(
   '/stats',

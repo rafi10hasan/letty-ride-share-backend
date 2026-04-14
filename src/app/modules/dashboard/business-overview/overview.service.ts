@@ -1,10 +1,26 @@
+import getUserNotificationCount from "../../../../utilities/getUserNotificationCount";
 import { TRIP_STATUS } from "../../ride-publish/ride.publish.constant";
 import RidePublish from "../../ride-publish/ride.publish.model";
 import { SUBSCRIPTION_STATUS } from "../../subscription/subscription.constant";
 import Subscription from "../../subscription/subscription.model";
+import { IUser } from "../../user/user.interface";
 import User from "../../user/user.model";
 
 // ─── 1. STATS OVERALL OVERVIEW ─────────────────────────────────────────
+
+const getTopOverview = async (user: IUser) => {
+    const notificationCount = await getUserNotificationCount(user._id.toString());
+
+    return {
+        name: user.fullName,
+        avatar: user.avatar,
+        role: user.currentRole,
+        notificationCount: notificationCount.unseenCount || 0
+    };
+
+};
+
+
 const getStatsOverview = async () => {
     const [totalRevenueResult, activeRides, activeUsers] = await Promise.all([
         Subscription.aggregate([
@@ -131,5 +147,6 @@ export const overviewUserService = {
     getStatsOverview,
     getRevenueAnalytics,
     getUserGrowth,
-    getRecentActiveRides
+    getRecentActiveRides,
+    getTopOverview
 };

@@ -10,8 +10,20 @@ const loginWithCredential = asyncHandler(async (req: Request, res: Response) => 
   const isVerificationRequired = result.status === 'UNVERIFIED';
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.OK,
-    success: isVerificationRequired ? false :true,
+    success: isVerificationRequired ? false : true,
     message: isVerificationRequired ? 'Your Account is not verified. Please verify your email to login' : 'Welcome back! You have successfully logged in.',
+    data: result,
+  });
+});
+
+
+const loginWithCredentialForAdmin = asyncHandler(async (req: Request, res: Response) => {
+  const result = await userAuthService.loginWithCredentialByAdmin(req.body);
+
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Welcome back! You have successfully logged in.',
     data: result,
   });
 });
@@ -137,6 +149,7 @@ export const authController = {
   verifyEmailByOtp,
   sendVerificationOtpAgain,
   requestPasswordReset,
+  loginWithCredentialForAdmin,
   verifyResetPassword,
   resetForgetPassword,
   sendResetPasswordOtpAgain,

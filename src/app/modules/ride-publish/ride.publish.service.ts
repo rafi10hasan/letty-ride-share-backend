@@ -75,11 +75,12 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
         $maxDistance: 100,
       },
     },
-  });
+  }).select("departureTimeString departureDate departureTimeMinutes");
 
+  console.log({ isConflict })
   if (isConflict) {
     throw new BadRequestError(
-      `You already have an active ride around this time. Please choose a time at least ${TRIP_DURATION_BUFFER_MINUTES} minutes apart.`,
+      `You already have an active ride around this time. Please choose a time after ${isConflict.departureTimeString}.`,
     );
   }
 
@@ -232,12 +233,184 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 };
 
 // search available rides
+// const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
+//   const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly } = payload;
+
+//   if (seats <= 0) throw new BadRequestError('Seats must be at least 1');
+
+//   const now = new Date();
+//   const today = new Date();
+//   today.setUTCHours(0, 0, 0, 0);
+
+//   const searchDate = new Date(date);
+//   searchDate.setUTCHours(0, 0, 0, 0);
+
+//   if (searchDate < today) throw new BadRequestError('Search date cannot be in the past');
+
+//   const currentTimeMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
+//   console.log({currentTimeMinutes})
+//   const specifiedTimeMinutes = time ? timeStringToMinutes(time) : currentTimeMinutes;
+//   console.log({specifiedTimeMinutes})
+//   const diffDays = Math.round((searchDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+//   let dateFrom: Date;
+//   let dateTo: Date;
+//   let timeMin: number;
+
+//   if (diffDays === 0) {
+//     // Case 1: searching for today ride
+//     const adjustedTimeMin = specifiedTimeMinutes + 120;
+
+//     if (adjustedTimeMin < currentTimeMinutes) {
+//       // Searched time too far in past → dateTo = tomorrow only
+//       console.log("Access")
+//       dateFrom = new Date(today);
+//       dateTo = new Date(today);
+//       dateTo.setDate(dateTo.getDate() + 1);
+//       timeMin = currentTimeMinutes;
+//     } else {
+//       // Normal case → dateTo = today + 2 days
+//       dateFrom = new Date(today);
+//       dateTo = new Date(today);
+//       dateTo.setDate(dateTo.getDate() + 2);
+//       timeMin = adjustedTimeMin;
+//       console.log("Access 2")
+//     }
+//   } else if (diffDays === 1) {
+//     // Case 2: searching for tomorrow's ride
+//     dateFrom = new Date(searchDate);
+//     dateTo = new Date(searchDate);
+//     timeMin = 0;
+//     // dateFrom = new Date(today);
+//     // dateTo = new Date(searchDate);
+//     // dateTo.setDate(dateTo.getDate() + 1);
+//     // timeMin = currentTimeMinutes + 120;
+//   } else {
+//     // Case 3: searching for ride 2+ days in the future
+//     // searchDate-1 to searchDate+1
+//     dateFrom = new Date(searchDate);
+//     dateFrom.setDate(dateFrom.getDate() - 1);
+//     dateTo = new Date(searchDate);
+//     dateTo.setDate(dateTo.getDate() + 1);
+//     timeMin = 0;
+//   }
+
+//   dateTo.setUTCHours(23, 59, 59, 999);
+
+//   console.log({ dateFrom, dateTo, timeMin, diffDays });
+
+//   const passenger = await passengerRepository.findPassengerByUserId(user._id);
+//   const bookedRideIds = passenger
+//     ? await Booking.find({
+//       passenger: passenger._id,
+//       status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+//     }).distinct('ride')
+//     : [];
+
+//   const driver = await driverRepository.findDriverByUserId(user._id);
+
+//   const matchStage: Record<string, any> = {
+//     status: PUBLISH_STATUS.ACTIVE,
+//     tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
+//     availableSeats: { $gte: seats },
+//     departureDate: { $gte: dateFrom, $lte: dateTo },
+//     departureTimeMinutes: { $gte: timeMin, $lte: 1439 },
+//     pickUpLocation: {
+//       $geoWithin: {
+//         $centerSphere: [pickUpLocation.coordinates, 10 / 6378.1],
+//       },
+//     },
+//     dropOffLocation: {
+//       $geoWithin: {
+//         $centerSphere: [dropOffLocation.coordinates, 10 / 6378.1],
+//       },
+//     },
+//   };
+
+//   if (bookedRideIds.length > 0) matchStage._id = { $nin: bookedRideIds };
+//   if (driver) matchStage.driver = { $ne: driver._id };
+
+//   if (isLadiesOnly) {
+//     matchStage.isLadiesOnly = true;
+//   } else {
+//     matchStage.isLadiesOnly = { $ne: true };
+//   }
+
+//   const rides = await RidePublish.aggregate([
+//     { $match: matchStage },
+//     {
+//       $lookup: {
+//         from: 'drivers',
+//         localField: 'driver',
+//         foreignField: '_id',
+//         as: 'driverData',
+//       },
+//     },
+//     { $unwind: '$driverData' },
+//     {
+//       $lookup: {
+//         from: 'users',
+//         localField: 'driverData.user',
+//         foreignField: '_id',
+//         as: 'userData',
+//       },
+//     },
+//     { $unwind: '$userData' },
+//     {
+//       $addFields: {
+//         driverInfo: {
+//           name: '$driverData.fullName',
+//           photo: '$driverData.avatar',
+//           hasAc: '$driverData.hasAc',
+//           rating: '$driverData.avgRating',
+//           totalReviews: '$driverData.totalReviews',
+//         },
+//         planPriority: {
+//           $switch: {
+//             branches: [
+//               { case: { $eq: ['$userData.subscription.plan', 'premium-plus'] }, then: 4 },
+//               { case: { $eq: ['$userData.subscription.plan', 'all-access'] }, then: 3 },
+//               { case: { $eq: ['$userData.subscription.plan', 'premium'] }, then: 2 },
+//             ],
+//             default: 1,
+//           },
+//         },
+//       },
+//     },
+//     {
+//       $sort: {
+//         planPriority: -1,
+//         'driverInfo.rating': -1,
+//         'driverInfo.totalReviews': -1,
+//       },
+//     },
+//     {
+//       $project: {
+//         _id: 1,
+//         tripId: 1,
+//         tripStatus: 1,
+//         driverInfo: 1,
+//         pickupAddress: '$pickUpLocation.address',
+//         dropOffAddress: '$dropOffLocation.address',
+//         departureDate: 1,
+//         departureTimeString: 1,
+//         price: 1,
+//         availableSeats: 1,
+//         totalSeats: 1,
+//         genderPreference: 1,
+//         isLadiesOnly: 1,
+//       },
+//     },
+//   ]);
+
+//   return rides;
+// };
+
 const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
-  const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly } = payload;
+  const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly, timezone } = payload;
 
   if (seats <= 0) throw new BadRequestError('Seats must be at least 1');
 
-  const now = new Date();
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
@@ -246,53 +419,36 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
 
   if (searchDate < today) throw new BadRequestError('Search date cannot be in the past');
 
-  const currentTimeMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const specifiedTimeMinutes = time ? timeStringToMinutes(time) : currentTimeMinutes;
   const diffDays = Math.round((searchDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-  let dateFrom: Date;
-  let dateTo: Date;
-  let timeMin: number;
+  const specifiedDateTimeUTC = moment
+    .tz(`${date} ${time}`, 'YYYY-MM-DD hh:mm A', timezone)
+    .utc()
+    .toDate();
+
+  const nowUTC = new Date();
+
+  let departureDateTimeFrom: Date;
+  let departureDateTimeTo: Date;
 
   if (diffDays === 0) {
-    // Case 1: searching for today ride
-    const adjustedTimeMin = specifiedTimeMinutes + 120;
 
-    if (adjustedTimeMin < currentTimeMinutes) {
-      // Searched time too far in past → dateTo = tomorrow only
-      dateFrom = new Date(today);
-      dateTo = new Date(today);
-      dateTo.setDate(dateTo.getDate() + 1);
-      timeMin = currentTimeMinutes;
-    } else {
-      // Normal case → dateTo = today + 2 days
-      dateFrom = new Date(today);
-      dateTo = new Date(today);
-      dateTo.setDate(dateTo.getDate() + 2);
-      timeMin = adjustedTimeMin;
-    }
+    const FiveHoursBefore = moment(specifiedDateTimeUTC).subtract(5, 'hours').toDate();
+    departureDateTimeFrom = FiveHoursBefore < nowUTC ? nowUTC : FiveHoursBefore;
+    departureDateTimeTo = moment(specifiedDateTimeUTC).add(5, 'hours').toDate();
+
   } else if (diffDays === 1) {
-    // Case 2: searching for tomorrow's ride
-    dateFrom = new Date(searchDate);
-    dateTo = new Date(searchDate);
-    timeMin = 0;
-    // dateFrom = new Date(today);
-    // dateTo = new Date(searchDate);
-    // dateTo.setDate(dateTo.getDate() + 1);
-    // timeMin = currentTimeMinutes + 120;
+
+    departureDateTimeFrom = nowUTC;
+    departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).endOf('day').utc().toDate();
+
   } else {
-    // Case 3: searching for ride 2+ days in the future
-    // searchDate-1 to searchDate+1
-    dateFrom = new Date(searchDate);
-    dateFrom.setDate(dateFrom.getDate() - 1);
-    dateTo = new Date(searchDate);
-    dateTo.setDate(dateTo.getDate() + 1);
-    timeMin = 0;
+
+    departureDateTimeFrom = nowUTC;
+    departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).add(1, 'day').endOf('day').utc().toDate();
   }
 
-  dateTo.setUTCHours(23, 59, 59, 999);
-
-  console.log({ dateFrom, dateTo, timeMin, diffDays });
+  console.log({ departureDateTimeFrom, departureDateTimeTo, diffDays });
 
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
   const bookedRideIds = passenger
@@ -308,8 +464,10 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
     status: PUBLISH_STATUS.ACTIVE,
     tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
     availableSeats: { $gte: seats },
-    departureDate: { $gte: dateFrom, $lte: dateTo },
-    departureTimeMinutes: { $gte: timeMin, $lte: 1439 },
+    departureDateTime: {
+      $gte: departureDateTimeFrom,
+      $lte: departureDateTimeTo,
+    },
     pickUpLocation: {
       $geoWithin: {
         $centerSphere: [pickUpLocation.coordinates, 10 / 6378.1],
@@ -374,6 +532,7 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
     },
     {
       $sort: {
+        departureDateTime: 1,
         planPriority: -1,
         'driverInfo.rating': -1,
         'driverInfo.totalReviews': -1,
@@ -388,6 +547,7 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
         pickupAddress: '$pickUpLocation.address',
         dropOffAddress: '$dropOffLocation.address',
         departureDate: 1,
+        departureDateTime: 1,
         departureTimeString: 1,
         price: 1,
         availableSeats: 1,
@@ -527,7 +687,7 @@ const startRide = async (user: IUser, rideId: string) => {
           notificationType: NOTIFICATION_TYPE.RIDE_STARTED,
         });
       })
-    ).catch((error) => logger.error(`Background task failed: ${error}`));
+    ).catch((error) => logger.error(`Background task failed in start ride: ${error}`));
     return updatedRide;
   } catch (error) {
     throw new Error(`Failed to start ride: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -669,7 +829,7 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
         notificationType: NOTIFICATION_TYPE.RIDE_CANCELLED,
       });
     })
-  ).catch((error) => logger.error(`Background task failed: ${error}`));
+  ).catch((error) => logger.error(`Background task failed in cancel ride ${error}`));
 };
 
 export const ridePublishService = {

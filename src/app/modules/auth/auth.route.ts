@@ -76,7 +76,7 @@ authRouter.post(
   authController.resetForgetPassword,
 );
 
-authRouter.post(
+authRouter.patch(
   '/change-password',
   authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER, USER_ROLE.SUPER_ADMIN, USER_ROLE.ADMIN),
   validateRequest({

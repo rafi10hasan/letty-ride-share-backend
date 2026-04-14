@@ -1,10 +1,8 @@
 import mongoose, { Types } from "mongoose";
-import { getSocketIO, onlineUsers } from "../../../socket/connectSocket";
 import { getDistanceInKm } from "../../../utilities/getDistanceInKm";
 import { BadRequestError, NotFoundError, UnauthorizedError } from "../../errors/request/apiError";
 import { driverRepository } from "../driver/driver.repository";
 import { NOTIFICATION_TYPE } from "../notification/notification.constant";
-import Notification from "../notification/notification.model";
 import { passengerRepository } from "../passenger/passenger.repository";
 import { IRidePublish } from "../ride-publish/ride.publish.interface";
 import RidePublish from "../ride-publish/ride.publish.model";
@@ -52,7 +50,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
     }
 
     const ride = await RidePublish.findById(rideId)
-        .select("price availableSeats driver pickUpLocation tripStatus tripId departureDate departureTimeMinutes requestsCount")
+        .select("price availableSeats driver pickUpLocation dropOffLocation tripStatus tripId departureDate departureTimeMinutes requestsCount")
         .populate<{ driver: IPopulatedDriver }>({
             path: "driver",
             select: "fullName user",
@@ -82,9 +80,16 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
         throw new BadRequestError(`you booked ${payload.seatsBooked} seats but available seat has ${ride.availableSeats}`)
     }
 
-    const distance = getDistanceInKm(payload.pickUpLocation.coordinates, ride.pickUpLocation.coordinates);
-    if (distance > 10) {
+    const pickupDistance = getDistanceInKm(payload.pickUpLocation.coordinates, ride.pickUpLocation.coordinates);
+    console.log({ pickupDistance })
+    if (pickupDistance > 10) {
         throw new BadRequestError("you can't booked outside 10 km from pick up location")
+    }
+
+    const dropOffDistance = getDistanceInKm(payload.dropOffLocation.coordinates, ride.dropOffLocation.coordinates);
+    console.log({ dropOffDistance })
+    if (dropOffDistance > 10) {
+        throw new BadRequestError("you can't booked outside 10 km from drop off location")
     }
 
     const booking = await Booking.create({
@@ -204,7 +209,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
             { _id: booking.ride._id, availableSeats: { $gte: booking.seatsBooked } },
             { $inc: { availableSeats: -booking.seatsBooked, totalSeatBooked: booking.seatsBooked } },
             { session, new: true }
-        ).select("totalSeatBooked  availableSeats");
+        ).select("totalSeatBooked availableSeats minimumPassenger");
 
         if (!updatedRide) {
             throw new BadRequestError('Not enough seats available');
@@ -238,22 +243,11 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 
         // Passenger notification
         (async () => {
-            const socketId = onlineUsers.get(passengerId.toString());
-            if (socketId) {
-                const io = getSocketIO();
-                io.to(passengerId.toString()).emit('booking-accepted', {
-                    title: 'Booking Accepted',
-                    message: `Your booking has been accepted for ${booking.ride.tripId}`,
-                });
-            } else {
-                // Socket না থাকলে DB notification
-                await Notification.create({
-                    title: 'Booking Accepted',
-                    message: `Your booking has been accepted for ${booking.ride.tripId}`,
-                    receiver: passengerId,
-                    type: NOTIFICATION_TYPE.BOOKING_ACCEPTED,
-                });
-            }
+            sendNotificationBySocket({
+                title: 'Booking Accepted',
+                message: `Your booking has been accepted for ${booking.ride.tripId}`,
+                receiver: passengerId.toString(),
+            }, NOTIFICATION_TYPE.BOOKING_ACCEPTED);
         })(),
 
         // Passenger FCM
@@ -273,22 +267,11 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
         // Minimum passenger reached — driver এর user.fcmToken থেকেই নাও
         (async () => {
             if (updatedRide && updatedRide.totalSeatBooked >= updatedRide.minimumPassenger) {
-                const io = getSocketIO();
-                io.to(driver.user._id.toString()).emit('minimum-passenger-reached', {
+                sendNotificationBySocket({
                     title: 'Minimum Passengers Reached!',
                     message: `Trip ${booking.ride.tripId} is ready to confirm.`,
-                });
-
-                if (user.fcmToken) {
-                    try {
-                        await sendPushNotification(user.fcmToken, {
-                            title: 'Minimum Passengers Reached!',
-                            content: `Trip ${booking.ride.tripId} has reached minimum passengers. You can now confirm the trip.`,
-                        });
-                    } catch (error) {
-                        logger.error(`FCM failed for driver: ${error}`);
-                    }
-                }
+                    receiver: driver.user._id.toString(),
+                }, NOTIFICATION_TYPE.MINIMUM_PASSENGER_REACHED);
             }
         })(),
 
@@ -362,23 +345,17 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
     const message = isDriverAction
         ? `Your booking has been rejected for ride ${booking.ride.tripId}`
         : `A passenger has cancelled their booking for ride ${booking.ride.tripId}`;
-    const socketEvent = isDriverAction ? 'booking-rejected' : 'booking-cancelled';
     const notificationType = isDriverAction ? NOTIFICATION_TYPE.BOOKING_REJECTED : NOTIFICATION_TYPE.BOOKING_CANCELLED;
 
     Promise.all([
         // Socket or DB notification
         (async () => {
-            const isOnline = onlineUsers.has(notifyUserId);
-            if (isOnline) {
-                getSocketIO().to(notifyUserId).emit(socketEvent, { title, message });
-            } else {
-                await Notification.create({
-                    title,
-                    message,
-                    receiver: notifyUserId,
-                    type: notificationType,
-                });
-            }
+
+            sendNotificationBySocket({
+                title,
+                message,
+                receiver: notifyUserId,
+            }, notificationType);
         })(),
 
         // FCM

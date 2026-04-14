@@ -53,8 +53,8 @@ userRouter.patch(
 userRouter.patch(
   '/switch-mode',
   authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
-  // checkSubscription,
-  // requireBothModes,
+  checkSubscription,
+  requireBothModes,
   userController.switchUserRoleIntoDb,
 );
 
