@@ -50,6 +50,7 @@ const searchAvailableRides = asyncHandler(async (req: Request, res: Response) =>
 // cancel ride
 const cancelRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { rideId } = req.params;
+    console.log({rideId})
     const cancellationReason = req.body.cancellationReason;
     if (!cancellationReason) {
         throw new BadRequestError(`cancellation reason is required`)

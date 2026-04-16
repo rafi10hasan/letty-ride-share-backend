@@ -68,10 +68,6 @@ export const driverSchema = new mongoose.Schema<IDriver>(
     bio: {
       type: String,
     },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
     location: { type: locationSchema },
 
     dateOfBirth: {

@@ -29,6 +29,7 @@ const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePay
     const passengerPayload = {
       ...rest,
       user: user._id,
+      currentRole: USER_ROLE.PASSENGER,
       fullName: user.fullName,
       email: user.email,
       phone: user.phone,
@@ -36,7 +37,7 @@ const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePay
     };
 
     const passenger = await passengerRepository.createPassengerProfile(passengerPayload, session);
-    user.currentRole = payload.role;
+    user.currentRole = USER_ROLE.PASSENGER;
 
     await user.save({ session });
 
@@ -123,7 +124,8 @@ const getPassengerRequests = async (user: IUser) => {
 
   const bookings = await Booking.find({
     passenger: passenger._id,
-    status: BOOKING_STATUS.PENDING,
+    status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.PENDING },
@@ -216,7 +218,7 @@ export const getPassengerOngoingRide = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.ONGOING },
-    select: 'tripId driver tripStatus departureDate departureTimeString totalSeats pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
+    select: 'tripId driver tripStatus departureDate estimatedArrivalTime departureTimeString totalSeats pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
     populate: {
       path: 'driver',
       select: 'fullName avatar',
@@ -241,6 +243,7 @@ export const getPassengerOngoingRide = async (user: IUser) => {
         departureTimeString: ride.departureTimeString,
         pickUpLocation: ride.pickUpLocation.address,
         dropOffLocation: ride.dropOffLocation.address,
+        // estimatedArrivalTime: moment(ride.estimatedArrivalTime).tz(ride.timezone).format('YYYY-MM-DD hh:mm A'),
         seatPerPrice: (ride.price / ride.totalSeats),
         seatBooked: b.seatsBooked,
         totalPrice: b.seatsBooked * (ride.price / ride.totalSeats),
@@ -260,7 +263,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
     status: BOOKING_STATUS.COMPLETED,
   }).populate({
     path: 'tripHistory',
-    select: '_id tripId pickUpLocation dropOffLocation rideIddepartureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
+    select: '_id tripId pickUpLocation dropOffLocation rideId departureDateTime totalDistance price totalSeats totalSeatBooked startedAt completedAt driver',
     populate: {
       path: 'driver',
       select: '_id fullName avatar avgRating totalReviews',

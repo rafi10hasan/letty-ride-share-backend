@@ -36,16 +36,16 @@ const createReport = async (user: IUser, rideId: string, payload: TReportPayload
         reporterId: user._id,
         tripId: tripId
     });
-
+    console.log(isExistReportForSameTrip)
     if (isExistReportForSameTrip) {
         throw new BadRequestError(`You already give a report for this trip`);
     }
 
 
     if (user.currentRole === USER_ROLE.PASSENGER) {
-        anotherUser = await driverRepository.findByDriverId(new mongoose.Types.ObjectId(reportedId), "user");
+        anotherUser = await  passengerRepository.findPassengerByUserId(new mongoose.Types.ObjectId(reportedId), "user");
     } else if (user.currentRole === USER_ROLE.DRIVER) {
-        anotherUser = await passengerRepository.findByPassengerId(new mongoose.Types.ObjectId(reportedId), "user");
+        anotherUser = await driverRepository.findDriverByUserId(new mongoose.Types.ObjectId(reportedId), "user");
     }
 
     if (anotherUser && anotherUser.user.toString() === user._id.toString()) {

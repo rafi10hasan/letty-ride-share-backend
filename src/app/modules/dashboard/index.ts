@@ -8,6 +8,7 @@ import adminController from '../admin/admin.controller';
 import adminValidationZodSchema from '../admin/admin.zod';
 import { authController } from '../auth/auth.controller';
 import { USER_ROLE } from '../user/user.constant';
+import { userController } from '../user/user.controller';
 import userOverviewRouter from './business-overview/overview.route';
 import driverManagementRouter from './driver-management/driver.management.route';
 import adminNotificationRouter from './notification-management/notification.management.route';
@@ -27,6 +28,7 @@ adminRouter.use('/passengers', passengerManagementRouter);
 adminRouter.use('/notifications', adminNotificationRouter);
 adminRouter.use('/reports', adminReportRouter);
 adminRouter.post('/login', authController.loginWithCredentialForAdmin);
+adminRouter.get('/search/users', userController.searchUsersIntoDb);
 adminRouter.patch(
     '/update-profile',
     authMiddleware(USER_ROLE.SUPER_ADMIN),

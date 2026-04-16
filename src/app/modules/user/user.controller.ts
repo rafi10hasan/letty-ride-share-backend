@@ -57,6 +57,16 @@ const getUserShortInfoIntoDb = asyncHandler(async (req: Request, res: Response) 
   });
 });
 
+const searchUsersIntoDb = asyncHandler(async (req: Request, res: Response) => {
+  const result = await userService.searchUsers(req.query);
+  sendResponse(res, {
+    statusCode: StatusCodes.OK,
+    success: true,
+    message: 'Users have been searched successfully',
+    data: result,
+  });
+});
+
 const getOtherUserProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
   const result = await userService.getOtherUserProfile(req.user, req.params.profileId);
   sendResponse(res, {
@@ -85,5 +95,6 @@ export const userController = {
   switchUserRoleIntoDb,
   updateUserProfileImageIntoDb,
   getUserShortInfoIntoDb,
-  getOtherUserProfileIntoDb
+  getOtherUserProfileIntoDb,
+  searchUsersIntoDb
 };

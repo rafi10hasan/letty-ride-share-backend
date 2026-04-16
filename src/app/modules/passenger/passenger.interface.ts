@@ -7,15 +7,6 @@ export type TProfileImage = {
   profile_image: Express.Multer.File[];
 };
 
-export interface IGeoPoint {
-  type: 'Point';
-  coordinates: [number, number];
-}
-
-interface IPassengerLocation {
-  address: string;
-  geo: IGeoPoint;
-}
 
 export interface IPassenger extends Document {
   _id: Types.ObjectId;
@@ -33,7 +24,6 @@ export interface IPassenger extends Document {
   gender: TGender;
   dateOfBirth: string;
   languages: string[];
-  location: IPassengerLocation;
   avatar: string;
   createdAt: Date;
   updatedAt: Date;

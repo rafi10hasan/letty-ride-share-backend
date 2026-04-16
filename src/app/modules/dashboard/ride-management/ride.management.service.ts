@@ -10,6 +10,7 @@ import { IPassenger } from "../../passenger/passenger.interface";
 import { TRIP_STATUS } from "../../ride-publish/ride.publish.constant";
 import RidePublish from "../../ride-publish/ride.publish.model";
 import { TripHistory } from "../../trip-history/trip.history.model";
+import Driver from "../../driver/driver.model";
 
 
 const getRidesStatsOverview = async () => {
@@ -104,11 +105,25 @@ const getAllRides = async (query: Record<string, unknown>) => {
     const filter: any = {};
 
     if (searchTerm) {
-        filter.$or = [
+      
+        const matchedDrivers = await Driver.find({
+            fullName: { $regex: String(searchTerm), $options: 'i' }
+        }).select('_id').lean();
+
+        const driverIds = matchedDrivers.map(d => d._id);
+
+   
+        const orConditions: any[] = [
             { tripId: { $regex: String(searchTerm).toUpperCase(), $options: 'i' } },
             { 'pickUpLocation.address': { $regex: searchTerm, $options: 'i' } },
             { 'dropOffLocation.address': { $regex: searchTerm, $options: 'i' } },
         ];
+
+        if (driverIds.length > 0) {
+            orConditions.push({ driver: { $in: driverIds } });
+        }
+
+        filter.$or = orConditions;
     }
 
     const isHistory = ['completed', 'cancelled'].includes(String(status).toLowerCase());
@@ -145,6 +160,7 @@ const getAllRides = async (query: Record<string, unknown>) => {
         return {
             tripId: ride.tripId,
             tripStatus,
+            rideId: ride.rideId || ride._id,
             pickUpAddress: ride.pickUpLocation?.address,
             dropOffAddress: ride.dropOffLocation?.address,
             totalSeats: ride.totalSeats,
@@ -160,7 +176,7 @@ const getAllRides = async (query: Record<string, unknown>) => {
     };
 
     console.log(filter)
-    const selectFields = 'tripId tripStatus pickUpLocation dropOffLocation departureDateTime estimatedArrivalTime price totalSeats totalSeatBooked startedAt completedAt createdAt';
+    const selectFields = '_id tripId tripStatus pickUpLocation dropOffLocation departureDateTime rideId estimatedArrivalTime price totalSeats totalSeatBooked startedAt completedAt createdAt';
     const populateDriver = { path: 'driver', select: 'fullName avatar avgRating totalReviews' };
 
     let rides = [];
@@ -186,6 +202,7 @@ const getAllRides = async (query: Record<string, unknown>) => {
 
         total = combined.length;
         const paginated = combined.slice(skip, skip + Number(limit));
+        console.log("combined", combined)
         rides = paginated.map(formatRide);
 
     } else if (isHistory) {
@@ -203,6 +220,7 @@ const getAllRides = async (query: Record<string, unknown>) => {
         ]);
 
         rides = rides.map(formatRide);
+        console.log("rides1", rides)
 
     } else {
         const activeFilter = { ...filter, tripStatus: String(status).toLowerCase() };

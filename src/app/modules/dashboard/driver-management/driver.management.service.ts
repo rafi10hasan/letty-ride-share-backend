@@ -124,7 +124,7 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
 // update driver status
 const updateDriverStatus = async (id: string, payload: { status: true | false }) => {
 
-    if (!payload.status) {
+    if (payload.status === undefined) {
         throw new BadRequestError('status is required')
     }
     const user = await userRepository.findById(id, "isActive fcmToken email");

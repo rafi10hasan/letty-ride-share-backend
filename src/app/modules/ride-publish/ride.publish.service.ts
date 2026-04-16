@@ -409,6 +409,8 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
   const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly, timezone } = payload;
 
+  console.log({ timezone })
+
   if (seats <= 0) throw new BadRequestError('Seats must be at least 1');
 
   const today = new Date();
@@ -651,6 +653,11 @@ const startRide = async (user: IUser, rideId: string) => {
     }
 
     const now = new Date();
+    const tenMinutesBefore = new Date(ride.departureDateTime.getTime() - 10 * 60 * 1000);
+
+    if (now < tenMinutesBefore) {
+      throw new BadRequestError('Cannot start ride before 10 minutes before departure time');
+    }
 
     const { etaSeconds } = await getETAFromGoogleMaps(ride.pickUpLocation.coordinates, ride.dropOffLocation.coordinates);
 
@@ -710,6 +717,10 @@ const completeRideByDriver = async (user: IUser, rideId: string) => {
 
   if (!ride) throw new NotFoundError('Ongoing ride not found');
 
+  if (new Date() < ride.estimatedArrivalTime) {
+    throw new BadRequestError('Cannot complete ride before estimated arrival time');
+  }
+
   if (ride.driver.toString() !== driver._id.toString()) {
     throw new UnauthorizedError('This ride is not yours');
   }
@@ -719,6 +730,7 @@ const completeRideByDriver = async (user: IUser, rideId: string) => {
 // cancel ride
 const cancelRide = async (user: IUser, rideId: string, cancellationReason: string) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
+  console.log({rideId})
   if (!driver) {
     throw new NotFoundError('driver not found');
   }
@@ -758,14 +770,14 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
 
   const session = await mongoose.startSession();
   session.startTransaction();
-
+  
   try {
 
     const tripHistory = await TripHistory.create(
       [
         {
           tripId: ride.tripId,
-          ride: ride._id,
+          rideId: ride._id,
           driver: ride.driver,
           pickUpLocation: {
             address: ride.pickUpLocation.address,
@@ -796,7 +808,6 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
         cancelledBy: 'driver',
         cancelReason: cancellationReason,
         tripHistory: tripHistory[0]._id,
-        ride: null,
       },
       { session }
     );

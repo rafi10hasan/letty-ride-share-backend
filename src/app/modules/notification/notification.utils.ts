@@ -1,7 +1,4 @@
 
-
-import { BadRequestError } from '../../errors/request/apiError';
-
 import Notification from './notification.model';
 
 import type { Message } from 'firebase-admin/messaging';
@@ -128,8 +125,5 @@ export const sendPushNotification = async (
     } else {
       console.log(error);
     }
-    throw new BadRequestError(
-      error instanceof Error ? error.message : String(error)
-    );
   }
 };

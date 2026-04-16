@@ -36,7 +36,6 @@ export interface IDriver extends Document {
   carGalleries: string[];
   verificationImage: string;
   totalTripCompleted: number;
-  isActive: boolean;
   carModel: string;
   licensePlate: string;
   vehicleType: TVehicleType;

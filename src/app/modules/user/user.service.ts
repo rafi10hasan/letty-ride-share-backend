@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import moment from 'moment';
-import mongoose from 'mongoose';
+import mongoose, { FilterQuery } from 'mongoose';
 import config from '../../../config';
 import registrationEmailTemplate from '../../../mailTemplate/registrationTemplate';
 import { generateOTP } from '../../../utilities/generateOtp';
@@ -16,7 +16,7 @@ import { driverRepository } from '../driver/driver.repository';
 import { passengerRepository } from '../passenger/passenger.repository';
 import { Review } from '../review/review.model';
 import { USER_ROLE } from './user.constant';
-import { IUser, registerPayload, TProfileImage } from './user.interface';
+import { IUser, registerPayload, SearchUsersParams, TProfileImage } from './user.interface';
 import User from './user.model';
 import { userRepository } from './user.repository';
 import { generateAccountId } from './user.utils';
@@ -146,6 +146,48 @@ const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) =>
   }
 };
 
+// search users
+const searchUsers = async (params: SearchUsersParams) => {
+  const { searchTerm, page = 1, limit = 10 } = params;
+
+  if (!searchTerm) {
+    throw new BadRequestError("searchTerm is required");
+  }
+
+  if (typeof searchTerm !== "string") {
+    throw new BadRequestError("searchTerm must be a string");
+  }
+
+  const term = searchTerm.trim();
+
+  const filter: FilterQuery<IUser> = {
+    $or: [
+      { fullName: { $regex: term, $options: "i" } },
+      { email: { $regex: term, $options: "i" } },
+      { phone: { $regex: term, $options: "i" } },
+      { accountId: { $regex: term, $options: "i" } },
+    ],
+  };
+
+  const skip = (Number(page) - 1) * Number(limit);
+
+  const [users, total] = await Promise.all([
+    User.find(filter)
+      .select("accountId fullName email phone createdAt")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(Number(limit)),
+    User.countDocuments(filter),
+  ]);
+
+  return {
+    total,
+    page: Number(page),
+    limit: Number(limit),
+    totalPages: Math.ceil(total / Number(limit)),
+    data: users,
+  };
+};
 // update user profile image
 const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
   // 1. File check
@@ -344,5 +386,6 @@ export const userService = {
   switchUserRole,
   updateUserProfileImage,
   getUserShortInfo,
+  searchUsers,
   getOtherUserProfile
 };

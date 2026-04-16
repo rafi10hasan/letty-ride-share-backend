@@ -50,11 +50,13 @@ export async function handleSendMessage(
   const room = io.sockets.adapter.rooms.get(conversationIdString);
 
   let receiverIsSeen = false;
-
+  console.log("room size", room?.size)
   if (room && room.size > 1 && receiverId) {
     for (const socketId of room) {
       const s = io.sockets.sockets.get(socketId);
-
+      console.log(socket.id, socketId)
+      console.log(s?.data?.userId, receiverId)
+      console.log(s?.data?.currentConversationId, conversationIdString)
       if (
         s &&
         s.data?.userId === receiverId &&
@@ -70,7 +72,7 @@ export async function handleSendMessage(
       }
     }
   }
-
+  console.log({ lastSeenUpdates, receiverIsSeen });
   // Update conversation
   const updateFields: any = {
     lastMessage: {

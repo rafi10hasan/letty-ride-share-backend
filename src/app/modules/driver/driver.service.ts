@@ -13,6 +13,7 @@ import { passengerRepository } from '../passenger/passenger.repository';
 import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
 import RidePublish from '../ride-publish/ride.publish.model';
 import { TripHistory } from '../trip-history/trip.history.model';
+import { USER_ROLE } from '../user/user.constant';
 import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
 
 
@@ -58,9 +59,11 @@ const createDriverProfile = async (
     const driverPayload = {
       ...rest,
       user: user._id,
+      currentRole: USER_ROLE.DRIVER,
       fullName: user.fullName,
       email: user.email,
       phone: user.phone,
+      isActive: null,
       avatar: user.avatar,
       verificationImage,
       carGalleries: uploadedCarImages,
@@ -71,6 +74,7 @@ const createDriverProfile = async (
 
     // 6. Update user role (hardcoded, not from payload)
     user.currentRole = 'driver';
+    user.isActive = null;
     await user.save({ session });
 
     // 7. Commit
@@ -388,6 +392,7 @@ const getDriverUpcomingRides = async (user: IUser) => {
       departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
       departureTimeString: ride.departureTimeString,
       pickUpLocation: ride.pickUpLocation.address,
+      // estimatedArrivalTime: moment(ride.estimatedArrivalTime).tz(ride.timezone).format('YYYY-MM-DD hh:mm A'),
       dropOffLocation: ride.dropOffLocation.address,
       price: ride.price,
       totalDistance: ride.totalDistance,
@@ -409,7 +414,7 @@ const getDriverOngoingRides = async (user: IUser) => {
     tripStatus: TRIP_STATUS.ONGOING,
   })
     .select(
-      'status tripStatus departureDate tripId totalSeats departureTimeString pickUpLocation dropOffLocation price totalDistance totalSeatBooked'
+      'status tripStatus departureDate estimatedArrivalTime tripId departureTimeString pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
     )
     .sort({ departureDateTime: 1 });
 
@@ -421,6 +426,7 @@ const getDriverOngoingRides = async (user: IUser) => {
       departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
       departureTimeString: ride.departureTimeString,
       pickUpLocation: ride.pickUpLocation.address,
+      // estimatedArrivalTime: moment(ride.estimatedArrivalTime).tz(ride.timezone).format('YYYY-MM-DD hh:mm A'),
       dropOffLocation: ride.dropOffLocation.address,
       price: ride.price,
       totalDistance: ride.totalDistance,

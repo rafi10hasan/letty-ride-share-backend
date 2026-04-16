@@ -1,4 +1,4 @@
-import { TAdminRole } from "../app/modules/admin/admin.constant";
+
 import { TUserRole } from "../app/modules/user/user.constant";
 
 
@@ -33,5 +33,5 @@ export const SOCKET_EVENTS = {
 export type SocketUser = {
   _id: string;
   email: string;
-  role: TUserRole | TAdminRole;
+  role: TUserRole;
 };

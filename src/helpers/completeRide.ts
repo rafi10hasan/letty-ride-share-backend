@@ -89,6 +89,15 @@ export const completeRide = async (rideId: string) => {
           totalTripCompleted: 1,
           totalEarning: driverEarning,
         },
+        // $set: {
+        //   location: {
+        //     address: ride.dropOffLocation.address,
+        //     geo: {
+        //       type: 'Point',
+        //       coordinates: ride.dropOffLocation.coordinates,
+        //     },
+        //   },
+        // },
       },
       { session },
     );

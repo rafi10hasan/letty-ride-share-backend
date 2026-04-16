@@ -84,7 +84,14 @@ const connectSocket = (server: HTTPServer) => {
     }
     socket.join(currentUserId);
     onlineUsers.set(currentUserId, socket.id);
+    // const sockets = await io.in("driver_channel").fetchSockets();
 
+    // sockets.forEach(s => {
+    //   console.log("Socket ID:", s.id);
+    //   console.log("Rooms:", s.rooms);
+    // });
+    // const count = io.of("/").adapter.rooms.get("driver_channel")?.size ?? 0;
+    // console.log("driver_channel এ আছে:", count);
     try {
       const unreadCount = await getUnreadMessageCount(currentUserId);
       socket.emit(SOCKET_EVENTS.UNREAD_MESSAGE_COUNT, { unreadCount });
@@ -126,7 +133,7 @@ const connectSocket = (server: HTTPServer) => {
 
     handleChatEvents(io, socket, currentUserId, onlineUsers);
     handleLocationEvents(io, socket);
-
+    
     // Disconnect socket 
     socket.on(SOCKET_EVENTS.DISCONNECT, () => {
       console.log(`User disconnected: ${currentUserId}`);

@@ -7,8 +7,8 @@ import notificationController from './notification.controller';
 
 const notificationRouter = express.Router();
 
-notificationRouter.get('/get', authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER), notificationController.getNotifications);
-notificationRouter.patch('/mark/:notificationId', authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER), notificationController.markAsSeen);
-notificationRouter.get('/unseen-count', authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER), notificationController.getUnseenNotificationCount);
+notificationRouter.get('/get', authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER,USER_ROLE.SUPER_ADMIN), notificationController.getNotifications);
+notificationRouter.patch('/mark/:notificationId', authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER,USER_ROLE.SUPER_ADMIN), notificationController.markAsSeen);
+notificationRouter.get('/unseen-count', authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER,USER_ROLE.SUPER_ADMIN), notificationController.getUnseenNotificationCount);
 
 export default notificationRouter;

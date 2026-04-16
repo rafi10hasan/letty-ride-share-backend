@@ -47,6 +47,10 @@ export async function handleMessagePage(
       });
       return;
     }
+    if (conversationId) {
+      socket.data.currentConversationId = conversationId;
+      socket.join(conversationId);
+    }
 
     if (!conversation.participants.some((p: any) => p._id.toString() === currentUserId)) {
       socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {

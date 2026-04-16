@@ -39,6 +39,12 @@ export interface ISubscription {
   totalAmountPaid: number;
 }
 
+export interface SearchUsersParams {
+  searchTerm?: string;
+  page?: number;
+  limit?: number;
+}
+
 // Instance methods
 export interface IUser extends Document {
   _id: Types.ObjectId;
@@ -66,7 +72,7 @@ export interface IUser extends Document {
   badge: TBadge;
   subscription?: ISubscription;
   isSocialLogin: boolean;
-  isActive: boolean;
+  isActive: boolean | null;
   isDeleted: boolean;
   lastReadAt: Date | null;
   deletedAt?: Date | null;

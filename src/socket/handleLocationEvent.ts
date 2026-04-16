@@ -3,19 +3,27 @@ import { BOOKING_STATUS } from '../app/modules/booking/booking.constant';
 import { Booking } from '../app/modules/booking/booking.model';
 import { IPopulatedPassenger } from '../app/modules/booking/booking.service';
 import { sendPushNotification } from '../app/modules/notification/notification.utils';
+import { TRIP_STATUS } from '../app/modules/ride-publish/ride.publish.constant';
 import RidePublish from '../app/modules/ride-publish/ride.publish.model';
 import logger from '../config/logger';
 import { getETAFromGoogleMaps } from '../helpers/getEstimateArrivalTime';
 import { driverLocations, onlineUsers } from './connectSocket';
 import { SOCKET_EVENTS } from './socket.constant';
-import { TRIP_STATUS } from '../app/modules/ride-publish/ride.publish.constant';
 
 const handleLocationEvents = async (io: IOServer, socket: Socket): Promise<void> => {
   socket.on(SOCKET_EVENTS.DRIVER_LOCATION_UPDATE, async (data: { rideId: string; coordinates: [number, number] }) => {
-    console.log({ data });
-    // 1. Get previous cache before overwriting
-    const previousCache = driverLocations.get(data.rideId) as { coordinates: [number, number]; updatedAt: Date } | undefined;
 
+    // 1. Get previous cache before overwriting
+
+    const ride = await RidePublish.findById(data.rideId);
+    if (!ride) {
+      socket.emit(SOCKET_EVENTS.SOCKET_ERROR, { message: 'Ride not found' });
+      return;
+    }
+
+    console.log({ data });
+
+    const previousCache = driverLocations.get(data.rideId) as { coordinates: [number, number]; updatedAt: Date } | undefined;
 
     // 2. Update driver location in cache
     driverLocations.set(data.rideId, {
@@ -48,11 +56,11 @@ const handleLocationEvents = async (io: IOServer, socket: Socket): Promise<void>
     const timeSinceLastUpdate = new Date().getTime() - lastUpdate.getTime();
 
     if (timeSinceLastUpdate >= 60 * 1000) {
-      const ride = await RidePublish.findById(data.rideId);
+
       if (ride) {
         // 6. Recalculate ETA and distance from Google Maps
         if (ride.tripStatus !== TRIP_STATUS.ONGOING) return;
-        const { etaSeconds, distanceMeters } = await getETAFromGoogleMaps(data.coordinates,ride.dropOffLocation.coordinates);
+        const { etaSeconds, distanceMeters } = await getETAFromGoogleMaps(data.coordinates, ride.dropOffLocation.coordinates);
         const estimatedArrivalTime = new Date(new Date().getTime() + etaSeconds * 1000);
         console.log(estimatedArrivalTime)
         // 7. Update ride with new ETA and remaining distance
