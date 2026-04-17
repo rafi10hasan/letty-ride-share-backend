@@ -64,16 +64,6 @@ const cancelRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     });
 });
 
-const confirmRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const { rideId } = req.params;
-    const result = await ridePublishService.startRide(req.user, rideId);
-    sendResponse(res, {
-        statusCode: StatusCodes.OK,
-        success: true,
-        message: 'Ride started successfully',
-        data: result,
-    });
-});
 
 const startRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { rideId } = req.params;
@@ -109,7 +99,6 @@ export const ridePublishController = {
     cancelRideIntoDb,
     startRideIntoDb,
     completeRideIntoDb,
-    confirmRideIntoDb
 };
 
 

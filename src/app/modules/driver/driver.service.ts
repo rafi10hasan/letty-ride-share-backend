@@ -6,7 +6,8 @@ import { IUser } from '../user/user.interface';
 import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
 
-import moment from 'moment';
+import moment from 'moment-timezone';
+import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
 import { IPassenger } from '../passenger/passenger.interface';
 import { passengerRepository } from '../passenger/passenger.repository';
@@ -259,7 +260,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new NotFoundError('driver not found');
   }
 
-  const ride = await RidePublish.findById(rideId).select("driver requestsCount");
+  const ride = await RidePublish.findById(rideId).select("driver requestsCount price pickUpLocation totalSeats totalDistance");
   console.log({ ride })
   if (!ride) {
     throw new NotFoundError('ride not found');
@@ -280,6 +281,9 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
       passengerId: passenger.passenger,
       status: passenger.status,
       name: passenger.passengerInfo.name,
+      totalPrice: (ride.price / ride.totalSeats) * passenger.seatsBooked,
+      pricePerSeat: (ride.price / ride.totalSeats),
+      distance: ride.totalDistance,
       profileImage: passenger.passengerInfo.profileImg,
       pickUpAddress: passenger.pickUpLocation.address,
       dropOffAddress: passenger.dropOffLocation.address,
@@ -352,6 +356,7 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
     bookingId: passenger._id,
     driverId: tripHistory.driver,
     tripId: tripHistory.tripId,
+    status: passenger.status,
     passengerId: passenger.passenger._id,
     name: passenger.passenger.fullName,
     profileImage: passenger.passenger.avatar,
@@ -360,8 +365,7 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
     pickUpAddress: passenger.pickUpLocation.address,
     dropOffAddress: passenger.dropOffLocation.address,
     seatBooked: passenger.seatsBooked,
-    departureTime: moment(tripHistory.
-      departureDateTime).format('hh:mm A'),
+    departureTime: moment(tripHistory.departureDateTime).format('hh:mm A'),
     cancelBy: passenger.cancelledBy,
     cancelletionReason: passenger.cancelReason,
     price: tripHistory.price,
@@ -380,9 +384,20 @@ const getDriverUpcomingRides = async (user: IUser) => {
     tripStatus: TRIP_STATUS.UPCOMING,
   })
     .select(
-      'status tripStatus departureDate tripId departureTimeString pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
+      '_id status tripStatus departureDate tripId departureTimeString pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
     )
     .sort({ departureDateTime: 1 });
+
+  const rideIds = upcomingRides.map((ride) => ride._id);
+
+  const pendingCounts = await Booking.aggregate([
+    { $match: { ride: { $in: rideIds }, status: BOOKING_STATUS.PENDING } },
+    { $group: { _id: '$ride', count: { $sum: 1 } } },
+  ]);
+
+  const pendingCountMap = new Map(
+    pendingCounts.map((item) => [item._id.toString(), item.count])
+  );
 
   const sanitizedRides = upcomingRides.map((ride) => {
     return {
@@ -392,14 +407,14 @@ const getDriverUpcomingRides = async (user: IUser) => {
       departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
       departureTimeString: ride.departureTimeString,
       pickUpLocation: ride.pickUpLocation.address,
-      // estimatedArrivalTime: moment(ride.estimatedArrivalTime).tz(ride.timezone).format('YYYY-MM-DD hh:mm A'),
       dropOffLocation: ride.dropOffLocation.address,
       price: ride.price,
       totalDistance: ride.totalDistance,
       totalSeats: ride.totalSeats,
-      totalSeatBooked: ride.totalSeatBooked
-    }
-  })
+      totalSeatBooked: ride.totalSeatBooked,
+      pendingRequestsCount: pendingCountMap.get((ride._id as any).toString()) ?? 0,
+    };
+  });
 
   return sanitizedRides;
 };
@@ -414,7 +429,7 @@ const getDriverOngoingRides = async (user: IUser) => {
     tripStatus: TRIP_STATUS.ONGOING,
   })
     .select(
-      'status tripStatus departureDate estimatedArrivalTime tripId departureTimeString pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
+      'status tripStatus departureDate tripId departureTimeString pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
     )
     .sort({ departureDateTime: 1 });
 
@@ -426,7 +441,6 @@ const getDriverOngoingRides = async (user: IUser) => {
       departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
       departureTimeString: ride.departureTimeString,
       pickUpLocation: ride.pickUpLocation.address,
-      // estimatedArrivalTime: moment(ride.estimatedArrivalTime).tz(ride.timezone).format('YYYY-MM-DD hh:mm A'),
       dropOffLocation: ride.dropOffLocation.address,
       price: ride.price,
       totalDistance: ride.totalDistance,

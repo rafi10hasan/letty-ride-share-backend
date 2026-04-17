@@ -39,18 +39,6 @@ const handleLocationEvents = async (io: IOServer, socket: Socket): Promise<void>
       .populate<{ passenger: IPopulatedPassenger }>('passenger', 'user fcmToken')
       .lean();
 
-    // 4. Send real-time location only to online passengers
-    // for (const booking of bookings) {
-    //     const passengerId = booking.passenger.user.toString();
-
-    //     if (onlineUsers
-    //         .has(passengerId)) {
-    //         io.to(passengerId).emit('driver-location', {
-    //             coordinates: data.coordinates,
-    //         });
-    //     }
-    // }
-
     // 5. Check if 60 seconds have passed since last ETA calculation
     const lastUpdate = previousCache?.updatedAt || new Date(0);
     const timeSinceLastUpdate = new Date().getTime() - lastUpdate.getTime();
@@ -78,13 +66,13 @@ const handleLocationEvents = async (io: IOServer, socket: Socket): Promise<void>
 
           if (isOnline) {
             // 8. Passenger is online — send via socket only
-            io.to(passengerId).emit('eta-updated', {
+            io.to(passengerId).emit('notification', {
               estimatedArrivalTime,
               remainingDistanceMeters: distanceMeters,
             });
 
             if (isNearDestination) {
-              io.to(passengerId).emit('near-destination', {
+              io.to(passengerId).emit('notification', {
                 message: `You will arrive in approximately ${Math.ceil(etaSeconds / 60)} minutes`,
                 estimatedArrivalTime,
               });

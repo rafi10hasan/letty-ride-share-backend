@@ -1,4 +1,4 @@
-import moment from 'moment';
+import moment from 'moment-timezone';
 import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { BOOKING_STATUS } from '../booking/booking.constant';
@@ -124,11 +124,11 @@ const getPassengerRequests = async (user: IUser) => {
 
   const bookings = await Booking.find({
     passenger: passenger._id,
-    status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
+    status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED, BOOKING_STATUS.REJECTED] },
 
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
-    match: { tripStatus: TRIP_STATUS.PENDING },
+    match: { tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] } },
     select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked',
     populate: {
       path: 'driver',
@@ -136,11 +136,12 @@ const getPassengerRequests = async (user: IUser) => {
     },
   });
 
+  console.log({ bookings })
   return bookings
     .filter((b) => b.ride !== null)
     .map((b) => {
       const ride = b.ride;
-
+      console.log({ ride, b })
       const driverInfo = ride.driver as any;
 
       return {
@@ -162,6 +163,7 @@ const getPassengerRequests = async (user: IUser) => {
       };
     });
 };
+
 // passenger  - upcoming rides
 const getPassengerUpcomingRides = async (user: IUser) => {
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
@@ -173,7 +175,6 @@ const getPassengerUpcomingRides = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.UPCOMING },
-    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked',
     populate: {
       path: 'driver',
       select: 'fullName avatar',
@@ -218,7 +219,6 @@ export const getPassengerOngoingRide = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: TRIP_STATUS.ONGOING },
-    select: 'tripId driver tripStatus departureDate estimatedArrivalTime departureTimeString totalSeats pickUpLocation dropOffLocation price totalDistance totalSeatBooked',
     populate: {
       path: 'driver',
       select: 'fullName avatar',
@@ -243,7 +243,7 @@ export const getPassengerOngoingRide = async (user: IUser) => {
         departureTimeString: ride.departureTimeString,
         pickUpLocation: ride.pickUpLocation.address,
         dropOffLocation: ride.dropOffLocation.address,
-        // estimatedArrivalTime: moment(ride.estimatedArrivalTime).tz(ride.timezone).format('YYYY-MM-DD hh:mm A'),
+        estimatedArrivalTime: moment(ride.estimatedArrivalTime).tz(ride.timezone).format('YYYY-MM-DD hh:mm A'),
         seatPerPrice: (ride.price / ride.totalSeats),
         seatBooked: b.seatsBooked,
         totalPrice: b.seatsBooked * (ride.price / ride.totalSeats),

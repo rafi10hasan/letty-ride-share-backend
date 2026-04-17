@@ -190,7 +190,6 @@ const searchUsers = async (params: SearchUsersParams) => {
 };
 // update user profile image
 const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
-  // 1. File check
   if (!files?.profile_image?.length) {
     throw new BadRequestError('No profile image provided');
   }
@@ -200,17 +199,15 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
     passengerRepository.findPassengerByUserId(user._id, 'avatar'),
   ]);
 
-  //
   if (!driver && !passenger) {
     throw new BadRequestError('Profile not found');
   }
 
-  // 4. New image upload
+  // Save OLD URLs BEFORE overwriting
+  const oldAvatarUrl = driver?.avatar || passenger?.avatar || user.avatar;
+
   let newProfileImageUrl: string;
 
-  if (!files.profile_image[0] || !files.profile_image[0].buffer) {
-    console.log("File buffer is missing");
-  }
   try {
     const result = await uploadToCloudinary(
       files.profile_image[0],
@@ -222,7 +219,6 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
     }
 
     newProfileImageUrl = result.secure_url;
-    console.log({ newProfileImageUrl })
   } catch (error) {
     throw new BadRequestError('Image upload failed');
   }
@@ -245,12 +241,12 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
 
     await Promise.all(updatePromises);
   } catch (error) {
-
+    // Rollback: delete the newly uploaded image
     await deleteImageFromCloudinary(newProfileImageUrl);
     throw error;
   }
 
-  const oldAvatarUrl = driver?.avatar || passenger?.avatar;
+  // Now safely delete the OLD image
   if (oldAvatarUrl) {
     await deleteImageFromCloudinary(oldAvatarUrl);
   }

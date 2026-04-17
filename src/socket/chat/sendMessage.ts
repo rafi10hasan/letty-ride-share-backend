@@ -3,6 +3,7 @@ import { Server, Socket } from 'socket.io';
 import Conversation from '../../app/modules/conversation/conversation.model';
 
 import Message from '../../app/modules/Message/message.model';
+import { SOCKET_EVENTS } from '../socket.constant';
 
 
 interface SendMessageData {
@@ -18,10 +19,26 @@ export async function handleSendMessage(
   messageData: SendMessageData,
 
 ) {
+
+  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  const phoneRegex = /(\+?8801[3-9]\d{8}|01[3-9]\d{8}|\+?[0-9][\s\-.]?\(?[0-9]{3}\)?[\s\-.]?[0-9]{3}[\s\-.]?[0-9]{4,6})/g;
+
+  if (messageData.text) {
+    const hasEmail = emailRegex.test(messageData.text);
+    const hasPhone = phoneRegex.test(messageData.text);
+
+    if (hasEmail || hasPhone) {
+      socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
+        errorMessage: "you don't share email or phone number here",
+      });
+      return;
+    }
+  }
+
   const senderObjectId = new Types.ObjectId(senderId);
   const conversationObjectId = new Types.ObjectId(messageData.conversationId);
 
-  // 1️⃣ Create message
+  // Create message
   const saveMessage = await Message.create({
     text: messageData.text || '',
     senderId: senderObjectId,

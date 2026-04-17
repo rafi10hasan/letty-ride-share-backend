@@ -8,7 +8,6 @@ import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
 import { driverRepository } from '../driver/driver.repository';
 import { NOTIFICATION_TYPE } from '../notification/notification.constant';
-import { sendPushNotification } from '../notification/notification.utils';
 import { IUser } from '../user/user.interface';
 import { PUBLISH_STATUS, TRIP_STATUS } from './ride.publish.constant';
 import RidePublish from './ride.publish.model';
@@ -20,13 +19,6 @@ import { buildDepartureDateTime, buildEstimatedArrivalTime, sanitizeDepartureDat
 import { passengerRepository } from '../passenger/passenger.repository';
 import { TripHistory } from '../trip-history/trip.history.model';
 
-interface IPopulatedDriver {
-  _id: Types.ObjectId;
-  user: {
-    _id: Types.ObjectId;
-    fcmToken: string;
-  };
-}
 
 interface IPopulatedUser {
   fcmToken: string;
@@ -39,7 +31,6 @@ interface IPopulatedPassenger {
 }
 
 // publish ride
-const TRIP_DURATION_BUFFER_MINUTES = 180;
 
 const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
@@ -57,35 +48,22 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
 
   const departureTimeInMinutes = timeStringToMinutes(payload.departureTimeString);
 
+  const departureDate = sanitizeDepartureDate(payload.departureDate);
+  const departureDateTime = buildDepartureDateTime(payload.departureDate, payload.departureTimeString, payload.timezone);
+
   const isConflict = await RidePublish.findOne({
     driver: driver._id,
     status: PUBLISH_STATUS.ACTIVE,
-    tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
-    departureDate: sanitizeDepartureDate(payload.departureDate),
-    departureTimeMinutes: {
-      $gte: departureTimeInMinutes - TRIP_DURATION_BUFFER_MINUTES,
-      $lte: departureTimeInMinutes + TRIP_DURATION_BUFFER_MINUTES,
-    },
-    pickUpLocation: {
-      $near: {
-        $geometry: {
-          type: 'Point',
-          coordinates: payload.pickUpLocation.coordinates,
-        },
-        $maxDistance: 100,
-      },
-    },
+    tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING, TRIP_STATUS.ONGOING] },
   }).select("departureTimeString departureDate departureTimeMinutes");
 
   console.log({ isConflict })
   if (isConflict) {
     throw new BadRequestError(
-      `You already have an active ride around this time. Please choose a time after ${isConflict.departureTimeString}.`,
+      `You already have an active ride. Please complete or cancel it before publishing a new one.`
     );
   }
 
-  const departureDate = sanitizeDepartureDate(payload.departureDate);
-  const departureDateTime = buildDepartureDateTime(payload.departureDate, payload.departureTimeString, payload.timezone);
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -97,9 +75,9 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   const isToday = departureDate.getTime() === today.getTime();
 
   if (isToday) {
-    const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+    const oneHourFromNow = new Date(Date.now() + 30 * 60 * 1000);
     if (departureDateTime < oneHourFromNow) {
-      throw new BadRequestError('Departure time must be at least 1 hour from now');
+      throw new BadRequestError('Departure time must be at least 30 minutes before from now');
     }
   }
 
@@ -563,69 +541,6 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
   return rides;
 };
 
-//confirm ride
-const confirmRide = async (user: IUser, rideId: string) => {
-  const driver = await driverRepository.findDriverByUserId(user._id);
-  if (!driver) {
-    throw new NotFoundError('Driver not found');
-  }
-
-  const ride = await RidePublish.findById(rideId);
-  if (!ride) {
-    throw new NotFoundError('Ride not found');
-  }
-
-  if (ride.driver.toString() !== driver._id.toString()) {
-    throw new UnauthorizedError('This ride is not yours');
-  }
-
-  if (ride.tripStatus !== TRIP_STATUS.PENDING) {
-    throw new BadRequestError(`Ride is already ${ride.tripStatus}`);
-  }
-
-  if (ride.totalSeatBooked < 1) {
-    throw new BadRequestError(`you have atleast one passenger to confirm it`);
-  }
-
-  const updatedRide = await RidePublish.findByIdAndUpdate(
-    rideId,
-    {
-      tripStatus: TRIP_STATUS.UPCOMING,
-    },
-    { new: true },
-  );
-
-  // Notify accepted passengers in background
-  Promise.all([
-    (async () => {
-      const acceptedBookings = await Booking.find({
-        ride: rideId,
-        status: BOOKING_STATUS.ACCEPTED,
-      }).populate<{ passenger: IPopulatedPassenger }>({
-        path: 'passenger',
-        select: 'user',
-        populate: { path: 'user', select: 'fcmToken _id' },
-      });
-
-      for (const booking of acceptedBookings) {
-        const fcmToken = booking.passenger.user.fcmToken;
-        if (fcmToken) {
-          try {
-            await sendPushNotification(fcmToken, {
-              title: 'upcoming ride',
-              content: `Your ride is upcoming ${ride.tripId}}`,
-            });
-          } catch (error) {
-            logger.error(`FCM failed: ${error}`);
-          }
-        }
-      }
-    })(),
-  ]).catch((error) => logger.error(`Background task failed: ${error}`));
-
-  return updatedRide;
-};
-
 // start ride
 const startRide = async (user: IUser, rideId: string) => {
   try {
@@ -730,7 +645,7 @@ const completeRideByDriver = async (user: IUser, rideId: string) => {
 // cancel ride
 const cancelRide = async (user: IUser, rideId: string, cancellationReason: string) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
-  console.log({rideId})
+  console.log({ rideId })
   if (!driver) {
     throw new NotFoundError('driver not found');
   }
@@ -770,7 +685,7 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
 
   const session = await mongoose.startSession();
   session.startTransaction();
-  
+
   try {
 
     const tripHistory = await TripHistory.create(
@@ -851,89 +766,5 @@ export const ridePublishService = {
   cancelRide,
   startRide,
   completeRideByDriver,
-  confirmRide,
 };
 
-/*
-const searchAvailableRides = async (query: IRideSearchQuery) => {
-    const { date, time, seats, pickUpLocation, dropOffLocation, genderPreference } = query;
-
-    const searchDate = new Date(date);
-
-    // ─── Date range: 1 din age theke 1 din pore ──────────────────────
-    const dayBefore = new Date(searchDate);
-    dayBefore.setDate(dayBefore.getDate() - 1);
-    dayBefore.setHours(0, 0, 0, 0);
-
-    const dayAfter = new Date(searchDate);
-    dayAfter.setDate(dayAfter.getDate() + 1);
-    dayAfter.setHours(23, 59, 59, 999);
-
-    // ─── Time range: user er time theke 2 hour age o pore ────────────
-    // e.g. user dilo "12:00" = 720 minutes
-    // timeMin = 720 - 120 = 600 = 10:00 AM
-    // timeMax = 720 + 120 = 840 = 2:00 PM
-    const [hours, minutes] = time.split(':').map(Number);
-    const searchTimeMinutes = hours * 60 + minutes;
-    const timeMin = Math.max(0, searchTimeMinutes - 120);    // 0 er niche jabe na
-    const timeMax = Math.min(1439, searchTimeMinutes + 120); // 23:59 er upore jabe na
-
-    // ─── Build filter ─────────────────────────────────────────────────
-    const filter: Record<string, any> = {
-        status: 'active',
-
-        // available seats >= requested seats
-        availableSeats: { $gte: Number(seats) },
-
-        // date range (1 din age o pore)
-        departureDate: {
-            $gte: dayBefore,
-            $lte: dayAfter,
-        },
-
-        // time range (2 hour age o pore, minutes e stored)
-        departureTimeMinutes: {
-            $gte: timeMin,
-            $lte: timeMax,
-        },
-
-        // pickup — 10km radius
-        pickUpLocation: {
-            $near: {
-                $geometry: {
-                    type: 'Point',
-                    coordinates: pickUpLocation.coordinates,
-                },
-                $maxDistance: 10000,
-            },
-        },
-
-        // dropoff — 10km radius
-        dropOffLocation: {
-            $near: {
-                $geometry: {
-                    type: 'Point',
-                    coordinates: dropOffLocation.coordinates,
-                },
-                $maxDistance: 10000,
-            },
-        },
-    };
-
-    // gender preference — match korle o 'any' hole dekhabe
-    if (genderPreference) {
-        filter.$or = [
-            { genderPreference: genderPreference },
-            { genderPreference: 'any' },
-        ];
-    }
-
-    const rides = await RidePublish.find(filter).sort({
-        departureDate: 1,
-        departureTimeMinutes: 1,
-    });
-
-    return rides;
-};
-
-*/

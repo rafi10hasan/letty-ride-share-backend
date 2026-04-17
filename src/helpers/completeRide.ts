@@ -125,6 +125,7 @@ export const completeRide = async (rideId: string) => {
     logger.info(`Ride ${ride.tripId} completed`);
   } catch (error) {
     await session.abortTransaction();
+    logger.error(`completeRide error: ${error}`);
     throw error;
   } finally {
     await session.endSession();

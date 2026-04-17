@@ -64,7 +64,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
         throw new NotFoundError('trip not found')
     }
 
-    if (ride.tripStatus !== TRIP_STATUS.PENDING) {
+    if (!ride.tripStatus.includes(TRIP_STATUS.PENDING) && !ride.tripStatus.includes(TRIP_STATUS.UPCOMING)) {
         throw new BadRequestError('This ride is no longer available for booking');
     }
 
@@ -281,7 +281,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 
 // reject booking
 
-const rejectBooking = async (user: IUser, bookingId: string) => {
+const rejectOrCancelBooking = async (user: IUser, bookingId: string) => {
     const driver = await driverRepository.findDriverByUserId(user._id);
     if (!driver) throw new NotFoundError('Driver not found');
 
@@ -328,7 +328,7 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
     await Booking.findByIdAndUpdate(bookingId, {
         status: user.currentRole === USER_ROLE.PASSENGER ? BOOKING_STATUS.CANCELLED : BOOKING_STATUS.REJECTED,
         cancelledBy: user.currentRole,
-        expireAt: null,
+        expireAt: user.currentRole === USER_ROLE.PASSENGER ? null : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
 
     const isDriverAction = user.currentRole === USER_ROLE.DRIVER;
@@ -377,5 +377,5 @@ const rejectBooking = async (user: IUser, bookingId: string) => {
 export const bookingService = {
     sendRideRequestToDriver,
     acceptBooking,
-    rejectBooking
+    rejectOrCancelBooking,
 };
