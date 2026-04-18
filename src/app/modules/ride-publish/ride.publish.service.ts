@@ -492,6 +492,7 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
     {
       $addFields: {
         driverInfo: {
+          id: '$driverData._id',
           name: '$driverData.fullName',
           photo: '$driverData.avatar',
           hasAc: '$driverData.hasAc',
@@ -527,6 +528,7 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
         pickupAddress: '$pickUpLocation.address',
         dropOffAddress: '$dropOffLocation.address',
         departureDate: 1,
+        totalDistance: 1,
         departureDateTime: 1,
         departureTimeString: 1,
         price: 1,
@@ -631,10 +633,6 @@ const completeRideByDriver = async (user: IUser, rideId: string) => {
   });
 
   if (!ride) throw new NotFoundError('Ongoing ride not found');
-
-  if (new Date() < ride.estimatedArrivalTime) {
-    throw new BadRequestError('Cannot complete ride before estimated arrival time');
-  }
 
   if (ride.driver.toString() !== driver._id.toString()) {
     throw new UnauthorizedError('This ride is not yours');

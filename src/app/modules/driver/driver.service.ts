@@ -260,8 +260,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new NotFoundError('driver not found');
   }
 
-  const ride = await RidePublish.findById(rideId).select("driver requestsCount price pickUpLocation totalSeats totalDistance");
-  console.log({ ride })
+  const ride = await RidePublish.findById(rideId).select("driver requestsCount price dropOffLocation pickUpLocation totalSeats totalDistance");
   if (!ride) {
     throw new NotFoundError('ride not found');
   }
@@ -270,29 +269,36 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new UnauthorizedError('This ride is not yours');
   }
 
-  const passengers = await Booking.find({ ride: rideId }).sort({ createdAt: -1 });
-  console.log({ passengers })
+  const passengers = await Booking.find({ ride: rideId }).populate<{ passenger: IPassenger }>({
+    path: 'passenger',
+    select: 'fullName phone avatar avgRating totalRides',
+  }).sort({ createdAt: -1 });
+
   ride.requestsCount = passengers.length;
   await ride.save();
 
   const sanitizedPassenger = passengers.map((passenger) => {
+    const passengerData = passenger.passenger as IPassenger;
+    console.log({passengerData})
     return {
       bookingId: passenger._id,
-      passengerId: passenger.passenger,
+      passengerId: passengerData._id,
       status: passenger.status,
-      name: passenger.passengerInfo.name,
+      name: passengerData.fullName,
       totalPrice: (ride.price / ride.totalSeats) * passenger.seatsBooked,
       pricePerSeat: (ride.price / ride.totalSeats),
       distance: ride.totalDistance,
-      profileImage: passenger.passengerInfo.profileImg,
+      profileImage: passengerData.avatar,
       pickUpAddress: passenger.pickUpLocation.address,
       dropOffAddress: passenger.dropOffLocation.address,
       seatRequired: passenger.seatsBooked,
       arrivalDate: moment.utc(passenger.bookedAt).format('YYYY-MM-DD'),
-      arrivalTime: moment.utc(passenger.bookedAt).format('hh:mm A')
-    }
+      arrivalTime: moment.utc(passenger.bookedAt).format('hh:mm A'),
+      avgRating: passengerData.avgRating,
+      totalRides: passengerData.totalRides,
+    };
   });
-  console.log({ sanitizedPassenger })
+
   return sanitizedPassenger;
 };
 

@@ -46,7 +46,7 @@ export const sendNotificationBySocket = async (
   type: string
 ) => {
   const io = getSocketIO();
-
+  console.log("asda")
   const newNotification = await Notification.create({
     ...notificationData,
     type
@@ -54,6 +54,7 @@ export const sendNotificationBySocket = async (
 
   const socketId = onlineUsers.get(notificationData.receiver.toString());
   if (socketId) {
+    console.log("access")
     io.to(notificationData.receiver.toString()).emit(
       SOCKET_EVENTS.NOTIFICATION,
       newNotification

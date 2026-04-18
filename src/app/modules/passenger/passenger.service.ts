@@ -1,7 +1,8 @@
-import moment from 'moment-timezone';
+import moment from 'moment';
 import mongoose from 'mongoose';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
 import { BOOKING_STATUS } from '../booking/booking.constant';
+import { IBooking } from '../booking/booking.interface';
 import { Booking } from '../booking/booking.model';
 import { IDriver } from '../driver/driver.interface';
 import { driverRepository } from '../driver/driver.repository';
@@ -312,39 +313,60 @@ const getPassengerCancelledBookings = async (user: IUser) => {
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
   if (!passenger) throw new NotFoundError('Passenger not found');
 
+  type PopulatedTripHistory = Omit<ITripHistory, 'driver'> & { driver: IDriver };
+  type PopulatedRide = Omit<IRidePublish, 'driver'> & { driver: IDriver };
+  type PopulatedBooking = Omit<IBooking, 'tripHistory' | 'ride'> & {
+    tripHistory: PopulatedTripHistory | null;
+    ride: PopulatedRide;
+  };
+
   const bookings = await Booking.find({
     passenger: passenger._id,
     status: BOOKING_STATUS.CANCELLED,
-    tripHistory: { $ne: null },
-  }).populate<{ tripHistory: ITripHistory & { driver: IDriver } }>({
-    path: 'tripHistory',
-    populate: {
-      path: 'driver',
-      select: 'fullName avatar avgRating totalReviews',
-    },
-  });
+  })
+    .populate<{ tripHistory: PopulatedTripHistory }>({
+      path: 'tripHistory',
+      populate: {
+        path: 'driver',
+        select: 'fullName avatar avgRating totalReviews',
+      },
+    })
+    .populate<{ ride: PopulatedRide }>({
+      path: 'ride',
+      populate: {
+        path: 'driver',
+        select: 'fullName avatar avgRating totalReviews',
+      },
+    }) as unknown as PopulatedBooking[];
 
   return bookings.map((booking) => {
-    const trip = booking.tripHistory as ITripHistory & { driver: IDriver };
+    const source: PopulatedTripHistory | PopulatedRide =
+      booking.tripHistory ?? booking.ride;
+    const driver = source.driver;
+
+
+    const isTripHistory = !!booking.tripHistory;
+    const rideId = isTripHistory
+      ? (source as PopulatedTripHistory).rideId  
+      : (source as PopulatedRide)._id;           
 
     return {
-      tripHistoryId: trip._id,
-      rideId: trip.rideId,
-      bookingId: booking._id,
-      driverId: trip.driver._id,
-      tripId: trip.tripId,
+      tripHistoryId: booking.tripHistory?._id ?? null,
+      rideId,
+      bookingId: (booking as any)._id,           
+      driverId: driver._id,
+      tripId: source.tripId,
       seatsBooked: booking.seatsBooked,
-      totalPrice: (trip.price / trip.totalSeats) * booking.seatsBooked,
-      departureDateTime: trip.departureDateTime,
-      pickUpLocation: trip.pickUpLocation.address,
-      dropOffLocation: trip.dropOffLocation.address,
-      totalDistance: trip.totalDistance,
-      totalSeatBooked: trip.totalSeatBooked,
-      cancellationReason: trip.cancellationReason,
-      driverName: trip.driver.fullName,
-      driverAvatar: trip.driver.avatar,
-      driverRating: trip.driver.avgRating,
-      driverTotalReviews: trip.driver.totalReviews,
+      totalPrice: (source.price / source.totalSeats) * booking.seatsBooked,
+      departureDateTime: source.departureDateTime,
+      pickUpLocation: source.pickUpLocation.address,
+      dropOffLocation: source.dropOffLocation.address,
+      totalDistance: source.totalDistance,
+      cancellationReason: booking.tripHistory?.cancellationReason ?? booking.cancelReason,
+      driverName: driver.fullName,
+      driverAvatar: driver.avatar,
+      driverRating: driver.avgRating,
+      driverTotalReviews: driver.totalReviews,
     };
   });
 };

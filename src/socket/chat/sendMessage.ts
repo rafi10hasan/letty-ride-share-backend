@@ -11,6 +11,10 @@ interface SendMessageData {
   text?: string;
 }
 
+const containsPhoneNumber = (text: string): boolean => {
+  return /\d{8,}/.test(text.replace(/[\s\-.()+]/g, ""));
+};
+
 // handle send message
 export async function handleSendMessage(
   io: Server,
@@ -21,13 +25,11 @@ export async function handleSendMessage(
 ) {
 
   const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
-  const phoneRegex = /(\+?8801[3-9]\d{8}|01[3-9]\d{8}|\+?[0-9][\s\-.]?\(?[0-9]{3}\)?[\s\-.]?[0-9]{3}[\s\-.]?[0-9]{4,6})/g;
 
   if (messageData.text) {
     const hasEmail = emailRegex.test(messageData.text);
-    const hasPhone = phoneRegex.test(messageData.text);
 
-    if (hasEmail || hasPhone) {
+    if (hasEmail || containsPhoneNumber(messageData.text)) {
       socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
         errorMessage: "you don't share email or phone number here",
       });

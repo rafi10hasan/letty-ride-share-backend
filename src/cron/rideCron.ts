@@ -322,7 +322,7 @@ export const initializeRideCrons = () => {
         }
     });
 
-    logger.info('Ride crons initialized ✅');
+    logger.info('Ride crons initialized');
 };
 
 
@@ -331,7 +331,7 @@ export const initializeRideCrons = () => {
 const payload = {
     departureDate: '2026-03-17',
     departureTimeString: '08:30 AM',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // ✅ Auto detect
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, // Auto detect
     // → 'Asia/Amman' or 'Asia/Dhaka' or 'America/New_York'
 }
 
