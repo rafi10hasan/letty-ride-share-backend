@@ -1,3 +1,4 @@
+
 import mongoose, { Schema } from 'mongoose';
 import validator from 'validator';
 import { GENDER } from './passenger.constant';
@@ -21,13 +22,6 @@ const geoSchema = new Schema(
 );
 
 // location schema
-const locationSchema = new Schema(
-  {
-    address: { type: String, required: [true, 'address is required'] },
-    geo: geoSchema,
-  },
-  { _id: false },
-);
 
 // ride schema
 export const passengerSchema = new mongoose.Schema<IPassenger>(
@@ -73,7 +67,6 @@ export const passengerSchema = new mongoose.Schema<IPassenger>(
       type: String,
       required: false,
     },
-    location: { type: locationSchema },
     isActive: {
       type: Boolean,
       default: true,

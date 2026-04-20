@@ -1,5 +1,4 @@
 import { Document, Types } from 'mongoose';
-import { ISubscription } from '../user/user.interface';
 import { TGender } from './passenger.constant';
 
 
@@ -14,7 +13,6 @@ export interface IPassenger extends Document {
   fullName: string;
   email: string;
   phone: string;
-  subscription: ISubscription;
   isActive: boolean;
   bio: string;
   avgRating: number;
