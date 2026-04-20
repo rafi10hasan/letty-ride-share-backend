@@ -94,7 +94,7 @@ const loginWithCredentialByAdmin = async (credential: TLoginPayload) => {
 
 // authentication with Google
 const loginWithOAuth = async (credential: socialLoginPayload) => {
-  const { provider, token , fcmToken } = credential;
+  const { provider, token, fcmToken } = credential;
   let payload;
 
   if (provider === 'google') {
@@ -110,7 +110,7 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
   } else {
     throw new BadRequestError('Invalid provider');
   }
-  
+
   console.log("payload", payload)
 
   if (!payload || !payload.email) {
@@ -128,7 +128,7 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
     user = await userRepository.createUser({
       fullName: name,
       email,
-      provider,     
+      provider,
     });
 
     if (!user) throw new BadRequestError('Failed to create user');
@@ -172,7 +172,7 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
 
   return {
     ...tokens,
-    isProfileCompleted: user.currentRole === USER_ROLE.NORMAL_USER ? false : undefined, 
+    isProfileCompleted: user.currentRole === USER_ROLE.NORMAL_USER ? false : true,
     userId: user._id,
   };
 };

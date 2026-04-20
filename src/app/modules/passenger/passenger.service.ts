@@ -1,6 +1,8 @@
 import moment from 'moment';
 import mongoose from 'mongoose';
+import jwtHelpers from '../../../helpers/jwtHelpers';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
+import { jwtPayload } from '../auth/auth.interface';
 import { BOOKING_STATUS } from '../booking/booking.constant';
 import { IBooking } from '../booking/booking.interface';
 import { Booking } from '../booking/booking.model';
@@ -37,14 +39,21 @@ const createPassengerProfile = async (user: IUser, payload: TPassengerProfilePay
       avatar: user.avatar,
     };
 
-    const passenger = await passengerRepository.createPassengerProfile(passengerPayload, session);
+    await passengerRepository.createPassengerProfile(passengerPayload, session);
     user.currentRole = USER_ROLE.PASSENGER;
 
     await user.save({ session });
 
+    const JwtPayload: jwtPayload = {
+      id: user._id.toString(),
+      role: USER_ROLE.PASSENGER,
+    };
+
+    const tokens = await jwtHelpers.generateTokens(JwtPayload);
+
     await session.commitTransaction();
 
-    return passenger;
+    return tokens;
   } catch (error) {
     await session.abortTransaction();
     throw error;
@@ -347,13 +356,13 @@ const getPassengerCancelledBookings = async (user: IUser) => {
 
     const isTripHistory = !!booking.tripHistory;
     const rideId = isTripHistory
-      ? (source as PopulatedTripHistory).rideId  
-      : (source as PopulatedRide)._id;           
+      ? (source as PopulatedTripHistory).rideId
+      : (source as PopulatedRide)._id;
 
     return {
       tripHistoryId: booking.tripHistory?._id ?? null,
       rideId,
-      bookingId: (booking as any)._id,           
+      bookingId: (booking as any)._id,
       driverId: driver._id,
       tripId: source.tripId,
       seatsBooked: booking.seatsBooked,

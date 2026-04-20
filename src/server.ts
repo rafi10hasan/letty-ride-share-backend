@@ -25,9 +25,11 @@ const runServer = async () => {
 
   initializeRideCrons();
   subscriptionCron();
+  
+  const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : config.base_url || 'localhost';
 
-  server = app.listen(config.server_port || 5002, config.base_url as string, () => {
-    console.log(`\x1b[33mServer is listening on port http://${config.base_url}:${config.server_port || 5020}\x1b[0m`);
+  server = app.listen(config.server_port || 5002, host, () => {
+    console.log(`\x1b[33mServer is listening on port http://${host}:${config.server_port || 5020}\x1b[0m`);
   });
 
   seedingAdmin();

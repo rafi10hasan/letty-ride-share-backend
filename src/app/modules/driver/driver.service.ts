@@ -7,6 +7,8 @@ import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
 
 import moment from 'moment-timezone';
+import jwtHelpers from '../../../helpers/jwtHelpers';
+import { jwtPayload } from '../auth/auth.interface';
 import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
 import { IPassenger } from '../passenger/passenger.interface';
@@ -71,17 +73,24 @@ const createDriverProfile = async (
     };
 
     // 5. Create driver profile
-    const driver = await driverRepository.createDriverProfile(driverPayload, session);
+    await driverRepository.createDriverProfile(driverPayload, session);
 
     // 6. Update user role (hardcoded, not from payload)
     user.currentRole = 'driver';
     user.isActive = null;
     await user.save({ session });
 
-    // 7. Commit
+    const JwtPayload: jwtPayload = {
+      id: user._id.toString(),
+      role: USER_ROLE.DRIVER,
+    };
+
+    const tokens = await jwtHelpers.generateTokens(JwtPayload);
+
+    // 7. Commit 
     await session.commitTransaction();
 
-    return driver;
+    return tokens;
   } catch (error) {
     // 8. Rollback DB
     await session.abortTransaction();
@@ -279,7 +288,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
 
   const sanitizedPassenger = passengers.map((passenger) => {
     const passengerData = passenger.passenger as IPassenger;
-    console.log({passengerData})
+    console.log({ passengerData })
     return {
       bookingId: passenger._id,
       passengerId: passengerData._id,
