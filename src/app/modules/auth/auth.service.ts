@@ -94,7 +94,7 @@ const loginWithCredentialByAdmin = async (credential: TLoginPayload) => {
 
 // authentication with Google
 const loginWithOAuth = async (credential: socialLoginPayload) => {
-  const { provider, token } = credential;
+  const { provider, token , fcmToken } = credential;
   let payload;
 
   if (provider === 'google') {
@@ -108,8 +108,10 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
     });
     payload = ticket.getPayload();
   } else {
-    throw new BadRequestError('Invalid token, Please try again');
+    throw new BadRequestError('Invalid provider');
   }
+  
+  console.log("payload", payload)
 
   if (!payload || !payload.email) {
     throw new BadRequestError('Invalid token: email not found');
@@ -126,43 +128,51 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
     user = await userRepository.createUser({
       fullName: name,
       email,
-      provider,
+      provider,     
     });
 
     if (!user) throw new BadRequestError('Failed to create user');
 
     user.verification.emailVerifiedAt = new Date();
     user.isActive = true;
-    user.isSocialLogin = true;
     user.avatar = picture;
+    user.isSocialLogin = true;
+    user.fcmToken = fcmToken;
     user.currentRole = USER_ROLE.NORMAL_USER;
     await user.save();
 
-    const JwtPayload: jwtPayload = {
+    const jwtPayload: jwtPayload = {
       id: user._id.toString(),
       role: user.currentRole,
     };
-    const tokens = await jwtHelpers.generateTokens(JwtPayload);
+    const tokens = await jwtHelpers.generateTokens(jwtPayload);
 
-    return {
-      ...tokens,
-      isProfileCompleted: false,
-      userId: user._id,
-    };
+    return { ...tokens, isProfileCompleted: false, userId: user._id };
   }
 
-  if (user.isDeleted) throw new UnauthorizedError('Unauthorized Access');
-  if (!user.isActive) throw new UnauthorizedError('Unauthorized Access');
+  // Social login check
+  if (!user.isSocialLogin) {
+    throw new BadRequestError('Please login with your email and password');
+  }
 
-  const JwtPayload: jwtPayload = {
+  if (user.isDeleted || !user.isActive) {
+    throw new UnauthorizedError('Unauthorized Access');
+  }
+
+  if (picture && !user.avatar) {
+    user.avatar = picture;
+    await user.save();
+  }
+
+  const jwtPayload: jwtPayload = {
     id: user._id.toString(),
     role: user.currentRole,
   };
-  const tokens = await jwtHelpers.generateTokens(JwtPayload);
+  const tokens = await jwtHelpers.generateTokens(jwtPayload);
 
   return {
     ...tokens,
-    isProfileCompleted: false,
+    isProfileCompleted: user.currentRole === USER_ROLE.NORMAL_USER ? false : undefined, 
     userId: user._id,
   };
 };

@@ -67,7 +67,7 @@ export const userSchema = new mongoose.Schema<IUser>(
     password: {
       type: String,
       trim: true,
-      required: true,
+      required: false,
       minlength: [8, 'Password must be at least 8 characters'],
       validate: {
         validator: function (value) {
@@ -83,7 +83,7 @@ export const userSchema = new mongoose.Schema<IUser>(
     accountId: {
       type: String,
     },
-    
+
     verification: {
       emailVerifiedAt: {
         type: Date,

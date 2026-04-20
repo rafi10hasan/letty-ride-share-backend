@@ -9,4 +9,5 @@ export interface jwtPayload {
 export interface socialLoginPayload {
   provider: TProvider;
   token: string;
+  fcmToken: string;
 }
