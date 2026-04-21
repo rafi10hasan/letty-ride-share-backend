@@ -9,6 +9,7 @@ import { SessionModel } from '../session/session.model';
 import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
 import { userRepository } from '../user/user.repository';
+import { generateAccountId } from '../user/user.utils';
 import { jwtPayload, socialLoginPayload } from './auth.interface';
 import { sendVerificationOtp } from './auth.utils';
 import { TLoginPayload } from './auth.validation';
@@ -17,10 +18,19 @@ const googleClient = new OAuth2Client();
 
 // login with credential
 const loginWithCredential = async (credential: TLoginPayload) => {
-  const { email, password, fcmToken } = credential;
+  const { email, phone, password, fcmToken } = credential;
 
-  const user = await userRepository.findByEmail(email);
-  if (!user) throw new UnauthorizedError('User not found with this email');
+  let user = null;
+
+  if (email) {
+    user = await userRepository.findByEmail(email);
+  } else if (phone) {
+    user = await userRepository.findByPhone(phone);
+  } else {
+    throw new BadRequestError('Email or phone is required');
+  }
+
+  if (!user) throw new UnauthorizedError('User not found');
 
   if (user.isDeleted) throw new UnauthorizedError('Unauthorized Access');
   if (!user.isActive) throw new UnauthorizedError('Unauthorized Access');
@@ -32,9 +42,19 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   const isPasswordMatch = await user.isPasswordMatched(password);
   if (!isPasswordMatch) throw new BadRequestError(`Password didn't match`);
 
-  if (!user.verification.emailVerifiedAt) {
-    await sendVerificationOtp(user, email);
-    return { status: 'UNVERIFIED' };
+
+  const isVerified =
+    user.verification.emailVerifiedAt || user.verification.phoneVerifiedAt;
+
+  if (!isVerified) {
+    const otpChannel: 'email' | 'phone' =
+      user.otpSentTo === 'phone' ? 'phone' : 'email';
+
+    await sendVerificationOtp(user, otpChannel);
+    return {
+      status: 'UNVERIFIED',
+      otpSentTo: otpChannel,
+    };
   }
 
   if (fcmToken) {
@@ -58,6 +78,7 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   return responseData;
 };
 
+// login with credential by admin
 const loginWithCredentialByAdmin = async (credential: TLoginPayload) => {
   const { email, password, fcmToken } = credential;
 
@@ -93,10 +114,10 @@ const loginWithCredentialByAdmin = async (credential: TLoginPayload) => {
 
 
 // authentication with Google
-const loginWithOAuth = async (credential: socialLoginPayload) => {
+const loginWithOAuth = async (credential: socialLoginPayload, deviceId: string) => {
   const { provider, token, fcmToken } = credential;
   let payload;
-
+  console.log({ deviceId })
   if (provider === 'google') {
     const ticket = await googleClient.verifyIdToken({
       idToken: token,
@@ -132,11 +153,14 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
     });
 
     if (!user) throw new BadRequestError('Failed to create user');
+    const accountId = await generateAccountId();
 
     user.verification.emailVerifiedAt = new Date();
     user.isActive = true;
     user.avatar = picture;
     user.isSocialLogin = true;
+    user.accountId = accountId;
+    user.deviceId = deviceId;
     user.fcmToken = fcmToken;
     user.currentRole = USER_ROLE.NORMAL_USER;
     await user.save();
@@ -179,27 +203,47 @@ const loginWithOAuth = async (credential: socialLoginPayload) => {
 
 // verify account by otp
 const verifyAccountByOtp = async (
-  email: string,
+  identifier: string,
   otp: string,
   fcmToken: string = 'no_fcm_token'
 ) => {
-  const user = await userRepository.findByEmail(email);
+
+  console.log("identifier", identifier)
+
+  const user =
+    (identifier ? await userRepository.findByEmail(identifier) : null) ||
+    (identifier ? await userRepository.findByPhone(identifier) : null);
 
   if (!user) throw new BadRequestError('User not found!');
 
-  if (user.verification.emailVerifiedAt) {
+  console.log({ user })
+  const alreadyVerified =
+    user.otpSentTo === 'email'
+      ? user.verification.emailVerifiedAt
+      : user.verification.phoneVerifiedAt;
+
+  if (alreadyVerified) {
     throw new BadRequestError('This account is already verified!');
   }
 
   const now = new Date();
-  if (!user.verificationOtpExpiry || user.verificationOtpExpiry < now) {
+  console.log('now:', now.toISOString());
+  console.log('expiry:', user.verificationOtpExpiry?.toISOString());
+  console.log('expired?', user.verificationOtpExpiry && user.verificationOtpExpiry < now);
+  if (!user.verificationOtpExpiry || (user.verificationOtpExpiry && user.verificationOtpExpiry < now)) {
     throw new BadRequestError('OTP has expired. Please request a fresh OTP!');
   }
 
   const isVerificationOtpMatched = await user.isVerificationOtpMatched(otp);
   if (!isVerificationOtpMatched) throw new BadRequestError('OTP is invalid');
 
-  user.verification.emailVerifiedAt = new Date();
+
+  if (user.otpSentTo === 'email') {
+    user.verification.emailVerifiedAt = new Date();
+  } else {
+    user.verification.phoneVerifiedAt = new Date();
+  }
+
   user.verificationOtp = undefined;
   user.verificationOtpExpiry = undefined;
   if (fcmToken) user.fcmToken = fcmToken;
@@ -211,29 +255,27 @@ const verifyAccountByOtp = async (
   };
 
   const tokens = await jwtHelpers.generateTokens(JwtPayload);
-
-  return {
-    ...tokens,
-    isProfileCompleted: false,
-    userId: user._id,
-  };
+  return { ...tokens, isProfileCompleted: false, userId: user._id };
 };
 
+
 // resend signup otp
-const resendEmailVerificationOtpAgain = async (email: string) => {
-  const user = await userRepository.findByEmail(email);
+const resendEmailVerificationOtpAgain = async (identifier: string) => {
+  const user =
+    (await userRepository.findByEmail(identifier)) ||
+    (await userRepository.findByPhone(identifier));
 
   if (!user) throw new UnauthorizedError('User not found!');
 
-  if (user.verification.emailVerifiedAt) {
-    throw new BadRequestError('This account is already verified!');
-  }
+  const alreadyVerified =
+    user.otpSentTo === 'email'
+      ? user.verification.emailVerifiedAt
+      : user.verification.phoneVerifiedAt;
+
+  if (alreadyVerified) throw new BadRequestError('This account is already verified!');
 
   const now = new Date();
-  const isExpired =
-    !user.verificationOtpExpiry || user.verificationOtpExpiry < now;
-
-  if (!isExpired) {
+  if (!user.verificationOtpExpiry || user.verificationOtpExpiry > now) {
     throw new BadRequestError('Current OTP is still valid.');
   }
 
@@ -241,25 +283,33 @@ const resendEmailVerificationOtpAgain = async (email: string) => {
   const expiresInMinutes = Number(config.otp_expires_in);
 
   user.verificationOtp = verificationOtp;
-  user.verificationOtpExpiry = new Date(
-    Date.now() + expiresInMinutes * 60 * 1000
-  );
+  user.verificationOtpExpiry = new Date(Date.now() + expiresInMinutes * 60 * 1000);
   await user.save();
 
-  await sendMail({
-    from: config.gmail_app_user,
-    to: user.email,
-    subject: 'Email Verification',
-    html: otpMailTemplate(verificationOtp, expiresInMinutes),
-  });
+  if (user.otpSentTo === 'email' && user.email) {
+    await sendMail({
+      from: config.gmail_app_user,
+      to: user.email,
+      subject: 'Email Verification',
+      html: otpMailTemplate(verificationOtp, expiresInMinutes),
+    });
+  } else if (user.otpSentTo === 'phone' && user.phone) {
+    // await sendOtpSms(user.phone, verificationOtp);
+  }
+  else {
+    throw new BadRequestError('No valid contact information found to resend OTP!');
+  }
 
-  return null;
+  return verificationOtp;
 };
 
 // forget password
-const forgotPassword = async (email: string) => {
-  const normalizedEmail = email.trim().toLowerCase();
-  const user = await userRepository.findByEmail(normalizedEmail);
+const forgotPassword = async (identifier: string) => {
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+
+  const user =
+    (await userRepository.findByEmail(normalizedIdentifier)) ||
+    (await userRepository.findByPhone(normalizedIdentifier));
 
   if (!user) throw new UnauthorizedError('User not found!');
 
@@ -272,29 +322,34 @@ const forgotPassword = async (email: string) => {
   const otp = generateOTP();
 
   user.passwordResetOtp = otp;
-  user.passwordResetExpiry = new Date(
-    now.getTime() + expiresInMinutes * 60 * 1000
-  );
+  user.passwordResetExpiry = new Date(now.getTime() + expiresInMinutes * 60 * 1000);
   await user.save();
 
-  await sendMail({
-    from: config.gmail_app_user,
-    to: email,
-    subject: 'Password Reset Verification Code',
-    html: otpMailTemplate(otp, expiresInMinutes),
-  });
 
-  return null;
+  if (user.otpSentTo === 'phone' && user.phone) {
+    // await sendOtpSms(user.phone, otp);
+  } else if (user.otpSentTo === 'email' && user.email) {
+    await sendMail({
+      from: config.gmail_app_user,
+      to: user.email,
+      subject: 'Password Reset Verification Code',
+      html: otpMailTemplate(otp, expiresInMinutes),
+    });
+  }
+  else {
+    throw new BadRequestError('No valid contact information found to send OTP!');
+  }
+
+  return otp;
 };
 
 // reset password otp resend
-const resetPasswordOtpAgain = async (email: string) => {
-  const normalizedEmail = email.trim().toLowerCase();
-  const user = await userRepository.findByEmail(normalizedEmail, [
-    'passwordResetOtp',
-    'passwordResetExpiry',
-    'email',
-  ]);
+const resetPasswordOtpAgain = async (identifier: string) => {
+  const normalizedIdentifier = identifier.trim().toLowerCase();
+
+  const user =
+    (await userRepository.findByEmail(normalizedIdentifier)) ||
+    (await userRepository.findByPhone(normalizedIdentifier));
 
   if (!user) throw new UnauthorizedError('User not found!');
 
@@ -313,36 +368,36 @@ const resetPasswordOtpAgain = async (email: string) => {
   const expiresInMinutes = Number(config.otp_expires_in);
 
   user.passwordResetOtp = otp;
-  user.passwordResetExpiry = new Date(
-    Date.now() + expiresInMinutes * 60 * 1000
-  );
+  user.passwordResetExpiry = new Date(Date.now() + expiresInMinutes * 60 * 1000);
   await user.save();
 
-  await sendMail({
-    from: config.gmail_app_user,
-    to: user.email,
-    subject: 'Password Reset Code',
-    html: otpMailTemplate(otp, expiresInMinutes),
-  });
+  if (user.otpSentTo === 'phone' && user.phone) {
+    // await sendOtpSms(user.phone, otp);
+  } else if (user.otpSentTo === 'email' && user.email) {
+    await sendMail({
+      from: config.gmail_app_user,
+      to: user.email,
+      subject: 'Password Reset Code',
+      html: otpMailTemplate(otp, expiresInMinutes),
+    });
+  } else {
+    throw new BadRequestError('No valid contact information found to send OTP!');
+  }
 
-  return null;
+  return otp;
 };
-
 // verify otp for forget password
-const verifyForgetPasswordByOtp = async (email: string, otp: string) => {
-  const user = await userRepository.findByEmail(email, [
-    'passwordResetOtp',
-    'passwordResetExpiry',
-  ]);
+const verifyForgetPasswordByOtp = async (identifier: string, otp: string) => {
+  const user =
+    (await userRepository.findByEmail(identifier)) ||
+    (await userRepository.findByPhone(identifier));
 
   if (!user) throw new UnauthorizedError('User not found!');
-
 
   const now = new Date();
   if (!user.passwordResetExpiry || user.passwordResetExpiry < now) {
     throw new BadRequestError('OTP has expired. Please request a fresh OTP!');
   }
-
 
   const isResetPasswordOtpMatched = await user.isResetPasswordOtpMatched(otp);
   if (!isResetPasswordOtpMatched) throw new BadRequestError('OTP is incorrect');
@@ -354,8 +409,11 @@ const verifyForgetPasswordByOtp = async (email: string, otp: string) => {
 };
 
 // reset password
-const resetPassword = async (email: string, newPassword: string) => {
-  const user = await userRepository.findByEmail(email);
+const resetPassword = async (identifier: string, newPassword: string) => {
+  const user =
+    (await userRepository.findByEmail(identifier)) ||
+    (await userRepository.findByPhone(identifier));
+
   if (!user) throw new BadRequestError('User not found');
 
   if (!user.isOtpVerified) {
@@ -380,7 +438,7 @@ const resetPassword = async (email: string, newPassword: string) => {
   const tokens = await jwtHelpers.generateTokens(JwtPayload);
   const responseData: any = { ...tokens };
 
-  if (user.currentRole === 'normal-user') {
+  if (user.currentRole === USER_ROLE.NORMAL_USER) {
     responseData.isProfileCompleted = false;
     responseData.userId = user._id;
   }

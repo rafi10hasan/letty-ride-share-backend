@@ -7,6 +7,7 @@ import { USER_ROLE } from '../user/user.constant';
 import userValidationZodSchema from '../user/user.validations';
 import { authController } from './auth.controller';
 import { authValidationZodSchema } from './auth.validation';
+import { deviceAccountLimitMiddleware } from '../../middlewares/device.limitation.middleware';
 
 const authRouter = Router();
 
@@ -23,6 +24,7 @@ authRouter.post(
   validateRequest({
     body: userValidationZodSchema.createSocialAuthSchema,
   }),
+  deviceAccountLimitMiddleware,
   authController.loginWithOAuth,
 );
 

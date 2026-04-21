@@ -16,61 +16,113 @@ import { driverRepository } from '../driver/driver.repository';
 import { passengerRepository } from '../passenger/passenger.repository';
 import { Review } from '../review/review.model';
 import { USER_ROLE } from './user.constant';
-import { IUser, registerPayload, SearchUsersParams, TProfileImage } from './user.interface';
+import { IUser, SearchUsersParams, TProfileImage } from './user.interface';
 import User from './user.model';
 import { userRepository } from './user.repository';
 import { generateAccountId } from './user.utils';
-import { TUserLocationPayload } from './user.validations';
+import { TUserLocationPayload, TUserRegisterPayload } from './user.validations';
 
 // registered account
-const createAccount = async (payload: registerPayload, deviceId: string) => {
-  const existingUser = await userRepository.findByEmail(payload.email);
+const createAccount = async (payload: TUserRegisterPayload, deviceId: string) => {
 
-  if (existingUser?.isDeleted) {
-    throw new BadRequestError('This email is blocked. Please contact support to reactivate.');
+  console.log({ payload })
+  // ─── 1. Determine verification channel ───────────────────────────────────
+  const otpChannel: 'email' | 'phone' = payload.otpSentTo === 'phone' ? 'phone' : 'email';
+
+
+  // ─── 2. Find existing user by email or phone ─────────────────────────────
+  let existingUser: IUser | null = null;
+
+  if (payload.email) {
+    existingUser = await userRepository.findByEmail(payload.email);
   }
 
-  if (existingUser && !existingUser.verification.emailVerifiedAt) {
+  // If not found by email, try phone (avoid duplicate accounts)
+  if (!existingUser && payload.phone) {
+    existingUser = await userRepository.findByPhone(payload.phone);
+  }
+
+  // ─── 3. Blocked account check ────────────────────────────────────────────
+  if (existingUser?.isDeleted) {
+    throw new BadRequestError('This account is blocked. Please contact support to reactivate.');
+  }
+
+  // ─── 4. Handle already-verified account ──────────────────────────────────
+  if (
+    existingUser?.verification.emailVerifiedAt ||
+    existingUser?.verification.phoneVerifiedAt
+  ) {
+    throw new BadRequestError('An account with this email/phone already exists.');
+  }
+
+  // ─── 5. Handle existing but UNVERIFIED account ───────────────────────────
+  if (existingUser) {
     const now = new Date();
     const otpStillValid =
       existingUser.verificationOtpExpiry && existingUser.verificationOtpExpiry > now;
 
     if (otpStillValid) {
-      return { status: 'UNVERIFIED' };
+      // OTP is still alive — no need to resend, just tell client to verify
+      return {
+        status: 'UNVERIFIED',
+        otpSentTo: existingUser.otpSentTo,
+        ...(existingUser.otpSentTo === 'email'
+          ? { email: existingUser.email }
+          : { phone: existingUser.phone }),
+      };
     }
 
-    await sendVerificationOtp(existingUser, payload.email);
-    return { status: 'UNVERIFIED' };
+    // OTP expired — resend via the channel that was originally chosen
+    const result = await sendVerificationOtp(existingUser, otpChannel);
+    console.log({result})
+    return {
+      status: 'UNVERIFIED',
+      otpSentTo: otpChannel,
+      ...(otpChannel === 'email'
+        ? { email: existingUser.email }
+        : { phone: existingUser.phone }),
+      otp: result.otp
+    };
   }
 
-  if (existingUser?.verification.emailVerifiedAt) {
-    throw new BadRequestError('An account with this email already exists.');
-  }
-
-  const profileImage = randomUserImage();
+  // ─── 6. New user — send OTP via chosen channel ───────────────────────────
   const verificationOtp = generateOTP();
-
-  const mailOptions = {
-    from: config.gmail_app_user,
-    to: payload.email,
-    subject: 'Email Verification',
-    html: registrationEmailTemplate(verificationOtp, Number(config.otp_expires_in), 'ride_share'),
-  };
+  const otpExpiry = new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000);
 
   try {
-    // await sendOtpSms(payload.phone, verificationOtp);
-    await sendMail(mailOptions);
+    if (otpChannel === 'email' && payload.email) {
+      const mailOptions = {
+        from: config.gmail_app_user,
+        to: payload.email,
+        subject: 'Email Verification',
+        html: registrationEmailTemplate(
+          verificationOtp,
+          Number(config.otp_expires_in),
+          'ride_share'
+        ),
+      };
+      await sendMail(mailOptions);
+    } else if (otpChannel === 'phone' && payload.phone) {
+      // phone channel
+      // await sendOtpSms(payload?.phone, verificationOtp);
+    }
+    else {
+      throw new BadRequestError('No valid contact information provided for OTP delivery.');
+    }
   } catch (error) {
-    throw new BadRequestError('Failed to send verification email. Please try again.');
+    const channel = otpChannel === 'email' ? 'email' : 'phone';
+    throw new BadRequestError(`Failed to send verification ${channel}. Please try again.`);
   }
 
+  // ─── 7. Create new user ───────────────────────────────────────────────────
   const accountId = await generateAccountId();
 
   const userPayload = {
     ...payload,
     verificationOtp,
-    verificationOtpExpiry: new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000),
-    avatar: profileImage,
+    verificationOtpExpiry: otpExpiry,
+    avatar: randomUserImage(),
+    otpSentTo: otpChannel,          // store which channel was actually used
     accountId,
     deviceId,
     currentRole: USER_ROLE.NORMAL_USER,
@@ -79,9 +131,13 @@ const createAccount = async (payload: registerPayload, deviceId: string) => {
   const newUser = await userRepository.createUser(userPayload);
   if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
 
-  return { id: newUser._id, email: newUser.email };
-
-}
+  // Return channel info so client knows where to redirect for verification
+  return {
+    id: newUser._id,
+    // Remove `otp` from production response — only for dev/testing
+    ...(config.node_env === 'development' && { otp: verificationOtp }),
+  };
+};
 
 
 const getUserShortInfo = async (user: IUser) => {

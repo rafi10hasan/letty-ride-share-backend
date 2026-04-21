@@ -14,11 +14,12 @@ const createAccountIntoDb = asyncHandler(async (req: Request, res: Response) => 
 
   const result = await userService.createAccount(userPayload,deviceId);
   // console.log(result);
-  const isVerificationRequired = result.status === 'UNVERIFIED';
+  const isVerificationRequired = 'status' in result && result.status === 'UNVERIFIED';
+  const optChannel = 'otpSentTo' in result ? result.otpSentTo : null;
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.CREATED,
     success: isVerificationRequired ? false : true,
-    message: isVerificationRequired ? 'Your Account is not verified. Please check your email to complete registration' : 'Check your email to verify your Account',
+    message: isVerificationRequired ? `Your Account is not verified. Please check your ${optChannel} to complete registration` : `Check your ${optChannel} to verify your Account`,
     data: result,
   });
 });

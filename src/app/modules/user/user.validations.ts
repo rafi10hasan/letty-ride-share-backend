@@ -1,56 +1,23 @@
+import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 import { z } from 'zod';
 
-export const jordanPhoneSchema = z.string()
-  .transform((val: string) => val.replace(/\s+/g, "")) // Space remove korbe
-  .superRefine((val: string, ctx) => {
 
-    // 1. Shudhu 07 ba 7 chara any prefix block korbe (Like +962, 00962, 02, 06)
-    if (!/^(07|7)/.test(val)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Mobile number must start with 07 or 7 (e.g., 079... or 79...)",
-      });
-      return;
-    }
-
-    // 2. Mobile Operator Prefix Check (Must be 7, 8, or 9 after 07 or 7)
-    // Example: 077, 078, 079 OR 77, 78, 79
-    if (!/^(07|7)[789]/.test(val)) {
-      ctx.addIssue({
-        code: "custom",
-        message: "Invalid operator. Must be 077, 078, 079 or 77, 78, 79.",
-      });
-      return;
-    }
-
-    // 3. Length Validation
-    if (val.startsWith("07")) {
-      // Local format: 07XXXXXXXX (10 digits)
-      if (val.length !== 10) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Local format (07x) must be exactly 10 digits.",
-        });
-      }
-    } else if (val.startsWith("7")) {
-      // Short format: 7XXXXXXXX (9 digits)
-      if (val.length !== 9) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Short format (7x) must be exactly 9 digits.",
-        });
-      }
-    }
+export const phoneSchema = z
+  .string({
+    error: (issue) => {
+      if (typeof issue.input !== 'string') return 'Phone number must be a string';
+    },
   })
-  // 4. Normalization: Database-e shobshomoy 07XXXXXXXX format-e save hobe
-  .transform((val: string) => {
-    if (val.startsWith("7")) {
-      return "0" + val; // 79... ke 079... banabe
-    }
-    return val; // Already 07... thakle setai thakbe
+  .refine(
+    (phone) => isValidPhoneNumber(phone),
+    'Invalid phone number. Please include country code (e.g. +8801XXXXXXXXX)'
+  )
+  .transform((phone) => {
+    const parsed = parsePhoneNumberWithError(phone);
+    return parsed.format('E.164');
   });
 
-
+// create auth schema
 const createAuthSchema = z.object({
   fullName: z
     .string({
@@ -65,36 +32,48 @@ const createAuthSchema = z.object({
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces'),
 
 
-  phone: jordanPhoneSchema,
-
-  // phone: z.string({
-  //   error: (issue) => {
-  //     if (issue.input === undefined) return 'Phone is required';
-  //     if (typeof issue.input !== 'string') return 'Phone must be a string';
-  //   },
-  // }),
-
-  email: z
-    .email({
-      error: (issue) => {
-        switch (true) {
-          case issue.input === undefined:
-            return 'Email address is required';
-          case issue.input === null:
-            return 'Email cannot be null';
-          case typeof issue.input !== 'string':
-            return 'Email must be text';
-          default:
-            return 'Please provide a valid email address';
-        }
-      },
+  phone: z
+    .string()
+    .nullish()
+    .transform((val) => {
+      if (val === null || val === undefined) return null;
+      return val.trim() === '' ? null : val;
     })
-    .pipe(z.string().min(5, 'Email must be at least 5 characters long'))
-    .pipe(z.string().max(254, 'Email cannot exceed 254 characters'))
     .pipe(
-      z.string().refine((email) => email.includes('@') && email.split('@')[1].includes('.'), 'Email must contain a domain with extension'),
+      z.union([
+        z.string()
+          .refine(
+            (phone) => isValidPhoneNumber(phone),
+            'Invalid phone number. Please include country code (e.g. +8801XXXXXXXXX)'
+          )
+          .transform((phone) => {
+            const parsed = parsePhoneNumberWithError(phone);
+            return parsed.format('E.164');
+          }),
+        z.null(),
+      ])
     )
-    .transform((email) => email.toLowerCase().trim()),
+    .optional(),
+
+  email: z.preprocess(
+    (val) => {
+      if (val === null || val === undefined) return null;
+      if (typeof val === 'string' && val.trim() === '') return null;
+      return val;
+    },
+    z.string()
+      .email('Please provide a valid email address')
+      .min(5, 'Email must be at least 5 characters long')
+      .max(254, 'Email cannot exceed 254 characters')
+      .refine(
+        (email) => email.includes('@') && email.split('@')[1].includes('.'),
+        'Email must contain a domain with extension'
+      )
+      .transform((email) => email.toLowerCase().trim())
+      .nullable()
+      .optional()
+  ),
+
   password: z
     .string({
       error: (issue) => {
@@ -110,7 +89,39 @@ const createAuthSchema = z.object({
     .regex(/[0-9]/, 'Password must contain at least one number')
     .regex(/[@$!%*?&#]/, 'Password must contain at least one special character'),
 
+  otpSentTo: z.enum(['email', 'phone'], {
+    error: (issue) => {
+      if (issue.input === undefined) return 'otpSentTo is required';
+      if (typeof issue.input !== 'string') return 'otpSentTo must be a string';
+      return 'otpSentTo must be one of the predefined values';
+    }
+  }),
+
+}).superRefine((data, ctx) => {
+
+  if (data.otpSentTo === 'email' && data.email === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      maximum: 1,
+      origin: "superRefine",
+      inclusive: true,
+      path: ["error"],
+      message: "Email must be provided when otpSentTo is 'email'",
+    });
+  }
+
+  if (data.otpSentTo === 'phone' && data.phone === undefined) {
+    ctx.addIssue({
+      code: "custom",
+      maximum: 1,
+      origin: "superRefine",
+      inclusive: true,
+      path: ["error"],
+      message: "Phone must be provided when otpSentTo is 'phone'",
+    });
+  }
 });
+
 
 const createSocialAuthSchema = z.object({
   provider: z.enum(['google', 'apple'], {
@@ -140,6 +151,9 @@ const updateUserLocationSchema = z.object({
   })
 })
 
+export type TUserRegisterPayload = z.infer<
+  typeof createAuthSchema
+>;
 
 export type TUserLocationPayload = z.infer<
   typeof updateUserLocationSchema

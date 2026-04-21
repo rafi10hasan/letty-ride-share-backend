@@ -14,7 +14,6 @@ export const deviceAccountLimitMiddleware = async (
       throw new BadRequestError('Device ID is required.');
     }
 
-    // ✅ dot notation দিয়ে nested field access করো
     const accountCountByDevice = await User.countDocuments({
       deviceId,
       'verification.emailVerifiedAt': { $exists: true, $ne: null },

@@ -30,7 +30,8 @@ const loginWithCredentialForAdmin = asyncHandler(async (req: Request, res: Respo
 
 // login with social
 const loginWithOAuth = asyncHandler(async (req: Request, res: Response) => {
-  const result = await userAuthService.loginWithOAuth(req.body);
+  const deviceId = (req.headers['x-device-id'] as string);
+  const result = await userAuthService.loginWithOAuth(req.body, deviceId);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -41,8 +42,8 @@ const loginWithOAuth = asyncHandler(async (req: Request, res: Response) => {
 
 // verify email by otp
 const verifyEmailByOtp = asyncHandler(async (req: Request, res: Response) => {
-  const { email, otp, fcmToken } = req.body;
-  const result = await userAuthService.verifyAccountByOtp(email, otp, fcmToken);
+  const { identifier, otp, fcmToken } = req.body;
+  const result = await userAuthService.verifyAccountByOtp(identifier, otp, fcmToken);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -54,8 +55,8 @@ const verifyEmailByOtp = asyncHandler(async (req: Request, res: Response) => {
 
 // send verification otp
 const sendVerificationOtpAgain = asyncHandler(async (req: Request, res: Response) => {
-  const { email } = req.body;
-  const result = await userAuthService.resendEmailVerificationOtpAgain(email);
+  const { identifier } = req.body;
+  const result = await userAuthService.resendEmailVerificationOtpAgain(identifier);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -67,8 +68,8 @@ const sendVerificationOtpAgain = asyncHandler(async (req: Request, res: Response
 
 // request password reset
 const requestPasswordReset = asyncHandler(async (req: Request, res: Response) => {
-  const { email } = req.body;
-  const result = await userAuthService.forgotPassword(email);
+  const { identifier } = req.body;
+  const result = await userAuthService.forgotPassword(identifier);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -80,8 +81,8 @@ const requestPasswordReset = asyncHandler(async (req: Request, res: Response) =>
 
 // verify reset password
 const verifyResetPassword = asyncHandler(async (req: Request, res: Response) => {
-  const { email, otp } = req.body;
-  const result = await userAuthService.verifyForgetPasswordByOtp(email, otp);
+  const { identifier, otp } = req.body;
+  const result = await userAuthService.verifyForgetPasswordByOtp(identifier, otp);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -93,8 +94,8 @@ const verifyResetPassword = asyncHandler(async (req: Request, res: Response) => 
 
 // reset forget password
 const resetForgetPassword = asyncHandler(async (req: Request, res: Response) => {
-  const { email, newPassword } = req.body;
-  const result = await userAuthService.resetPassword(email, newPassword);
+  const { identifier, newPassword } = req.body;
+  const result = await userAuthService.resetPassword(identifier, newPassword);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -106,8 +107,8 @@ const resetForgetPassword = asyncHandler(async (req: Request, res: Response) => 
 
 // send Reset password
 const sendResetPasswordOtpAgain = asyncHandler(async (req: Request, res: Response) => {
-  const { email } = req.body;
-  const result = await userAuthService.resetPasswordOtpAgain(email);
+  const { identifier } = req.body;
+  const result = await userAuthService.resetPasswordOtpAgain(identifier);
 
   sendResponse(res, {
     statusCode: StatusCodes.OK,

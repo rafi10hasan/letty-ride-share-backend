@@ -90,7 +90,7 @@ const updatePassengerProfileSchema = z.object({
     return jordanRegex.test(val.replace(/\s+/g, ""));
   }, {
     message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
-  }).optional(),
+  }).nullable().optional(),
   languages: z
     .array(
       z.string({

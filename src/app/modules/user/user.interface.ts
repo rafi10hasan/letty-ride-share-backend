@@ -48,9 +48,9 @@ export interface SearchUsersParams {
 // Instance methods
 export interface IUser extends Document {
   _id: Types.ObjectId;
-  email: string;
+  email: string | null;
   fullName: string;
-  phone: string;
+  phone: string | null;
   avatar?: string;
   accountId?: string;
   deviceId?: string;
@@ -65,6 +65,7 @@ export interface IUser extends Document {
     emailVerifiedAt: Date | null;
     phoneVerifiedAt: Date | null;
   },
+  otpSentTo? : 'email' | 'phone' | null;
   verificationOtp?: string;
   verificationOtpExpiry?: Date;
   currentRole: TUserRole;

@@ -1,4 +1,7 @@
 import z from 'zod';
+import validator from 'validator';
+import { isValidPhoneNumber } from 'libphonenumber-js';
+
 
 const loginAuthSchema = z.object({
   email: z.email({
@@ -15,6 +18,15 @@ const loginAuthSchema = z.object({
       }
     },
   }),
+
+  phone: z.string({
+    error: (issue) => {
+      if (issue.input === undefined) return 'Phone number is required';
+      if (typeof issue.input !== 'string') return 'Phone number must be a string';
+      return 'Invalid phone format';
+    },
+  }),
+
   password: z.string({
     error: (issue) => {
       if (issue.input === undefined) return 'Password is required';
@@ -41,20 +53,16 @@ const loginAuthSchema = z.object({
 });
 
 const verifyEmailByOtpSchema = z.object({
-  email: z.email({
+  identifier: z.string({
     error: (issue) => {
-      switch (true) {
-        case issue.input === undefined:
-          return 'Email address is required';
-        case issue.input === null:
-          return 'Email cannot be null';
-        case typeof issue.input !== 'string':
-          return 'Email must be text';
-        default:
-          return 'Please provide a valid email address';
-      }
+      if (issue.input === undefined) return 'Identifier is required';
+      if (typeof issue.input !== 'string') return 'Identifier must be a string';
+      return 'Invalid identifier';
     },
-  }),
+  }).refine(
+    (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+    'Identifier must be a valid email or phone number with country code'
+  ),
   otp: z.string().regex(/^\d{6}$/, { message: 'OTP must be exactly 6 digits' }),
   fcmToken: z.string({
     error: (issue) => {

@@ -2,27 +2,44 @@ import config from '../../../config';
 import otpMailTemplate from '../../../mailTemplate/otpMailTemplate';
 import { generateOTP } from '../../../utilities/generateOtp';
 import sendMail from '../../../utilities/sendEmail';
+import { BadRequestError } from '../../errors/request/apiError';
 import { SessionModel } from '../session/session.model';
 import { IUser } from '../user/user.interface';
 
-export const sendVerificationOtp = async (user: IUser, email: string) => {
-  const otp = generateOTP();
-  const expiresInMinutes = Number(config.otp_expires_in);
+export const sendVerificationOtp = async (user: IUser, channel: 'email' | 'phone') => {
+  const verificationOtp = generateOTP();
+  const otpExpiry = new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000);
 
-  // Prepare email content
-  const mailOptions = {
-    from: config.gmail_app_user,
-    to: email,
-    subject: 'Verification Code',
-    html: otpMailTemplate(otp, expiresInMinutes),
+  try {
+    if (channel === 'email' && user.email) {
+      const mailOptions = {
+        from: config.gmail_app_user,
+        to: user.email,
+        subject: 'Email Verification',
+        html: otpMailTemplate(verificationOtp, Number(config.otp_expires_in)),
+      };
+      await sendMail(mailOptions);
+    } else if (channel === 'phone' && user.phone) {
+      // await sendOtpSms(user.phone, verificationOtp);
+    } else {
+      throw new BadRequestError('No valid contact information found to send OTP!');
+    }
+
+    // ✅ try এর ভেতরে রাখো — send সফল হলেই save করো
+    user.verificationOtp = verificationOtp;
+    user.verificationOtpExpiry = otpExpiry;
+    await user.save();
+
+  } catch (error) {
+    // ✅ BadRequestError হলে re-throw করো, অন্যথায় generic error
+    if (error instanceof BadRequestError) throw error;
+    const label = channel === 'email' ? 'email' : 'SMS';
+    throw new BadRequestError(`Failed to resend verification ${label}. Please try again.`);
+  }
+
+  return {
+    ...(config.node_env === 'development' && { otp: verificationOtp }),
   };
-
-  // Store OTP + Expiry in DB
-  user.verificationOtp = otp;
-  user.verificationOtpExpiry = new Date(Date.now() + expiresInMinutes * 60 * 1000);
-
-  await user.save();
-  await sendMail(mailOptions);
 };
 
 
