@@ -11,15 +11,15 @@ const loginWithCredential = asyncHandler(async (req: Request, res: Response) => 
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.OK,
     success: isVerificationRequired ? false : true,
-    message: isVerificationRequired ? 'Your Account is not verified. Please verify your email to login' : 'Welcome back! You have successfully logged in.',
+    message: isVerificationRequired ? 'Your Account is not verified. Please verify your account to login' : 'Welcome back! You have successfully logged in.',
     data: result,
   });
 });
 
 
+// login with credential for admin
 const loginWithCredentialForAdmin = asyncHandler(async (req: Request, res: Response) => {
   const result = await userAuthService.loginWithCredentialByAdmin(req.body);
-
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

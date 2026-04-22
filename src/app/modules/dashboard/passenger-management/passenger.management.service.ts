@@ -1,11 +1,20 @@
+import mongoose from "mongoose";
 import config from "../../../../config";
 import logger from "../../../../config/logger";
-import { onlineUsers } from "../../../../socket/connectSocket";
+import subscriptionUpdateEmailTemplate from "../../../../mailTemplate/subscriptionUpdateTemplate";
+import { getSocketIO, onlineUsers } from "../../../../socket/connectSocket";
 import sendMail from "../../../../utilities/sendEmail";
+import sendOtpSms from "../../../../utilities/sendOtpSms";
 import { BadRequestError, NotFoundError } from "../../../errors/request/apiError";
+import { NOTIFICATION_TYPE } from "../../notification/notification.constant";
+import Notification from "../../notification/notification.model";
 import { sendPushNotification } from "../../notification/notification.utils";
 import Passenger from "../../passenger/passenger.model";
+import { SUBSCRIPTION_STATUS, TSubscriptionPlan, TSubscriptionStatus } from "../../subscription/subscription.constant";
+import Subscription from "../../subscription/subscription.model";
+import { TUpdateSubscriptionPayload } from "../../subscription/subscription.zod";
 import { IUser } from "../../user/user.interface";
+import User from "../../user/user.model";
 import { userRepository } from "../../user/user.repository";
 
 
@@ -45,26 +54,45 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
     const result = await Passenger.aggregate([
         { $match: matchStage },
         {
-            $lookup:
-            {
+            $lookup: {
                 from: 'users',
                 localField: 'user',
                 foreignField: '_id',
-                as: 'userData'
-            }
+                as: 'userData',
+            },
         },
         { $unwind: '$userData' },
 
-        ...(searchTerm ? [{
-            $match: {
-                $or: [
-                    { fullName: { $regex: searchTerm, $options: 'i' } },
-                    { phone: { $regex: searchTerm, $options: 'i' } },
-                    { email: { $regex: searchTerm, $options: 'i' } },
-                    { 'userData.accountId': { $regex: searchTerm, $options: 'i' } },
-                ],
+        // ✅ Subscription lookup
+        {
+            $lookup: {
+                from: 'subscriptions',
+                localField: 'userData.subscription.id',
+                foreignField: '_id',
+                as: 'subscriptionData',
             },
-        }] : []),
+        },
+        {
+            $unwind: {
+                path: '$subscriptionData',
+                preserveNullAndEmptyArrays: true,
+            },
+        },
+
+        ...(searchTerm
+            ? [
+                {
+                    $match: {
+                        $or: [
+                            { fullName: { $regex: searchTerm, $options: 'i' } },
+                            { phone: { $regex: searchTerm, $options: 'i' } },
+                            { email: { $regex: searchTerm, $options: 'i' } },
+                            { 'userData.accountId': { $regex: searchTerm, $options: 'i' } },
+                        ],
+                    },
+                },
+            ]
+            : []),
 
         {
             $facet: {
@@ -75,19 +103,26 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
                     {
                         $project: {
                             _id: 0,
-                            driverId: `$_id`,
+                            passengerId: '$_id',        // ✅ driverId → passengerId
                             accountId: '$userData.accountId',
                             isActive: '$userData.isActive',
                             userId: '$userData._id',
+                            badge: '$userData.badge',
                             fullName: 1,
                             phone: 1,
                             email: 1,
                             avatar: 1,
-                            vehicle: 1,
                             avgRating: 1,
                             totalReviews: 1,
                             totalRides: 1,
                             createdAt: 1,
+                            subscription: {
+                                plan: '$userData.subscription.plan',
+                                status: '$userData.subscription.status',
+                                billingCycle: { $ifNull: ['$subscriptionData.billingCycle', null] },
+                                expiryDate: { $ifNull: ['$subscriptionData.expiryDate', null] },
+                                activatedAt: { $ifNull: ['$subscriptionData.activatedAt', null] },
+                            },
                         },
                     },
                 ],
@@ -99,7 +134,6 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
     const passengers = result[0].data;
     const total = result[0].total[0]?.count || 0;
 
-
     const data = passengers.map((passenger: any) => ({
         ...passenger,
         isOnline: onlineUsers.has(passenger.userId.toString()),
@@ -107,7 +141,6 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
 
     return {
         meta: {
-
             page: Number(page),
             limit: Number(limit),
             total,
@@ -117,151 +150,100 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
     };
 };
 
+const updateSubscription = async (
+    userId: string,
+    payload: TUpdateSubscriptionPayload
+) => {
+    const { plan, billingCycle, activatedAt, expiryDate, status } = payload;
 
-// const getAllPassengers = async (query: Record<string, any>) => {
-//     const { page = 1, limit = 10, searchTerm, status } = query;
+    const session = await mongoose.startSession();
 
-//     const pageNumber = Math.max(Number(page), 1);
-//     const limitNumber = Math.max(Number(limit), 1);
-//     const skip = (pageNumber - 1) * limitNumber;
+    try {
+        session.startTransaction();
 
-//     const pipeline: any[] = [];
+        // ─── 1. User exists check ─────────────────────────────────────────────
+        const user = await User.findById(userId).session(session);
+        if (!user) throw new NotFoundError('User not found');
 
-//     // search
-//     if (searchTerm) {
+        // ─── 2. Subscription upsert ───────────────────────────────────────────
+        const subscription = await Subscription.findOneAndUpdate(
+            { user: userId },
+            {
+                $set: {
+                    plan,
+                    billingCycle,
+                    activatedAt: activatedAt ?? new Date(),
+                    expiryDate,
+                    status: status ?? SUBSCRIPTION_STATUS.ACTIVE,
+                },
+            },
+            { upsert: true, new: true, session }
+        );
 
-//         pipeline.push({
-//             $search: {
-//                 index: 'default',
-//                 compound: {
-//                     should: [
-//                         {
-//                             autocomplete: {
-//                                 query: searchTerm,
-//                                 path: 'fullName',
-//                                 fuzzy: { maxEdits: 1 },
-//                                 tokenOrder: "any"
-//                             },
-//                         },
-//                         {
-//                             autocomplete: {
-//                                 query: searchTerm,
-//                                 path: 'phone',
-//                                 fuzzy: { maxEdits: 1 },
-//                                 tokenOrder: "any"
-//                             },
-//                         },
-//                         {
-//                             autocomplete: {
-//                                 query: searchTerm,
-//                                 path: 'email',
-//                                 fuzzy: { maxEdits: 1 },
-//                                 tokenOrder: "any"
-//                             },
-//                         }
-//                     ],
-//                     minimumShouldMatch: 1,
-//                     ...(status && {
-//                         filter: [{
-//                             text: {
-//                                 query: status,
-//                                 path: 'status'
-//                             }
-//                         }]
-//                     })
-//                 },
-//                 count: { type: 'total' }
-//             }
-//         });
+        // ─── 3. User model update ─────────────────────────────────────────────
+        user.set('subscription', {
+            id: subscription._id,
+            plan: plan as TSubscriptionPlan,
+            status: (status ?? SUBSCRIPTION_STATUS.ACTIVE) as TSubscriptionStatus,
+        });
+        await user.save({ session });
 
-//         pipeline.push({
-//             $addFields: {
-//                 totalCountMetadata: "$$SEARCH_META.count.total"
-//             }
-//         });
-//     } else {
-//         const matchStage: any = {};
-//         if (status) matchStage.status = status;
-//         pipeline.push({ $match: matchStage });
+        // ─── 4. Notification ──────────────────────────────────────────────────
+        await Notification.create(
+            [
+                {
+                    title: 'Subscription Updated',
+                    message: `Your subscription has been updated to ${plan} plan`,
+                    receiver: user._id,
+                    type: NOTIFICATION_TYPE.SUBSCRIPTION_REQUEST,
+                },
+            ],
+            { session }
+        );
 
-//         pipeline.push({ $sort: { createdAt: -1 } });
-//     }
+        await session.commitTransaction();
 
+        // ─── 5. Socket emit ───────────────────────────────────────────────────
+        const userIdStr = user._id.toString();
+        const socketId = onlineUsers.get(userIdStr);
+        if (socketId) {
+            const io = getSocketIO();
+            io.to(userIdStr).emit('subscription-updated', {
+                plan,
+                billingCycle,
+                expiryDate,
+                status: status ?? SUBSCRIPTION_STATUS.ACTIVE,
+            });
+        }
 
-//     pipeline.push({ $skip: skip }, { $limit: limitNumber });
+        // ─── 6. Mail/SMS notification ─────────────────────────────────────────
+        const canUseEmail = user.email && user.verification.emailVerifiedAt;
+        const canUsePhone = user.phone && user.verification.phoneVerifiedAt;
 
+        if (canUseEmail) {
+            sendMail({
+                from: config.gmail_app_user,
+                to: user.email!,
+                subject: 'Subscription Updated',
+                html: subscriptionUpdateEmailTemplate(user.fullName, plan, billingCycle, expiryDate),
+            }).catch((err) => console.error('Failed to send subscription update email:', err));
+        } else if (canUsePhone) {
+            sendOtpSms(
+                user.phone!,
+                `Your subscription has been updated to ${plan} plan.`
+            ).catch((err) => console.error('Failed to send subscription update SMS:', err));
+        }
 
-//     pipeline.push({
-//         $lookup: {
-//             from: 'users',
-//             localField: 'user',
-//             foreignField: '_id',
-//             pipeline: [
-//                 { $project: { accountId: 1, isActive: 1, _id: 1 } }
-//             ],
-//             as: 'userData'
-//         }
-//     });
+        return subscription;
 
-//     pipeline.push(
-//         {
-//             $addFields: {
-//                 userData: { $arrayElemAt: ['$userData', 0] }
-//             }
-//         },
-//         {
-//             $project: {
-//                 _id: 0,
-//                 driverId: '$_id',
-//                 accountId: '$userData.accountId',
-//                 isActive: '$userData.isActive',
-//                 userId: '$userData._id',
-//                 fullName: 1,
-//                 phone: 1,
-//                 email: 1,
-//                 avatar: 1,
-//                 vehicle: 1,
-//                 avgRating: 1,
-//                 totalReviews: 1,
-//                 totalRides: 1,
-//                 createdAt: 1,
-//                 totalCountMetadata: 1
-//             }
-//         }
-//     );
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        await session.endSession();
+    }
+};
 
-
-//     const result = await Passenger.aggregate(pipeline);
-
-
-//     let total = 0;
-//     if (searchTerm) {
-//         total = result.length > 0 ? result[0].totalCountMetadata : 0;
-//     } else {
-
-//         const matchStage: any = {};
-//         if (status) matchStage.status = status;
-//         total = await Passenger.countDocuments(matchStage);
-//     }
-
-//     const data = result.map((passenger: any) => {
-//         const { totalCountMetadata, ...rest } = passenger;
-//         return {
-//             ...rest,
-//             isOnline: onlineUsers.has(rest.userId?.toString()),
-//         };
-//     });
-
-//     return {
-//         meta: {
-//             page: pageNumber,
-//             limit: limitNumber,
-//             total,
-//             totalPages: Math.ceil(total / limitNumber),
-//         },
-//         data,
-//     };
-// };
 
 // update passenger status
 const updatePassengerStatus = async (id: string, payload: { status: "true" | "false" }) => {
@@ -281,22 +263,19 @@ const updatePassengerStatus = async (id: string, payload: { status: "true" | "fa
 
 
     const fcmToken = user.fcmToken;
-    const mailOptions = {
-        from: config.gmail_app_user,
-        to: user.email,
-        subject: 'Account Status Changed',
-        html: 'your account status has been changed by admin, now you can not access your account, please contact support for more details.',
-    };
+    const email = user.email;
 
-    if (fcmToken) {
-        Promise.all([
+    if (fcmToken || email) {
+        await Promise.all([
             (async () => {
 
                 try {
-                    await sendPushNotification(fcmToken, {
-                        title: 'Account Status changed',
-                        content: `Admin has changed your account status`,
-                    });
+                    if (fcmToken) {
+                        await sendPushNotification(fcmToken, {
+                            title: 'Account Status changed',
+                            content: `Admin has changed your account status`,
+                        });
+                    }
                 } catch (error) {
                     logger.error(`FCM failed for passenger: ${error}`);
                 }
@@ -306,7 +285,14 @@ const updatePassengerStatus = async (id: string, payload: { status: "true" | "fa
             (async () => {
 
                 try {
-                    await sendMail(mailOptions);
+                    if (email) {
+                        await sendMail({
+                            from: config.gmail_app_user,
+                            to: email,
+                            subject: 'Account Status Changed',
+                            html: 'your account status has been changed by admin, now you can not access your account, please contact support for more details.',
+                        });
+                    }
                 } catch (error) {
                     logger.error(`email send failed to passenger: ${error}`);
                 }
@@ -322,5 +308,6 @@ const updatePassengerStatus = async (id: string, payload: { status: "true" | "fa
 export const adminPassengerService = {
     getAllPassengers,
     getPassengerStats,
-    updatePassengerStatus
+    updatePassengerStatus,
+    updateSubscription
 };

@@ -36,7 +36,6 @@ export interface ISubscription {
   id: Types.ObjectId;
   plan: TSubscriptionPlan | null;
   status: TSubscriptionStatus;
-  totalAmountPaid: number;
 }
 
 export interface SearchUsersParams {
@@ -71,7 +70,7 @@ export interface IUser extends Document {
   currentRole: TUserRole;
   provider?: TProvider;
   badge: TBadge;
-  subscription?: ISubscription;
+  subscription?: ISubscription | null;
   isSocialLogin: boolean;
   isActive: boolean | null;
   isDeleted: boolean;

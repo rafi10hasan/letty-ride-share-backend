@@ -7,6 +7,7 @@ import { validateFileSizes } from '../../middlewares/validateFileSize';
 import adminController from '../admin/admin.controller';
 import adminValidationZodSchema from '../admin/admin.zod';
 import { authController } from '../auth/auth.controller';
+import { authValidationZodSchema } from '../auth/auth.validation';
 import { USER_ROLE } from '../user/user.constant';
 import { userController } from '../user/user.controller';
 import userOverviewRouter from './business-overview/overview.route';
@@ -27,7 +28,11 @@ adminRouter.use('/drivers', driverManagementRouter);
 adminRouter.use('/passengers', passengerManagementRouter);
 adminRouter.use('/notifications', adminNotificationRouter);
 adminRouter.use('/reports', adminReportRouter);
-adminRouter.post('/login', authController.loginWithCredentialForAdmin);
+
+adminRouter.post('/login', validateRequest({
+    body: authValidationZodSchema.adminLoginAuthSchema,
+
+}), authController.loginWithCredentialForAdmin);
 adminRouter.get('/search/users', userController.searchUsersIntoDb);
 adminRouter.patch(
     '/update-profile',

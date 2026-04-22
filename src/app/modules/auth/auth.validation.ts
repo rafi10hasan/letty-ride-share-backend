@@ -1,29 +1,65 @@
-import z from 'zod';
+import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 import validator from 'validator';
-import { isValidPhoneNumber } from 'libphonenumber-js';
+import z from 'zod';
 
 
 const loginAuthSchema = z.object({
-  email: z.email({
+  identifier: z.string({
     error: (issue) => {
-      switch (true) {
-        case issue.input === undefined:
-          return 'Email address is required';
-        case issue.input === null:
-          return 'Email cannot be null';
-        case typeof issue.input !== 'string':
-          return 'Email must be text';
-        default:
-          return 'Please provide a valid email address';
+      if (issue.input === undefined) return 'Identifier is required';
+      if (typeof issue.input !== 'string') return 'Identifier must be a string';
+      return 'Invalid identifier';
+    },
+  })
+    .refine(
+      (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+      'Identifier must be a valid email or phone number with country code'
+    )
+
+    .transform((val) => {
+      if (isValidPhoneNumber(val)) {
+        return parsePhoneNumberWithError(val).format('E.164');
       }
+      return val.trim().toLowerCase();
+    }),
+
+  password: z.string({
+    error: (issue) => {
+      if (issue.input === undefined) return 'Password is required';
+      if (typeof issue.input !== 'string') return 'Password must be a string';
+      return 'Invalid password format';
     },
   }),
 
-  phone: z.string({
+  fcmToken: z.string({
     error: (issue) => {
-      if (issue.input === undefined) return 'Phone number is required';
-      if (typeof issue.input !== 'string') return 'Phone number must be a string';
-      return 'Invalid phone format';
+      switch (true) {
+        case issue.input === undefined:
+          return 'fcm token is required';
+        case issue.input === null:
+          return 'fcm token can not be null';
+        case typeof issue.input !== 'string':
+          return 'fcm token must be string';
+        default:
+          return 'Please provide a valid fcm token';
+      }
+    },
+  }).optional(),
+
+});
+
+const adminLoginAuthSchema = z.object({
+  email: z.string({
+    error: (issue) => {
+      switch (true) {
+        case issue.input === undefined:
+          return 'Email is required';
+
+        case typeof issue.input !== 'string':
+          return 'Email must be a string';
+        default:
+          return 'Please provide a valid email';
+      }
     },
   }),
 
@@ -59,11 +95,21 @@ const verifyEmailByOtpSchema = z.object({
       if (typeof issue.input !== 'string') return 'Identifier must be a string';
       return 'Invalid identifier';
     },
-  }).refine(
-    (val) => validator.isEmail(val) || isValidPhoneNumber(val),
-    'Identifier must be a valid email or phone number with country code'
-  ),
+  })
+    .refine(
+      (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+      'Identifier must be a valid email or phone number with country code'
+    )
+
+    .transform((val) => {
+      if (isValidPhoneNumber(val)) {
+        return parsePhoneNumberWithError(val).format('E.164');
+      }
+      return val.trim().toLowerCase();
+    }),
+
   otp: z.string().regex(/^\d{6}$/, { message: 'OTP must be exactly 6 digits' }),
+
   fcmToken: z.string({
     error: (issue) => {
       switch (true) {
@@ -82,94 +128,111 @@ const verifyEmailByOtpSchema = z.object({
 
 // Schema for resending verification OTP
 const sendVerificationOtpAgainSchema = z.object({
-  email: z.email({
+  identifier: z.string({
     error: (issue) => {
-      switch (true) {
-        case issue.input === undefined:
-          return 'Email address is required';
-        case issue.input === null:
-          return 'Email cannot be null';
-        case typeof issue.input !== 'string':
-          return 'Email must be text';
-        default:
-          return 'Please provide a valid email address';
-      }
+      if (issue.input === undefined) return 'Identifier is required';
+      if (typeof issue.input !== 'string') return 'Identifier must be a string';
+      return 'Invalid identifier';
     },
-  }),
+  })
+    .refine(
+      (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+      'Identifier must be a valid email or phone number with country code'
+    )
+
+    .transform((val) => {
+      if (isValidPhoneNumber(val)) {
+        return parsePhoneNumberWithError(val).format('E.164');
+      }
+      return val.trim().toLowerCase();
+    }),
 });
 
 const forgotPasswordSchema = z.object({
-  email: z.email({
+  identifier: z.string({
     error: (issue) => {
-      switch (true) {
-        case issue.input === undefined:
-          return 'Email address is required';
-        case issue.input === null:
-          return 'Email cannot be null';
-        case typeof issue.input !== 'string':
-          return 'Email must be text';
-        default:
-          return 'Please provide a valid email address';
-      }
+      if (issue.input === undefined) return 'Identifier is required';
+      if (typeof issue.input !== 'string') return 'Identifier must be a string';
+      return 'Invalid identifier';
     },
-    pattern: z.regexes.email,
-  }),
+  })
+    .refine(
+      (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+      'Identifier must be a valid email or phone number with country code'
+    )
+
+    .transform((val) => {
+      if (isValidPhoneNumber(val)) {
+        return parsePhoneNumberWithError(val).format('E.164');
+      }
+      return val.trim().toLowerCase();
+    }),
 });
 
 
 const resetPasswordOtpAgainSchema = z.object({
-  email: z.email({
+  identifier: z.string({
     error: (issue) => {
-      switch (true) {
-        case issue.input === undefined:
-          return 'Email address is required';
-        case issue.input === null:
-          return 'Email cannot be null';
-        case typeof issue.input !== 'string':
-          return 'Email must be text';
-        default:
-          return 'Please provide a valid email address';
-      }
+      if (issue.input === undefined) return 'Identifier is required';
+      if (typeof issue.input !== 'string') return 'Identifier must be a string';
+      return 'Invalid identifier';
     },
-    pattern: z.regexes.email,
-  }),
+  })
+    .refine(
+      (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+      'Identifier must be a valid email or phone number with country code'
+    )
+
+    .transform((val) => {
+      if (isValidPhoneNumber(val)) {
+        return parsePhoneNumberWithError(val).format('E.164');
+      }
+      return val.trim().toLowerCase();
+    }),
 });
 
 
 const verifyForgotPasswordSchema = z.object({
-  email: z.email({
+  identifier: z.string({
     error: (issue) => {
-      switch (true) {
-        case issue.input === undefined:
-          return 'Email address is required';
-        case issue.input === null:
-          return 'Email cannot be null';
-        case typeof issue.input !== 'string':
-          return 'Email must be text';
-        default:
-          return 'Please provide a valid email address';
-      }
+      if (issue.input === undefined) return 'Identifier is required';
+      if (typeof issue.input !== 'string') return 'Identifier must be a string';
+      return 'Invalid identifier';
     },
-    pattern: z.regexes.email,
-  }),
+  })
+    .refine(
+      (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+      'Identifier must be a valid email or phone number with country code'
+    )
+
+    .transform((val) => {
+      if (isValidPhoneNumber(val)) {
+        return parsePhoneNumberWithError(val).format('E.164');
+      }
+      return val.trim().toLowerCase();
+    }),
   otp: z.string().regex(/^\d{6}$/, { message: 'OTP must be exactly 6 digits' }),
 });
 
 const resetPasswordSchema = z.object({
-  email: z.email({
+  identifier: z.string({
     error: (issue) => {
-      switch (true) {
-        case issue.input === undefined:
-          return 'Email address is required';
-        case issue.input === null:
-          return 'Email cannot be null';
-        case typeof issue.input !== 'string':
-          return 'Email must be text';
-        default:
-          return 'Please provide a valid email address';
-      }
+      if (issue.input === undefined) return 'Identifier is required';
+      if (typeof issue.input !== 'string') return 'Identifier must be a string';
+      return 'Invalid identifier';
     },
-  }),
+  })
+    .refine(
+      (val) => validator.isEmail(val) || isValidPhoneNumber(val),
+      'Identifier must be a valid email or phone number with country code'
+    )
+
+    .transform((val) => {
+      if (isValidPhoneNumber(val)) {
+        return parsePhoneNumberWithError(val).format('E.164');
+      }
+      return val.trim().toLowerCase();
+    }),
   newPassword: z
     .string({
       error: (issue) => {
@@ -215,8 +278,13 @@ export type TLoginPayload = z.infer<
   typeof loginAuthSchema
 >;
 
+export type TAdminLoginPayload = z.infer<
+  typeof adminLoginAuthSchema
+>;
+
 export const authValidationZodSchema = {
   loginAuthSchema,
+  adminLoginAuthSchema,
   verifyEmailByOtpSchema,
   sendVerificationOtpAgainSchema,
   forgotPasswordSchema,

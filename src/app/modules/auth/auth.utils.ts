@@ -9,7 +9,7 @@ import { IUser } from '../user/user.interface';
 export const sendVerificationOtp = async (user: IUser, channel: 'email' | 'phone') => {
   const verificationOtp = generateOTP();
   const otpExpiry = new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000);
-
+  console.log({channel})
   try {
     if (channel === 'email' && user.email) {
       const mailOptions = {
@@ -25,13 +25,12 @@ export const sendVerificationOtp = async (user: IUser, channel: 'email' | 'phone
       throw new BadRequestError('No valid contact information found to send OTP!');
     }
 
-    // ✅ try এর ভেতরে রাখো — send সফল হলেই save করো
     user.verificationOtp = verificationOtp;
     user.verificationOtpExpiry = otpExpiry;
     await user.save();
 
   } catch (error) {
-    // ✅ BadRequestError হলে re-throw করো, অন্যথায় generic error
+  
     if (error instanceof BadRequestError) throw error;
     const label = channel === 'email' ? 'email' : 'SMS';
     throw new BadRequestError(`Failed to resend verification ${label}. Please try again.`);

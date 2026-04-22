@@ -12,23 +12,17 @@ import { userRepository } from '../user/user.repository';
 import { generateAccountId } from '../user/user.utils';
 import { jwtPayload, socialLoginPayload } from './auth.interface';
 import { sendVerificationOtp } from './auth.utils';
-import { TLoginPayload } from './auth.validation';
+import { TAdminLoginPayload, TLoginPayload } from './auth.validation';
 
 const googleClient = new OAuth2Client();
 
 // login with credential
 const loginWithCredential = async (credential: TLoginPayload) => {
-  const { email, phone, password, fcmToken } = credential;
+  const { identifier, password, fcmToken } = credential;
 
-  let user = null;
-
-  if (email) {
-    user = await userRepository.findByEmail(email);
-  } else if (phone) {
-    user = await userRepository.findByPhone(phone);
-  } else {
-    throw new BadRequestError('Email or phone is required');
-  }
+  const user =
+    (await userRepository.findByEmail(identifier)) ||
+    (await userRepository.findByPhone(identifier));
 
   if (!user) throw new UnauthorizedError('User not found');
 
@@ -41,7 +35,6 @@ const loginWithCredential = async (credential: TLoginPayload) => {
 
   const isPasswordMatch = await user.isPasswordMatched(password);
   if (!isPasswordMatch) throw new BadRequestError(`Password didn't match`);
-
 
   const isVerified =
     user.verification.emailVerifiedAt || user.verification.phoneVerifiedAt;
@@ -68,7 +61,7 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   };
 
   const tokens = await jwtHelpers.generateTokens(JwtPayload);
-  const responseData: any = { ...tokens };
+  const responseData: any = { ...tokens, isProfileCompleted: true };
 
   if (user.currentRole === 'normal-user') {
     responseData.isProfileCompleted = false;
@@ -79,7 +72,7 @@ const loginWithCredential = async (credential: TLoginPayload) => {
 };
 
 // login with credential by admin
-const loginWithCredentialByAdmin = async (credential: TLoginPayload) => {
+const loginWithCredentialByAdmin = async (credential: TAdminLoginPayload) => {
   const { email, password, fcmToken } = credential;
 
   const user = await userRepository.findByEmail(email);

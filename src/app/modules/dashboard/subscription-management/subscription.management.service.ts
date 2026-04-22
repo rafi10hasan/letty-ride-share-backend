@@ -275,6 +275,8 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: TUserSubscri
                 })(),
 
                 (async () => {
+                    if (!user.email) return;
+
                     const mailOptions = {
                         from: config.gmail_app_user,
                         to: user.email,

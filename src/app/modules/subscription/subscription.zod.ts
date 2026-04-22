@@ -1,5 +1,5 @@
 import z from "zod";
-import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN } from "./subscription.constant";
+import { SUBSCRIPTION_MODE, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from "./subscription.constant";
 
 
 
@@ -23,11 +23,29 @@ const subscriptionRequestPayload = z.object({
 });
 
 
+const updateSubscriptionSchema = z.object({
+  plan: z.enum(Object.values(SUBSCRIPTION_PLAN) as [string, ...string[]], {
+    error: () => 'Invalid subscription plan',
+  }),
+  billingCycle: z.enum(Object.values(SUBSCRIPTION_MODE) as [string, ...string[]], {
+    error: () => 'Invalid billing cycle',
+  }),
+  activatedAt: z.coerce.date().optional(),
+  expiryDate: z.coerce.date({
+    error: () => 'Invalid expiry date',
+  }),
+  status: z.enum(Object.values(SUBSCRIPTION_STATUS) as [string, ...string[]]).optional(),
+});
+
+
+export type TUpdateSubscriptionPayload = z.infer<typeof updateSubscriptionSchema>;
+
 export type TSubscriptionRequestPayload = z.infer<
   typeof subscriptionRequestPayload
 >;
 const subsCriptionValidationZodSchema = {
   subscriptionRequestPayload,
+  updateSubscriptionSchema
 };
 
 export default subsCriptionValidationZodSchema;

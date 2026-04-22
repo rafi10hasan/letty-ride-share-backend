@@ -29,7 +29,7 @@ authRouter.post(
 );
 
 authRouter.post(
-  '/verify-email',
+  '/verify-account',
   validateRequest({
     body: authValidationZodSchema.verifyEmailByOtpSchema,
   }),

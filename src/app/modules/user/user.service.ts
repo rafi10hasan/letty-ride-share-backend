@@ -55,14 +55,29 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
     throw new BadRequestError('An account with this email/phone already exists.');
   }
 
+  console.log({ existingUser })
   // ─── 5. Handle existing but UNVERIFIED account ───────────────────────────
   if (existingUser) {
     const now = new Date();
     const otpStillValid =
       existingUser.verificationOtpExpiry && existingUser.verificationOtpExpiry > now;
 
-    if (otpStillValid) {
-      // OTP is still alive — no need to resend, just tell client to verify
+    let needsSave = false;
+
+    if (payload.email && !existingUser.email) {
+      existingUser.email = payload.email;
+      needsSave = true;
+    }
+
+    if (payload.otpSentTo && payload.otpSentTo !== existingUser.otpSentTo) {
+      existingUser.otpSentTo = payload.otpSentTo;  
+      needsSave = true;
+    }
+
+    if (needsSave) await existingUser.save();
+
+    if (otpStillValid && !needsSave) {
+  
       return {
         status: 'UNVERIFIED',
         otpSentTo: existingUser.otpSentTo,
@@ -72,25 +87,27 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
       };
     }
 
-    // OTP expired — resend via the channel that was originally chosen
-    const result = await sendVerificationOtp(existingUser, otpChannel);
-    console.log({result})
+
+    const existingChannel = existingUser.otpSentTo as 'email' | 'phone';
+    const result = await sendVerificationOtp(existingUser, existingChannel);
+
     return {
       status: 'UNVERIFIED',
-      otpSentTo: otpChannel,
-      ...(otpChannel === 'email'
+      otpSentTo: existingChannel,
+      ...(existingChannel === 'email'
         ? { email: existingUser.email }
         : { phone: existingUser.phone }),
-      otp: result.otp
+      ...result,
     };
   }
-
   // ─── 6. New user — send OTP via chosen channel ───────────────────────────
   const verificationOtp = generateOTP();
   const otpExpiry = new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000);
 
+  console.log({ otpChannel }, payload.email)
   try {
     if (otpChannel === 'email' && payload.email) {
+      console.log('Sending OTP to email:', payload.email);
       const mailOptions = {
         from: config.gmail_app_user,
         to: payload.email,
@@ -130,7 +147,7 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
 
   const newUser = await userRepository.createUser(userPayload);
   if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
-
+  console.log({ verificationOtp })
   // Return channel info so client knows where to redirect for verification
   return {
     id: newUser._id,

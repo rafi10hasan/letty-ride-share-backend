@@ -37,7 +37,7 @@ const getDriverStats = async () => {
     };
 };
 
-// get 
+// get all drivers
 const getAllDrivers = async (query: Record<string, unknown>) => {
     const { page = 1, limit = 10, searchTerm, status } = query;
 
@@ -47,26 +47,45 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
     const result = await Driver.aggregate([
         { $match: matchStage },
         {
-            $lookup:
-            {
+            $lookup: {
                 from: 'users',
                 localField: 'user',
                 foreignField: '_id',
-                as: 'userData'
-            }
+                as: 'userData',
+            },
         },
         { $unwind: '$userData' },
 
-        ...(searchTerm ? [{
-            $match: {
-                $or: [
-                    { fullName: { $regex: searchTerm, $options: 'i' } },
-                    { phone: { $regex: searchTerm, $options: 'i' } },
-                    { email: { $regex: searchTerm, $options: 'i' } },
-                    { 'userData.accountId': { $regex: searchTerm, $options: 'i' } },
-                ],
+     
+        {
+            $lookup: {
+                from: 'subscriptions',
+                localField: 'userData.subscription.id',  
+                foreignField: '_id',
+                as: 'subscriptionData',
             },
-        }] : []),
+        },
+        {
+            $unwind: {
+                path: '$subscriptionData',
+                preserveNullAndEmptyArrays: true,  
+            },
+        },
+
+        ...(searchTerm
+            ? [
+                {
+                    $match: {
+                        $or: [
+                            { fullName: { $regex: searchTerm, $options: 'i' } },
+                            { phone: { $regex: searchTerm, $options: 'i' } },
+                            { email: { $regex: searchTerm, $options: 'i' } },
+                            { 'userData.accountId': { $regex: searchTerm, $options: 'i' } },
+                        ],
+                    },
+                },
+            ]
+            : []),
 
         {
             $facet: {
@@ -77,10 +96,11 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
                     {
                         $project: {
                             _id: 0,
-                            driverId: `$_id`,
+                            driverId: '$_id',
                             accountId: '$userData.accountId',
                             isActive: '$userData.isActive',
                             userId: '$userData._id',
+                            badge: '$userData.badge',
                             fullName: 1,
                             phone: 1,
                             email: 1,
@@ -89,8 +109,15 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
                             avgRating: 1,
                             totalReviews: 1,
                             totalTripCompleted: 1,
-                            totalEarning: 1,
                             createdAt: 1,
+
+                            subscription: {
+                                plan: '$userData.subscription.plan',
+                                status: '$userData.subscription.status',
+                                billingCycle: { $ifNull: ['$subscriptionData.billingCycle', null] },
+                                expiryDate: { $ifNull: ['$subscriptionData.expiryDate', null] },
+                                activatedAt: { $ifNull: ['$subscriptionData.activatedAt', null] },
+                            },
                         },
                     },
                 ],
@@ -102,7 +129,6 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
     const drivers = result[0].data;
     const total = result[0].total[0]?.count || 0;
 
-
     const data = drivers.map((driver: any) => ({
         ...driver,
         isOnline: onlineUsers.has(driver.userId.toString()),
@@ -110,7 +136,6 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
 
     return {
         meta: {
-
             page: Number(page),
             limit: Number(limit),
             total,
@@ -122,7 +147,7 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
 
 
 // update driver status
-const updateDriverStatus = async (id: string, payload: { status: true | false }) => {
+const updateDriverStatus = async (id: string, payload: { status: true | false , reason: string }) => {
 
     if (payload.status === undefined) {
         throw new BadRequestError('status is required')
@@ -138,12 +163,14 @@ const updateDriverStatus = async (id: string, payload: { status: true | false })
 
 
     const fcmToken = user.fcmToken;
-    const mailOptions = {
-        from: config.gmail_app_user,
-        to: user.email,
-        subject: 'Account Status Changed',
-        html: 'your account status has been changed by admin, now you can not access your account, please contact support for more details.',
-    };
+    const mailOptions = user.email
+        ? {
+            from: config.gmail_app_user,
+            to: user.email,
+            subject: 'Account Status Changed',
+            html: `your account status has been changed by admin. Reason: ${payload.reason}`,
+        }
+        : null;
 
     if (fcmToken) {
         Promise.all([
@@ -152,7 +179,7 @@ const updateDriverStatus = async (id: string, payload: { status: true | false })
                 try {
                     await sendPushNotification(fcmToken, {
                         title: 'Account Status changed',
-                        content: `Admin has changed your account status`,
+                        content: `Admin has changed your account status. Reason: ${payload.reason}`,
                     });
                 } catch (error) {
                     logger.error(`FCM failed for driver: ${error}`);
@@ -163,7 +190,10 @@ const updateDriverStatus = async (id: string, payload: { status: true | false })
             (async () => {
 
                 try {
-                    await sendMail(mailOptions);
+                    if (mailOptions) {
+                        await sendMail(mailOptions);
+                    }
+
                 } catch (error) {
                     logger.error(`email send failed to driver: ${error}`);
                 }

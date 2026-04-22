@@ -37,8 +37,19 @@ const updatePassengerStatus = asyncHandler(async (req: Request, res: Response) =
     });
 });
 
+const updateSubscription = asyncHandler(async (req: Request, res: Response) => {
+    const result = await adminPassengerService.updateSubscription(req.params.userId, req.body);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Subscription status updated successfully',
+        data: result,
+    });
+});
+
 export const adminPassengerController = {
     getAllPassengersIntoDb,
     getPassengerStatsIntoDb,
-    updatePassengerStatus
+    updatePassengerStatus,
+    updateSubscription
 };

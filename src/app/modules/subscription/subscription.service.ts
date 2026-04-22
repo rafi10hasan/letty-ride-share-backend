@@ -9,6 +9,7 @@ import Notification from "../notification/notification.model";
 import { IUser } from "../user/user.interface";
 import User from "../user/user.model";
 
+import sendOtpSms from "../../../utilities/sendOtpSms";
 import { USER_ROLE } from "../user/user.constant";
 import { REQUESTED_SUBSCRIPTION_STATUS } from "./subscription.constant";
 import Subscription from "./subscription.model";
@@ -20,49 +21,50 @@ const sendSubscriptionPurchaseRequest = async (
     payload: TSubscriptionRequestPayload
 ) => {
     const { plan, mode, price } = payload;
+
+    const canUseEmail = user.email && user.verification.emailVerifiedAt;
+    const canUsePhone = user.phone && user.verification.phoneVerifiedAt;
+
+    if (!canUseEmail && !canUsePhone) {
+        throw new BadRequestError('No verified contact information found');
+    }
+
     const session = await mongoose.startSession();
 
     try {
         session.startTransaction();
 
-        // 1. Check if there's already a pending request in the Subscription model
         const existingRequest = await Subscription.findOne({
             user: user._id,
-            "upgradeRequest.status": REQUESTED_SUBSCRIPTION_STATUS.PENDING
+            'upgradeRequest.status': REQUESTED_SUBSCRIPTION_STATUS.PENDING,
         }).session(session);
 
         if (existingRequest) {
             throw new BadRequestError('You have already sent a request!');
         }
 
-        // 2. Find or Create Subscription record for this user
         const subscriptionData = await Subscription.findOneAndUpdate(
             { user: user._id },
             {
                 $set: {
-                    "upgradeRequest.targetPlan": plan,
-                    "upgradeRequest.requestedMode": mode,
-                    "upgradeRequest.requestedPrice": price,
-                    "upgradeRequest.requestedAt": new Date(),
-                    "upgradeRequest.status": REQUESTED_SUBSCRIPTION_STATUS.PENDING,
-                }
+                    'upgradeRequest.targetPlan': plan,
+                    'upgradeRequest.requestedMode': mode,
+                    'upgradeRequest.requestedPrice': price,
+                    'upgradeRequest.requestedAt': new Date(),
+                    'upgradeRequest.status': REQUESTED_SUBSCRIPTION_STATUS.PENDING,
+                },
             },
             { upsert: true, new: true, session }
         );
 
-        console.log(config.admin_email)
-        // 3. Find super admin
         const superAdmin = await User.findOne(
             { email: config.admin_email, currentRole: USER_ROLE.SUPER_ADMIN },
             null,
             { session }
         );
 
-        if (!superAdmin) {
-            throw new NotFoundError('Super admin not found');
-        }
+        if (!superAdmin) throw new NotFoundError('Super admin not found');
 
-        // 4. Create notification
         const notificationPayload = {
             title: 'Subscription Request',
             message: `${user.fullName} sent a subscription request to purchase ${plan} plan with ${mode} mode`,
@@ -71,11 +73,9 @@ const sendSubscriptionPurchaseRequest = async (
         };
 
         await Notification.create([notificationPayload], { session });
-
-        // 5. Commit transaction
         await session.commitTransaction();
 
-        // ── 6. Side effects (after commit) ──────────────────────────────
+        // ── Side effects ──────────────────────────────────────────────────
 
         // Socket emit
         const superAdminIdStr = superAdmin._id.toString();
@@ -88,23 +88,31 @@ const sendSubscriptionPurchaseRequest = async (
             });
         }
 
-        // Send mail
-        const mailOptions = {
-            from: user.email,
-            to: config.gmail_app_user,
-            subject: 'New Subscription Request',
-            html: subscriptionRequestEmailTemplate(
-                user.fullName,
-                user.email,
-                plan,
-                mode,
-                'ride share'
-            ),
-        };
-
-        sendMail(mailOptions).catch((err) => {
-            console.error('Failed to send subscription request email:', err);
-        });
+    
+        if (canUseEmail) {
+            const mailOptions = {
+                from: user.email!,
+                to: config.gmail_app_user,
+                subject: 'New Subscription Request',
+                html: subscriptionRequestEmailTemplate(
+                    user.fullName,
+                    user.email!,
+                    plan,
+                    mode,
+                    'ride share'
+                ),
+            };
+            sendMail(mailOptions).catch((err) => {
+                console.error('Failed to send subscription request email:', err);
+            });
+        } else if (canUsePhone) {
+            sendOtpSms(
+                user.phone!,
+                `Your subscription request for ${plan} plan has been received.`
+            ).catch((err) => {
+                console.error('Failed to send subscription request SMS:', err);
+            });
+        }
 
         return subscriptionData;
 
