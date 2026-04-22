@@ -82,7 +82,7 @@ const sendSubscriptionPurchaseRequest = async (
         const socketId = onlineUsers.get(superAdminIdStr);
         if (socketId) {
             const io = getSocketIO();
-            io.to(superAdminIdStr).emit('receive-subscription-request', {
+            io.to(superAdminIdStr).emit('notification', {
                 title: notificationPayload.title,
                 message: notificationPayload.message,
             });
