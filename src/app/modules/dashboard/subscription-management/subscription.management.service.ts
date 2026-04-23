@@ -9,7 +9,6 @@ import logger from "../../../../config/logger";
 import subscriptionApprovalEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
 import subscriptionUpdateEmailTemplate from "../../../../mailTemplate/subscriptionUpdateTemplate";
 import sendMail from "../../../../utilities/sendEmail";
-import sendOtpSms from "../../../../utilities/sendOtpSms";
 import { sendPushNotification } from "../../notification/notification.utils";
 import Passenger from "../../passenger/passenger.model";
 import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS, TSubscriptionPlan, TSubscriptionStatus } from "../../subscription/subscription.constant";
@@ -20,15 +19,6 @@ import User from "../../user/user.model";
 import { TUserSubscriptionStatusPayload } from "./subscription.management.zod";
 
 
-
-type TUserQuery = {
-    searchTerm?: string;
-    plan?: 'free' | 'premium' | 'premium plus' | 'all access' | 'all';
-    status?: 'pending' | 'approved' | 'rejected' | 'all';
-    isActive?: string;
-    page?: string | number;
-    limit?: string | number;
-};
 
 const getUserActivities = async () => {
     try {
@@ -310,7 +300,34 @@ const updateSubscription = async (
     userId: string,
     payload: TUpdateSubscriptionPayload
 ) => {
+    console.log({ payload })
     const { plan, billingCycle, activatedAt, expiryDate, price, status } = payload;
+
+    // --- Auto Expiry Logic Start ---
+    const now = new Date();
+    let computedExpiry: Date | null = null;
+
+    if (expiryDate) {
+        // Admin jodi manual date dey
+        computedExpiry = new Date(expiryDate);
+    } else {
+        if (billingCycle === 'monthly') {
+            computedExpiry = new Date(now);
+            computedExpiry.setMonth(now.getMonth() + 1);
+        } else if (billingCycle === 'yearly') {
+            computedExpiry = new Date(now);
+            computedExpiry.setFullYear(now.getFullYear() + 1);
+        } else if (billingCycle === 'lifetime') {
+            computedExpiry = null; // Lifetime er jonno expiry date thakbe na
+        }
+        // plan === FREE hole billingCycle null, so computedExpiry null-i thakbe
+    }
+
+    // Date validation (jodi expiry thake)
+    if (computedExpiry && computedExpiry <= now) {
+        throw new BadRequestError('Expiry date must be in the future');
+    }
+    // --- Auto Expiry Logic End ---
 
     const session = await mongoose.startSession();
 
@@ -329,7 +346,7 @@ const updateSubscription = async (
                     plan,
                     billingCycle,
                     activatedAt: activatedAt ?? new Date(),
-                    expiryDate,
+                    expiryDate: computedExpiry,
                     amountPaid: price,
                     status: status ?? SUBSCRIPTION_STATUS.ACTIVE,
                 },
@@ -349,7 +366,6 @@ const updateSubscription = async (
         else if (plan === SUBSCRIPTION_PLAN.ALL_ACCESS) user.badge = BADGE.GOLD;
         await user.save({ session });
 
-
         await session.commitTransaction();
 
         // ─── 5. Socket emit ───────────────────────────────────────────────────
@@ -359,6 +375,7 @@ const updateSubscription = async (
                 content: `Your subscription has been updated to ${plan} plan.`
             });
         }
+
         // ─── 6. Mail/SMS notification ─────────────────────────────────────────
         const canUseEmail = user.email && user.verification.emailVerifiedAt;
         const canUsePhone = user.phone && user.verification.phoneVerifiedAt;
@@ -368,7 +385,7 @@ const updateSubscription = async (
                 from: config.gmail_app_user,
                 to: user.email!,
                 subject: 'Subscription Updated',
-                html: subscriptionUpdateEmailTemplate(user.fullName, plan, billingCycle, expiryDate),
+                html: subscriptionUpdateEmailTemplate(user.fullName, plan, billingCycle, computedExpiry),
             }).catch((err) => console.error('Failed to send subscription update email:', err));
         } else if (canUsePhone) {
             // sendOtpSms(
