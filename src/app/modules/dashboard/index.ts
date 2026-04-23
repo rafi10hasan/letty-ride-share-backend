@@ -16,12 +16,13 @@ import adminNotificationRouter from './notification-management/notification.mana
 import passengerManagementRouter from './passenger-management/passenger.management.route';
 import adminReportRouter from './report-management/report.management.route';
 import rideManagementRouter from './ride-management/ride.management.route';
-import userManagementRouter from './subscription-management/subscription.management.routes';
+import subscriptionManagementRouter from './subscription-management/subscription.management.routes';
+
 
 
 const adminRouter = Router();
 
-adminRouter.use('/user/subscription', userManagementRouter);
+adminRouter.use('/user/subscription', subscriptionManagementRouter);
 adminRouter.use('/overview', userOverviewRouter);
 adminRouter.use('/rides', rideManagementRouter);
 adminRouter.use('/drivers', driverManagementRouter);

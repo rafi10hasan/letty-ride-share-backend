@@ -7,11 +7,14 @@ import Driver from "../../driver/driver.model";
 import config from "../../../../config";
 import logger from "../../../../config/logger";
 import subscriptionApprovalEmailTemplate from "../../../../mailTemplate/subscriptionApprovalTemplate";
+import subscriptionUpdateEmailTemplate from "../../../../mailTemplate/subscriptionUpdateTemplate";
 import sendMail from "../../../../utilities/sendEmail";
+import sendOtpSms from "../../../../utilities/sendOtpSms";
 import { sendPushNotification } from "../../notification/notification.utils";
 import Passenger from "../../passenger/passenger.model";
-import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS } from "../../subscription/subscription.constant";
+import { REQUESTED_SUBSCRIPTION_STATUS, SUBSCRIPTION_PLAN, SUBSCRIPTION_STATUS, TSubscriptionPlan, TSubscriptionStatus } from "../../subscription/subscription.constant";
 import Subscription from "../../subscription/subscription.model";
+import { TUpdateSubscriptionPayload } from "../../subscription/subscription.zod";
 import { BADGE, USER_ROLE } from "../../user/user.constant";
 import User from "../../user/user.model";
 import { TUserSubscriptionStatusPayload } from "./subscription.management.zod";
@@ -302,9 +305,92 @@ const changeUserSubscriptionAndStatus = async (id: string, payload: TUserSubscri
     }
 };
 
+// update subscription
+const updateSubscription = async (
+    userId: string,
+    payload: TUpdateSubscriptionPayload
+) => {
+    const { plan, billingCycle, activatedAt, expiryDate, price, status } = payload;
+
+    const session = await mongoose.startSession();
+
+    try {
+        session.startTransaction();
+
+        // ─── 1. User exists check ─────────────────────────────────────────────
+        const user = await User.findById(userId).session(session);
+        if (!user) throw new NotFoundError('User not found');
+
+        // ─── 2. Subscription upsert ───────────────────────────────────────────
+        const subscription = await Subscription.findOneAndUpdate(
+            { user: userId },
+            {
+                $set: {
+                    plan,
+                    billingCycle,
+                    activatedAt: activatedAt ?? new Date(),
+                    expiryDate,
+                    amountPaid: price,
+                    status: status ?? SUBSCRIPTION_STATUS.ACTIVE,
+                },
+            },
+            { upsert: true, new: true, session }
+        );
+
+        // ─── 3. User model update ─────────────────────────────────────────────
+        user.set('subscription', {
+            id: subscription._id,
+            plan: plan as TSubscriptionPlan,
+            status: (status ?? SUBSCRIPTION_STATUS.ACTIVE) as TSubscriptionStatus,
+        });
+
+        if (plan === SUBSCRIPTION_PLAN.PREMIUM) user.badge = BADGE.BLUE;
+        else if (plan === SUBSCRIPTION_PLAN.PREMIUM_PLUS) user.badge = BADGE.PURPLE;
+        else if (plan === SUBSCRIPTION_PLAN.ALL_ACCESS) user.badge = BADGE.GOLD;
+        await user.save({ session });
+
+
+        await session.commitTransaction();
+
+        // ─── 5. Socket emit ───────────────────────────────────────────────────
+        if (user.fcmToken) {
+            await sendPushNotification(user.fcmToken, {
+                title: 'Subscription Updated',
+                content: `Your subscription has been updated to ${plan} plan.`
+            });
+        }
+        // ─── 6. Mail/SMS notification ─────────────────────────────────────────
+        const canUseEmail = user.email && user.verification.emailVerifiedAt;
+        const canUsePhone = user.phone && user.verification.phoneVerifiedAt;
+
+        if (canUseEmail) {
+            sendMail({
+                from: config.gmail_app_user,
+                to: user.email!,
+                subject: 'Subscription Updated',
+                html: subscriptionUpdateEmailTemplate(user.fullName, plan, billingCycle, expiryDate),
+            }).catch((err) => console.error('Failed to send subscription update email:', err));
+        } else if (canUsePhone) {
+            // sendOtpSms(
+            //     user.phone!,
+            //     `Your subscription has been updated to ${plan} plan.`
+            // ).catch((err) => console.error('Failed to send subscription update SMS:', err));
+        }
+
+        return user.subscription;
+
+    } catch (error) {
+        await session.abortTransaction();
+        throw error;
+    } finally {
+        await session.endSession();
+    }
+};
+
 export const adminSubscriptionService = {
     getUserActivities,
     getAllSubscriptionRequests,
     getUserDetails,
-    changeUserSubscriptionAndStatus
+    changeUserSubscriptionAndStatus,
+    updateSubscription
 };

@@ -5,30 +5,31 @@ import { validateRequest } from '../../../middlewares/request.validator';
 import { USER_ROLE } from '../../user/user.constant';
 import { adminSubscriptionController } from './subscription.management.controller';
 import userSubscriptionStatusZodSchema from './subscription.management.zod';
+import subsCriptionValidationZodSchema from '../../subscription/subscription.zod';
 
 
 
-const userManagementRouter = Router();
+const subscriptionManagementRouter = Router();
 
-userManagementRouter.get(
+subscriptionManagementRouter.get(
   '/get-activities',
   authMiddleware(USER_ROLE.SUPER_ADMIN),
   adminSubscriptionController.getUserActivitiesIntoDb,
 );
 
-userManagementRouter.get(
+subscriptionManagementRouter.get(
   '/',
   authMiddleware(USER_ROLE.SUPER_ADMIN),
   adminSubscriptionController.getAllSubscriptionRequestsIntoDb,
 );
 
-userManagementRouter.get(
+subscriptionManagementRouter.get(
   '/details/:userId',
   authMiddleware(USER_ROLE.SUPER_ADMIN),
   adminSubscriptionController.getUserInfoIntoDb,
 );
 
-userManagementRouter.patch(
+subscriptionManagementRouter.patch(
   '/change-status/:userId',
   authMiddleware(USER_ROLE.SUPER_ADMIN),
   validateRequest({
@@ -37,4 +38,13 @@ userManagementRouter.patch(
   adminSubscriptionController.updateUserSubscriptionAndStatusIntoDb,
 );
 
-export default userManagementRouter
+subscriptionManagementRouter.patch(
+  '/update/:userId',
+  authMiddleware(USER_ROLE.SUPER_ADMIN),
+  validateRequest({
+    body: subsCriptionValidationZodSchema.updateSubscriptionSchema,
+  }),
+  adminSubscriptionController.updateSubscription,
+);
+
+export default subscriptionManagementRouter

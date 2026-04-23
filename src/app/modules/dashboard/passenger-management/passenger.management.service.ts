@@ -1,20 +1,14 @@
-import mongoose from "mongoose";
+
 import config from "../../../../config";
 import logger from "../../../../config/logger";
-import subscriptionUpdateEmailTemplate from "../../../../mailTemplate/subscriptionUpdateTemplate";
-import { getSocketIO, onlineUsers } from "../../../../socket/connectSocket";
+import { onlineUsers } from "../../../../socket/connectSocket";
 import sendMail from "../../../../utilities/sendEmail";
-import sendOtpSms from "../../../../utilities/sendOtpSms";
+
 import { BadRequestError, NotFoundError } from "../../../errors/request/apiError";
-import { NOTIFICATION_TYPE } from "../../notification/notification.constant";
-import Notification from "../../notification/notification.model";
+
 import { sendPushNotification } from "../../notification/notification.utils";
 import Passenger from "../../passenger/passenger.model";
-import { SUBSCRIPTION_STATUS, TSubscriptionPlan, TSubscriptionStatus } from "../../subscription/subscription.constant";
-import Subscription from "../../subscription/subscription.model";
-import { TUpdateSubscriptionPayload } from "../../subscription/subscription.zod";
 import { IUser } from "../../user/user.interface";
-import User from "../../user/user.model";
 import { userRepository } from "../../user/user.repository";
 
 
@@ -150,100 +144,6 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
     };
 };
 
-const updateSubscription = async (
-    userId: string,
-    payload: TUpdateSubscriptionPayload
-) => {
-    const { plan, billingCycle, activatedAt, expiryDate, status } = payload;
-
-    const session = await mongoose.startSession();
-
-    try {
-        session.startTransaction();
-
-        // ─── 1. User exists check ─────────────────────────────────────────────
-        const user = await User.findById(userId).session(session);
-        if (!user) throw new NotFoundError('User not found');
-
-        // ─── 2. Subscription upsert ───────────────────────────────────────────
-        const subscription = await Subscription.findOneAndUpdate(
-            { user: userId },
-            {
-                $set: {
-                    plan,
-                    billingCycle,
-                    activatedAt: activatedAt ?? new Date(),
-                    expiryDate,
-                    status: status ?? SUBSCRIPTION_STATUS.ACTIVE,
-                },
-            },
-            { upsert: true, new: true, session }
-        );
-
-        // ─── 3. User model update ─────────────────────────────────────────────
-        user.set('subscription', {
-            id: subscription._id,
-            plan: plan as TSubscriptionPlan,
-            status: (status ?? SUBSCRIPTION_STATUS.ACTIVE) as TSubscriptionStatus,
-        });
-        await user.save({ session });
-
-        // ─── 4. Notification ──────────────────────────────────────────────────
-        await Notification.create(
-            [
-                {
-                    title: 'Subscription Updated',
-                    message: `Your subscription has been updated to ${plan} plan`,
-                    receiver: user._id,
-                    type: NOTIFICATION_TYPE.SUBSCRIPTION_REQUEST,
-                },
-            ],
-            { session }
-        );
-
-        await session.commitTransaction();
-
-        // ─── 5. Socket emit ───────────────────────────────────────────────────
-        const userIdStr = user._id.toString();
-        const socketId = onlineUsers.get(userIdStr);
-        if (socketId) {
-            const io = getSocketIO();
-            io.to(userIdStr).emit('subscription-updated', {
-                plan,
-                billingCycle,
-                expiryDate,
-                status: status ?? SUBSCRIPTION_STATUS.ACTIVE,
-            });
-        }
-
-        // ─── 6. Mail/SMS notification ─────────────────────────────────────────
-        const canUseEmail = user.email && user.verification.emailVerifiedAt;
-        const canUsePhone = user.phone && user.verification.phoneVerifiedAt;
-
-        if (canUseEmail) {
-            sendMail({
-                from: config.gmail_app_user,
-                to: user.email!,
-                subject: 'Subscription Updated',
-                html: subscriptionUpdateEmailTemplate(user.fullName, plan, billingCycle, expiryDate),
-            }).catch((err) => console.error('Failed to send subscription update email:', err));
-        } else if (canUsePhone) {
-            sendOtpSms(
-                user.phone!,
-                `Your subscription has been updated to ${plan} plan.`
-            ).catch((err) => console.error('Failed to send subscription update SMS:', err));
-        }
-
-        return subscription;
-
-    } catch (error) {
-        await session.abortTransaction();
-        throw error;
-    } finally {
-        await session.endSession();
-    }
-};
-
 
 // update passenger status
 const updatePassengerStatus = async (id: string, payload: { status: "true" | "false" }) => {
@@ -309,5 +209,4 @@ export const adminPassengerService = {
     getAllPassengers,
     getPassengerStats,
     updatePassengerStatus,
-    updateSubscription
 };

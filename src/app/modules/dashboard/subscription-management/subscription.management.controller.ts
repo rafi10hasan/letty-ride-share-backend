@@ -56,9 +56,21 @@ const updateUserSubscriptionAndStatusIntoDb = asyncHandler(async (req: Request, 
   });
 });
 
+// update subscription
+const updateSubscription = asyncHandler(async (req: Request, res: Response) => {
+    const result = await adminSubscriptionService.updateSubscription(req.params.userId, req.body);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: 'Subscription status updated successfully',
+        data: result,
+    });
+});
+
 export const adminSubscriptionController = {
   getUserActivitiesIntoDb,
   getAllSubscriptionRequestsIntoDb,
   getUserInfoIntoDb,
-  updateUserSubscriptionAndStatusIntoDb
+  updateUserSubscriptionAndStatusIntoDb,
+  updateSubscription
 };

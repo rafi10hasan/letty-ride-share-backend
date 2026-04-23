@@ -30,6 +30,7 @@ const updateSubscriptionSchema = z.object({
   billingCycle: z.enum(Object.values(SUBSCRIPTION_MODE) as [string, ...string[]], {
     error: () => 'Invalid billing cycle',
   }),
+  price: z.coerce.number().nonnegative(),
   activatedAt: z.coerce.date().optional(),
   expiryDate: z.coerce.date({
     error: () => 'Invalid expiry date',

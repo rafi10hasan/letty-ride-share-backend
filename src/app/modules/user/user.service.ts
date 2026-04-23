@@ -70,14 +70,14 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
     }
 
     if (payload.otpSentTo && payload.otpSentTo !== existingUser.otpSentTo) {
-      existingUser.otpSentTo = payload.otpSentTo;  
+      existingUser.otpSentTo = payload.otpSentTo;
       needsSave = true;
     }
 
     if (needsSave) await existingUser.save();
 
     if (otpStillValid && !needsSave) {
-  
+
       return {
         status: 'UNVERIFIED',
         otpSentTo: existingUser.otpSentTo,
@@ -172,6 +172,8 @@ const getUserShortInfo = async (user: IUser) => {
   return {
     fullName: user.fullName,
     avatar: user.avatar,
+    email: user.verification.emailVerifiedAt ? user.email : undefined,
+    phone: user.verification.phoneVerifiedAt ? user.phone : undefined,
     bio: currentProfile.bio || '',
     rating: currentProfile.avgRating,
     accountId: user.accountId,
