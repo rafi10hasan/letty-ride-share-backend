@@ -21,7 +21,6 @@ import User from './user.model';
 import { userRepository } from './user.repository';
 import { generateAccountId } from './user.utils';
 import { TUserLocationPayload, TUserRegisterPayload } from './user.validations';
-import sendOtpSms from '../../../utilities/sendOtpSms';
 
 // registered account
 const createAccount = async (payload: TUserRegisterPayload, deviceId: string) => {
@@ -152,6 +151,7 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
   // Return channel info so client knows where to redirect for verification
   return {
     id: newUser._id,
+    otpSentTo: otpChannel === 'email' ? 'email' : 'phone',
     // Remove `otp` from production response — only for dev/testing
     ...(config.node_env === 'development' && { otp: verificationOtp }),
   };
@@ -180,7 +180,6 @@ const getUserShortInfo = async (user: IUser) => {
     accountId: user.accountId,
     badge: user.badge
   };
-
 }
 
 // update user location

@@ -16,6 +16,7 @@ const createAccountIntoDb = asyncHandler(async (req: Request, res: Response) => 
   // console.log(result);
   const isVerificationRequired = 'status' in result && result.status === 'UNVERIFIED';
   const optChannel = 'otpSentTo' in result ? result.otpSentTo : null;
+  console.log('optChannel', optChannel)
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.CREATED,
     success: isVerificationRequired ? false : true,
