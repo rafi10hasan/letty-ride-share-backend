@@ -27,7 +27,7 @@ const authMiddleware = (...requiredRoles: string[]) => {
 
       if (!user) throw new UnauthorizedError('User not exists!');
       if (user.isDeleted) throw new UnauthorizedError('Unauthorized Access');
-      if (!user.isActive) throw new UnauthorizedError('Unauthorized Access');
+      if (!user.isActive) throw new UnauthorizedError('user need admin approval to access');
 
 
       const isVerified =

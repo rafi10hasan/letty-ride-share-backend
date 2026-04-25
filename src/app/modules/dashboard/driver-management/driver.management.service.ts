@@ -147,10 +147,14 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
 
 
 // update driver status
-const updateDriverStatus = async (id: string, payload: { status: true | false , reason: string }) => {
+const updateDriverStatus = async (id: string, payload: { status: true | false , reason?: string }) => {
 
     if (payload.status === undefined) {
         throw new BadRequestError('status is required')
+    }
+
+    if(payload.status === false && !payload.reason){
+        throw new BadRequestError('reason is required when deactivating a driver')
     }
     const user = await userRepository.findById(id, "isActive fcmToken email");
 
