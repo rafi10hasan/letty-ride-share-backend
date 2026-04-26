@@ -21,6 +21,7 @@ import User from './user.model';
 import { userRepository } from './user.repository';
 import { generateAccountId } from './user.utils';
 import { TUserLocationPayload, TUserRegisterPayload } from './user.validations';
+import sendOtpSms from '../../../utilities/sendOtpSms';
 
 // registered account
 const createAccount = async (payload: TUserRegisterPayload, deviceId: string) => {
