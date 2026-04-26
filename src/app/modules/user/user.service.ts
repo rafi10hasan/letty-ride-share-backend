@@ -121,7 +121,7 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
       await sendMail(mailOptions);
     } else if (otpChannel === 'phone' && payload.phone) {
       // phone channel
-      // await sendOtpSms(payload?.phone, verificationOtp);
+      await sendOtpSms(payload?.phone, verificationOtp);
     }
     else {
       throw new BadRequestError('No valid contact information provided for OTP delivery.');
