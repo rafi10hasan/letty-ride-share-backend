@@ -13,6 +13,8 @@ import { generateAccountId } from '../user/user.utils';
 import { jwtPayload, socialLoginPayload } from './auth.interface';
 import { sendVerificationOtp } from './auth.utils';
 import { TAdminLoginPayload, TLoginPayload } from './auth.validation';
+import resendEmailTemplate from '../../../mailTemplate/resendEmailTemplate';
+import sendOtpSms from '../../../utilities/sendOtpSms';
 
 const googleClient = new OAuth2Client();
 
@@ -283,11 +285,11 @@ const resendEmailVerificationOtpAgain = async (identifier: string) => {
     await sendMail({
       from: config.gmail_app_user,
       to: user.email,
-      subject: 'Email Verification',
-      html: otpMailTemplate(verificationOtp, expiresInMinutes),
+      subject: 'Resend Email Verification',
+      html: resendEmailTemplate(verificationOtp, expiresInMinutes),
     });
   } else if (user.otpSentTo === 'phone' && user.phone) {
-    // await sendOtpSms(user.phone, verificationOtp);
+    await sendOtpSms(user.phone, verificationOtp);
   }
   else {
     throw new BadRequestError('No valid contact information found to resend OTP!');
@@ -320,7 +322,7 @@ const forgotPassword = async (identifier: string) => {
 
 
   if (user.otpSentTo === 'phone' && user.phone) {
-    // await sendOtpSms(user.phone, otp);
+    await sendOtpSms(user.phone, otp);
   } else if (user.otpSentTo === 'email' && user.email) {
     await sendMail({
       from: config.gmail_app_user,
@@ -365,7 +367,7 @@ const resetPasswordOtpAgain = async (identifier: string) => {
   await user.save();
 
   if (user.otpSentTo === 'phone' && user.phone) {
-    // await sendOtpSms(user.phone, otp);
+    await sendOtpSms(user.phone, otp);
   } else if (user.otpSentTo === 'email' && user.email) {
     await sendMail({
       from: config.gmail_app_user,
