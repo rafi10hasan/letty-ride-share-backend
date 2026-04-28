@@ -201,7 +201,6 @@ const updateMessageByIdIntoDb = async (
     console.log('✅ Message updated:', {
       id: updatedMessage._id,
       text: updatedMessage.text?.substring(0, 30),
-      hasImages: !!updatedMessage.images?.length
     });
 
     console.log('\n📋 Checking conversation...');

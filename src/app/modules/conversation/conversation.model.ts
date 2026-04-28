@@ -28,10 +28,6 @@ const conversationSchema = new Schema<IConversation>(
         type: Schema.Types.ObjectId,
         ref: 'User',
       },
-      hasImage: {
-        type: Boolean,
-        default: false,
-      },
       createdAt: {
         type: Date,
       },

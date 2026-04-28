@@ -1,5 +1,5 @@
 import { RequestHandler } from 'express';
-import httpStatus from 'http-status';
+import { StatusCodes } from 'http-status-codes';
 import asyncHandler from '../../../shared/asynchandler';
 import sendResponse from '../../../shared/sendResponse';
 import { ConversationService } from './conversation.service';
@@ -12,7 +12,7 @@ const getChatList: RequestHandler = asyncHandler(async (req, res) => {
   );
 
   sendResponse(res, {
-    statusCode: httpStatus.OK,
+    statusCode: StatusCodes.OK,
     success: true,
     message: 'Conversation retrieved successfully',
     data: result,
