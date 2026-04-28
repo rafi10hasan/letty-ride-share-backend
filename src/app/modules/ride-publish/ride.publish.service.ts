@@ -570,10 +570,10 @@ const startRide = async (user: IUser, rideId: string) => {
     }
 
     const now = new Date();
-    const tenMinutesBefore = new Date(ride.departureDateTime.getTime() - 10 * 60 * 1000);
+    const tenMinutesBefore = new Date(ride.departureDateTime.getTime() - 30 * 60 * 1000);
 
     if (now < tenMinutesBefore) {
-      throw new BadRequestError('Cannot start ride before 10 minutes before departure time');
+      throw new BadRequestError('Cannot start ride before 30 minutes before departure time');
     }
 
     const { etaSeconds } = await getETAFromGoogleMaps(ride.pickUpLocation.coordinates, ride.dropOffLocation.coordinates);
