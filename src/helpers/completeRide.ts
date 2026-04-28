@@ -27,6 +27,12 @@ export const completeRide = async (rideId: string) => {
     return;
   }
 
+  const alreadyExists = await TripHistory.findOne({ rideId: ride._id });
+  if (alreadyExists) {
+    logger.warn(`completeRide: Ride ${rideId} already completed`);
+    return; 
+  }
+
   const bookings = await Booking.find({
     ride: ride._id,
     status: BOOKING_STATUS.ACCEPTED,
