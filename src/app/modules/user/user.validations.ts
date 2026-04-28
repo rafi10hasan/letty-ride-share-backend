@@ -32,28 +32,19 @@ const createAuthSchema = z.object({
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces'),
 
 
-  phone: z
-    .string()
-    .nullish()
-    .transform((val) => {
-      if (val === null || val === undefined) return null;
-      return val.trim() === '' ? null : val;
-    })
-    .pipe(
-      z.union([
-        z.string()
-          .refine(
-            (phone) => isValidPhoneNumber(phone),
-            'Invalid phone number. Please include country code (e.g. +8801XXXXXXXXX)'
-          )
-          .transform((phone) => {
-            const parsed = parsePhoneNumberWithError(phone);
-            return parsed.format('E.164');
-          }),
-        z.null(),
-      ])
-    )
-    .optional(),
+  phone: z.preprocess(
+    (val) => {
+      if (val === null || val === undefined || val === '') return undefined;
+      return val;
+    },
+    z.string()
+      .refine(
+        (phone) => isValidPhoneNumber(phone),
+        'Invalid phone number. Please include country code (e.g. +8801XXXXXXXXX)'
+      )
+      .transform((phone) => parsePhoneNumberWithError(phone).format('E.164'))
+      .optional()
+  ),
 
   email: z.preprocess(
     (val) => {

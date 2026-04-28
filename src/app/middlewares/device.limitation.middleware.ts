@@ -9,7 +9,7 @@ export const deviceAccountLimitMiddleware = async (
 ) => {
   try {
     const deviceId = req.headers['x-device-id'] as string;
-
+   console.log({deviceId})
     if (!deviceId) {
       throw new BadRequestError('Device ID is required.');
     }
@@ -19,8 +19,8 @@ export const deviceAccountLimitMiddleware = async (
       'verification.emailVerifiedAt': { $exists: true, $ne: null },
     });
 
-    if (accountCountByDevice >= 10) {
-      throw new BadRequestError('Maximum 10 account allowed from this device.');
+    if (accountCountByDevice >= 30) {
+      throw new BadRequestError('Maximum 30 account allowed from this device.');
     }
 
     next();

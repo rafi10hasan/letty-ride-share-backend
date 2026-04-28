@@ -66,7 +66,7 @@ export const userSchema = new mongoose.Schema<IUser>(
       unique: [true, 'phone number is already used!'],
       sparse: true,
       required: false,
-      default: null
+      default: undefined
     },
 
     password: {

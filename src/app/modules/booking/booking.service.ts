@@ -108,7 +108,6 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
 
 
     Promise.all([
-
         (async () => {
             const notificationData = {
                 title: 'New Booking Request',
