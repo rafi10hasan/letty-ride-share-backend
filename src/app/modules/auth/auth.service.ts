@@ -120,7 +120,7 @@ const loginWithOAuth = async (credential: socialLoginPayload, deviceId: string) 
         config.google_client_id_web,
         config.google_client_id_android,
         config.google_client_id_ios,
-      ],
+      ].filter(Boolean),
     });
     payload = ticket.getPayload();
   } else {

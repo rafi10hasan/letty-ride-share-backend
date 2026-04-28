@@ -13,7 +13,7 @@ export const buildDepartureDateTime = (
     departureTimeString: string,
     timezone: string
 ): Date => {
-    const dateString = new Date(departureDate).toISOString().split('T')[0];
+    const dateString = moment(departureDate).tz(timezone).format('YYYY-MM-DD');
     return moment
         .tz(`${dateString} ${departureTimeString}`, 'YYYY-MM-DD hh:mm A', timezone)
         .utc()

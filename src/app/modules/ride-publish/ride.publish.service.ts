@@ -51,6 +51,10 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   const departureDate = sanitizeDepartureDate(payload.departureDate);
   const departureDateTime = buildDepartureDateTime(payload.departureDate, payload.departureTimeString, payload.timezone);
 
+  console.log({
+    departureTimeString: payload.departureTimeString,
+    departureDate: payload.departureDate,
+  })
   const isConflict = await RidePublish.findOne({
     driver: driver._id,
     status: PUBLISH_STATUS.ACTIVE,
@@ -76,6 +80,8 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
 
   if (isToday) {
     const oneHourFromNow = new Date(Date.now() + 30 * 60 * 1000);
+    console.log({ oneHourFromNow })
+    console.log({ departureDateTime })
     if (departureDateTime < oneHourFromNow) {
       throw new BadRequestError('Departure time must be at least 30 minutes before from now');
     }
@@ -572,6 +578,7 @@ const startRide = async (user: IUser, rideId: string) => {
     const now = new Date();
     const tenMinutesBefore = new Date(ride.departureDateTime.getTime() - 30 * 60 * 1000);
 
+    console.log(tenMinutesBefore, now)
     if (now < tenMinutesBefore) {
       throw new BadRequestError('Cannot start ride before 30 minutes before departure time');
     }

@@ -105,8 +105,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
         passenger: passenger._id
     });
 
-    const userId = ride.driver.user;
-
+    const userId = ride.driver.user._id;
 
     Promise.all([
         (async () => {
@@ -114,8 +113,8 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
                 title: 'New Booking Request',
                 message: `${user.fullName} sent a bookings request ${ride.tripId}. please review it because the will remain 30 miniutes`,
                 receiver: userId.toString(),
+                type: NOTIFICATION_TYPE.BOOKING_REQUEST,
             }
-            await Notification.create(notificationData)
             await sendNotificationBySocket(notificationData, NOTIFICATION_TYPE.BOOKING_REQUEST);
         })(),
 
