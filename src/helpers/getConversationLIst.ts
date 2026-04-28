@@ -126,8 +126,6 @@ export const getConversationList = async (
           lastMsg = conv.lastMessage.text;
         } else if (conv.lastMessage.hasImage) {
           lastMsg = '📷 sent image(s)';
-        } else {
-          lastMsg = '[message]';
         }
       }
 

@@ -111,6 +111,7 @@ export const createConversation = async (
         await Conversation.updateOne(
             { _id: conversation._id },
             {
+                text: savedMessage.text || '',
                 lastMessage: savedMessage._id,
                 updatedAt: new Date(),
             },
