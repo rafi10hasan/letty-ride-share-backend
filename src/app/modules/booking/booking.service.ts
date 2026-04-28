@@ -10,6 +10,7 @@ import { IUser } from "../user/user.interface";
 import { Booking } from "./booking.model";
 
 import logger from "../../../config/logger";
+import Notification from "../notification/notification.model";
 import { sendNotificationBySocket, sendPushNotification } from "../notification/notification.utils";
 import { TRIP_STATUS } from "../ride-publish/ride.publish.constant";
 import { USER_ROLE } from "../user/user.constant";
@@ -114,6 +115,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
                 message: `${user.fullName} sent a bookings request ${ride.tripId}. please review it because the will remain 30 miniutes`,
                 receiver: userId.toString(),
             }
+            await Notification.create(notificationData)
             await sendNotificationBySocket(notificationData, NOTIFICATION_TYPE.BOOKING_REQUEST);
         })(),
 
