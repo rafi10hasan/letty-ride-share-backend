@@ -104,11 +104,11 @@ export const checkSubscription = async (
                 }
             } else {
                 const driverTotalTrip = await getDriverRideCountCurrentMonth(profileId);
-                if (driverTotalTrip >= 1) { // Consistent limit 3
+                if (driverTotalTrip >= 3) { // Consistent limit 3
                     sendResponse(res, {
                         statusCode: StatusCodes.FORBIDDEN,
                         success: false,
-                        message: 'Monthly limit reached (1 free trip as driver). Please upgrade.',
+                        message: 'Monthly limit reached (3 free trips as driver). Please upgrade.',
                         data: { upgradeOptions: PAID_PLANS },
                     });
                     return;
