@@ -17,7 +17,7 @@ export const getETAFromGoogleMaps = async (
    const element = data.rows[0].elements[0];
 
    if (element.status !== 'OK') {
-      throw new Error(`Route not found: ${element.status}`);
+      throw new Error(`location is more away! please try with nearby location`);
    }
 
    return {

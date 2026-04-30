@@ -20,6 +20,7 @@ export const globalErrorHandler: ErrorRequestHandler = (err, req, res, next): vo
     message: 'Something went wrong!',
   };
 
+  console.log('Error:', err);
   if (err instanceof ZodError) {
     customError = handleZodError(err);
   } else if (err.name === 'ValidationError') {
