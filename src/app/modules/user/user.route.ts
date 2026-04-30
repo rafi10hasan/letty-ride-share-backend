@@ -3,7 +3,7 @@ import { uploadFile } from '../../../helpers/fileuploader';
 import authMiddleware from '../../middlewares/auth.middleware';
 import { deviceAccountLimitMiddleware } from '../../middlewares/device.limitation.middleware';
 import { validateRequest } from '../../middlewares/request.validator';
-import { checkSubscription, requireBothModes } from '../../middlewares/subscription.middleware';
+import { checkSubscription, markRequiresBothModes, requireBothModes } from '../../middlewares/subscription.middleware';
 import { validateFileSizes } from '../../middlewares/validateFileSize';
 import { USER_ROLE } from './user.constant';
 import { userController } from './user.controller';
@@ -53,6 +53,7 @@ userRouter.patch(
 userRouter.patch(
   '/switch-mode',
   authMiddleware(USER_ROLE.PASSENGER, USER_ROLE.DRIVER),
+  markRequiresBothModes,
   checkSubscription,
   requireBothModes,
   userController.switchUserRoleIntoDb,

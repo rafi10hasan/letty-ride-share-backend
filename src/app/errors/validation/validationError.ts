@@ -10,7 +10,7 @@ export const handleMongooseError = (err: mongoose.Error.ValidationError) => {
   });
   return {
     statusCode: 400,
-    message: 'Mongoose validation error',
+    message: 'validation error',
     success: false,
     status: 'failed',
     errors,
@@ -49,7 +49,7 @@ export const handleCastError = (err: mongoose.Error.CastError) => {
 
   return {
     statusCode: 400,
-    message: 'Invalid MongoDB ObjectId',
+    message: 'Invalid Id provided',
     success: false,
     status: 'failed',
     errors,
@@ -67,7 +67,7 @@ export const handleDuplicateError = (err: any) => {
 
   return {
     statusCode: 400,
-    message: 'Duplicate key error',
+    message: 'Duplicate error',
     success: false,
     status: 'failed',
     errors,

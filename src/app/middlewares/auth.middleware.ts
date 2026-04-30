@@ -50,7 +50,8 @@ const authMiddleware = (...requiredRoles: string[]) => {
       if (requiredRoles.length && !requiredRoles.includes(decoded.role)) {
         throw new ForbiddenError('You have no access to this route, Forbidden!');
       }
-
+      
+     
       req.user = user;
       next();
 
