@@ -1,4 +1,5 @@
 import mongoose, { Schema } from 'mongoose';
+import { GENDER } from '../user/user.constant';
 import { PUBLISH_STATUS, TRIP_STATUS } from './ride.publish.constant';
 import { IRidePublish } from './ride.publish.interface';
 
@@ -82,10 +83,11 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
                 required: [true, 'Dropoff address is required'],
             },
         },
-
-        isLadiesOnly: {
-            type: Boolean,
-            default: false
+        
+        gender: {
+            type: String,
+            enum: Object.values(GENDER),
+            default: GENDER.MALE
         },
 
         minimumPassenger: {

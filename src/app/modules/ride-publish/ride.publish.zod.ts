@@ -1,4 +1,5 @@
 import z from 'zod';
+import { GenderSchema } from '../driver/driver.zod';
 
 // create trip schema
 const createTripSchema = z.object({
@@ -41,7 +42,7 @@ const createTripSchema = z.object({
     address: z.string().max(100, 'Address cannot exceed 100 characters'),
   }),
 
-  isLadiesOnly: z.boolean().optional(),
+  gender: GenderSchema,
 
   minimumPassenger: z
     .number({
@@ -88,12 +89,30 @@ const updateTripSchema = z
     minimumPassenger: z
       .number({
         error: (issue) => {
-          if (issue.input === undefined) return { message: 'Total seats is required' };
-          if (typeof issue.input !== 'number') return { message: 'Total seats must be a number' };
-          return { message: 'Invalid total seats' };
+          if (issue.input === undefined) return { message: 'Minimum passenger is required' };
+          if (typeof issue.input !== 'number') return { message: 'Minimum passenger must be a number' };
+          return { message: 'Invalid minimum passenger' };
         },
       })
       .min(1)
+      .optional(),
+    departureDate: z
+      .string({
+        error: (issue) => {
+          if (issue.input === undefined) return { message: 'Departure date is required' };
+          return { message: 'Invalid departure date' };
+        },
+      })
+      .pipe(z.iso.date())
+      .optional(),
+    departureTime: z
+      .string({
+        error: (issue) => {
+          if (issue.input === undefined) return { message: 'Departure time is required' };
+          return { message: 'Invalid departure time' };
+        },
+      })
+      .regex(/^(0?[1-9]|1[0-2]):[0-5]\d (AM|PM|am|pm)$/, 'Departure time must be in hh:mm AM/PM format')
       .optional(),
   })
   .superRefine((data, ctx) => {
@@ -109,6 +128,7 @@ const updateTripSchema = z
     }
   });
 
+// search trip schema
 const searchTripSchema = z.object({
   date: z.string({
     error: (issue) => {
@@ -137,7 +157,7 @@ const searchTripSchema = z.object({
     },
   }).min(1),
 
-  isLadiesOnly: z.coerce.boolean().optional(),
+  gender: GenderSchema.optional(),
 
   timezone: z.string({
     error: (issue) => {
@@ -145,13 +165,13 @@ const searchTripSchema = z.object({
       return { message: 'Invalid timezone' };
     },
   }),
-  // ✅ transform দিয়ে object এ convert করো
+ 
 }).transform((data) => ({
   date: data.date,
   time: data.time,
   seats: data.seats,
   timezone: data.timezone,
-  isLadiesOnly: data.isLadiesOnly,
+  gender: data.gender,
   pickUpLocation: {
     type: 'Point' as const,
     coordinates: [data.pickUpLng, data.pickUpLat] as [number, number],

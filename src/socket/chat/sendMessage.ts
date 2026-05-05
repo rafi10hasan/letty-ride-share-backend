@@ -12,7 +12,7 @@ interface SendMessageData {
 }
 
 const containsPhoneNumber = (text: string): boolean => {
-  return /\d{8,}/.test(text.replace(/[\s\-.()+]/g, ""));
+  return /(\+?\d[\d\s\-().]{6,}\d)(?!\w)/.test(text);
 };
 
 // handle send message
@@ -24,14 +24,14 @@ export async function handleSendMessage(
 
 ) {
 
-  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/g;
+  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/; 
 
   if (messageData.text) {
     const hasEmail = emailRegex.test(messageData.text);
 
     if (hasEmail || containsPhoneNumber(messageData.text)) {
       socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
-        errorMessage: "you don't share email or phone number here",
+        errorMessage: "You can't share email or phone number here",
       });
       return;
     }

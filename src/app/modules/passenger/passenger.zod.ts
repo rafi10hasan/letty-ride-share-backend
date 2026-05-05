@@ -30,8 +30,8 @@ const dateOfBirthSchema = z
   );
 
 // gender schema
-export const GenderSchema = z.enum(['male', 'female', 'other'], {
-  error: () => 'Gender must be male, female, or other',
+export const GenderSchema = z.enum(['male', 'female', 'no-preference'], {
+  error: () => 'Gender must be male, female, or no preference',
 });
 
 

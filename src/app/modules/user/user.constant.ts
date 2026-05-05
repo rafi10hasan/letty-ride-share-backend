@@ -22,7 +22,7 @@ export const BADGE = {
 export const GENDER = {
   MALE: 'male',
   FEMALE: 'female',
-  OTHER: 'other',
+  NO_PREFERENCE: 'no-preference',
 } as const;
 
 

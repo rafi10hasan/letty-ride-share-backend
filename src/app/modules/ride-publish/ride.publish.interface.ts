@@ -1,5 +1,6 @@
 import { Document, Types } from 'mongoose';
 import { TPublishStatus, TTripStatus } from './ride.publish.constant';
+import { TGender } from '../user/user.constant';
 
 export interface IGeoPoint {
     type: 'Point';
@@ -20,12 +21,12 @@ export interface IRidePublish extends Document {
     dropOffLocation: IGeoPoint;
     price: number;
     departureDateTime: Date;
-    isLadiesOnly: boolean;
+    gender: TGender;
     minimumPassenger: number;
     totalSeats: number;
     totalSeatBooked: number;
     cancellationReason?: string;
-    timezone:string;
+    timezone: string;
     notifications: {
         notified24h: boolean;
         notified1h: boolean;

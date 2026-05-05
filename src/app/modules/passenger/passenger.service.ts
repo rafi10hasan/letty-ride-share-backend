@@ -124,6 +124,7 @@ const getPassengerProfile = async (user: IUser) => {
     phone: passenger.phone,
     bio: passenger.bio || '',
     languages: passenger.languages,
+  
   };
 }
 

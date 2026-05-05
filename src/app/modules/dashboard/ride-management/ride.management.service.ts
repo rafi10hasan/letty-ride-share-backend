@@ -6,11 +6,11 @@ import moment from "moment";
 import { NotFoundError } from "../../../errors/request/apiError";
 import { BOOKING_STATUS } from "../../booking/booking.constant";
 import { Booking } from "../../booking/booking.model";
+import Driver from "../../driver/driver.model";
 import { IPassenger } from "../../passenger/passenger.interface";
 import { TRIP_STATUS } from "../../ride-publish/ride.publish.constant";
 import RidePublish from "../../ride-publish/ride.publish.model";
 import { TripHistory } from "../../trip-history/trip.history.model";
-import Driver from "../../driver/driver.model";
 
 
 const getRidesStatsOverview = async () => {
@@ -105,14 +105,14 @@ const getAllRides = async (query: Record<string, unknown>) => {
     const filter: any = {};
 
     if (searchTerm) {
-      
+
         const matchedDrivers = await Driver.find({
             fullName: { $regex: String(searchTerm), $options: 'i' }
         }).select('_id').lean();
 
         const driverIds = matchedDrivers.map(d => d._id);
 
-   
+
         const orConditions: any[] = [
             { tripId: { $regex: String(searchTerm).toUpperCase(), $options: 'i' } },
             { 'pickUpLocation.address': { $regex: searchTerm, $options: 'i' } },
@@ -250,43 +250,48 @@ const getAllRides = async (query: Record<string, unknown>) => {
     };
 };
 
-
+// get ride details 
 const getRideDetails = async (rideId: string) => {
+    // আগে RidePublish check করো
+    const activeRide = await RidePublish.findById(rideId)
+        .populate('driver', 'fullName avatar avgRating totalReviews totalTripCompleted tripStatus totalEarning')
+        .lean();
+  
+
+    const activeTripStatuses = [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING, TRIP_STATUS.ONGOING] as const;
+
+    let rideInfo: any;
+
+    if (activeRide && activeTripStatuses.includes(activeRide.tripStatus as typeof activeTripStatuses[number])) {
+        rideInfo = activeRide;
+    } else {
+
+        rideInfo = await TripHistory.findOne({ rideId: rideId })
+            .populate('driver', 'fullName avatar avgRating totalReviews totalTripCompleted totalEarning')
+            .lean();
+    }
+    
+    console.log("rideInfo", rideInfo)
+    if (!rideInfo) throw new NotFoundError('Ride not found');
 
     const bookings = await Booking.find({
         ride: rideId,
-        status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED, BOOKING_STATUS.COMPLETED, BOOKING_STATUS.CANCELLED] },
+        status: {
+            $in: [
+                BOOKING_STATUS.PENDING,
+                BOOKING_STATUS.ACCEPTED,
+                BOOKING_STATUS.COMPLETED,
+                BOOKING_STATUS.CANCELLED,
+            ],
+        },
     })
         .populate<{ passenger: IPassenger }>({
             path: 'passenger',
             select: 'fullName avatar totalRides totalSpent avgRating totalReviews',
         })
-        .populate({
-            path: 'tripHistory',
-            populate: {
-                path: 'driver',
-                select: 'fullName avatar avgRating totalReviews totalTripCompleted totalEarning',
-            },
-        })
         .lean();
 
-    if (!bookings.length) {
-        throw new NotFoundError('no booking details found for this ride');
-    }
-
-
-    const firstBooking = bookings[0];
-    const tripHistory = firstBooking.tripHistory as any;
-
-    const ride = tripHistory
-        ? tripHistory
-        : await RidePublish.findById(rideId)
-            .populate('driver', 'fullName avatar avgRating totalReviews totalTripCompleted totalEarning')
-            .lean();
-
-    if (!ride) throw new NotFoundError('Ride not found');
-
-    const revenue = (ride.price / ride.totalSeats) * ride.totalSeatBooked;
+    const revenue = (rideInfo.price / rideInfo.totalSeats) * rideInfo.totalSeatBooked;
 
     const passengers = bookings.map((booking) => ({
         bookingId: booking._id,
@@ -299,29 +304,31 @@ const getRideDetails = async (rideId: string) => {
         dropOffAddress: booking.dropOffLocation.address,
         totalRides: booking.passenger.totalRides,
         totalSpent: booking.passenger.totalSpent,
-        avgRating: booking.passenger.avgRating ? `${booking.passenger.avgRating.toFixed(1)} / 5` : 'N/A',
+        avgRating: booking.passenger.avgRating
+            ? `${booking.passenger.avgRating.toFixed(1)} / 5`
+            : 'N/A',
         totalReviews: booking.passenger.totalReviews || 0,
         bookedAt: booking.bookedAt,
-        amountPaid: (ride.price / ride.totalSeats) * booking.seatsBooked,
+        amountPaid: (rideInfo.price / rideInfo.totalSeats) * booking.seatsBooked,
     }));
 
     return {
         rideId,
-        tripId: ride.tripId,
-        tripStatus: ride.status || ride.tripStatus,
-        pickUpAddress: ride.pickUpLocation.address,
-        dropOffAddress: ride.dropOffLocation.address,
-        departureDateTime: ride.departureDateTime,
-        estimatedArrivalTime: ride.estimatedArrivalTime,
-        startedAt: ride.startedAt,
-        completedAt: ride.completedAt,
-        price: ride.price,
-        totalSeats: ride.totalSeats,
-        totalSeatBooked: ride.totalSeatBooked,
-        availableSeats: ride.availableSeats,
-        totalDistance: ride.totalDistance,
+        tripId: rideInfo.tripId,
+        tripStatus: rideInfo.status || rideInfo.tripStatus,
+        pickUpAddress: rideInfo.pickUpLocation.address,
+        dropOffAddress: rideInfo.dropOffLocation.address,
+        departureDateTime: rideInfo.departureDateTime,
+        estimatedArrivalTime: rideInfo.estimatedArrivalTime,
+        startedAt: rideInfo.startedAt,
+        completedAt: rideInfo.completedAt,
+        price: rideInfo.price,
+        totalSeats: rideInfo.totalSeats,
+        totalSeatBooked: rideInfo.totalSeatBooked,
+        availableSeats: rideInfo.availableSeats,
+        totalDistance: rideInfo.totalDistance,
         revenue: `${revenue.toFixed(2)} JOD`,
-        driver: ride.driver,
+        driver: rideInfo.driver,
         passengers,
     };
 };

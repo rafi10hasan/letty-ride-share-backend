@@ -29,7 +29,7 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   if (!user) throw new UnauthorizedError('User not found');
 
   if (user.isDeleted) throw new UnauthorizedError('Unauthorized Access');
-  if (!user.isActive) throw new UnauthorizedError('user need admin approval to access');
+  if (user.isActive === false) throw new UnauthorizedError('user need admin approval to access');
 
   if (!user.password && user.isSocialLogin) {
     throw new BadRequestError('Please login with your social account');
@@ -222,9 +222,11 @@ const verifyAccountByOtp = async (
   }
 
   const now = new Date();
+
   console.log('now:', now.toISOString());
   console.log('expiry:', user.verificationOtpExpiry?.toISOString());
   console.log('expired?', user.verificationOtpExpiry && user.verificationOtpExpiry < now);
+
   if (!user.verificationOtpExpiry || (user.verificationOtpExpiry && user.verificationOtpExpiry < now)) {
     throw new BadRequestError('OTP has expired. Please request a fresh OTP!');
   }
@@ -381,6 +383,8 @@ const resetPasswordOtpAgain = async (identifier: string) => {
 
   return otp;
 };
+
+
 // verify otp for forget password
 const verifyForgetPasswordByOtp = async (identifier: string, otp: string) => {
   const user =

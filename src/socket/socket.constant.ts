@@ -18,6 +18,7 @@ export const SOCKET_EVENTS = {
   DRIVER_LOCATION_UPDATE: 'driver-location-update',
   TYPING: 'typing',
   STOP_TYPING: 'stop-typing',
+  TRIP_SCHEDULE_CHANGED: 'trip-schedule-changed',
   USER_TYPING: 'user-typing',
   USER_STOP_TYPING: 'user-stop-typing',
   UNREAD_MESSAGE_COUNT: 'unread-message-count',

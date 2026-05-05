@@ -15,9 +15,11 @@ import { generateTripId, timeStringToMinutes } from './ride.publish.utils';
 import { TCreateTripPayload, TSearchTripPayload, TUpdateTripPayload } from './ride.publish.zod';
 
 import { notifyUser } from '../../../cron/rideCron';
+import { notifyPassengersOfScheduleChange } from '../../../helpers/notifyUserRideSchduleChange';
 import { buildDepartureDateTime, buildEstimatedArrivalTime, sanitizeDepartureDate } from '../../../helpers/ride.helper';
 import { passengerRepository } from '../passenger/passenger.repository';
 import { TripHistory } from '../trip-history/trip.history.model';
+import { GENDER } from '../user/user.constant';
 
 
 interface IPopulatedUser {
@@ -105,7 +107,7 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
         timezone: payload.timezone,
         departureTimeMinutes: departureTimeInMinutes,
         departureTimeString: payload.departureTimeString,
-        isLadiesOnly: payload.isLadiesOnly,
+        gender: payload.gender,
         pickUpLocation: payload.pickUpLocation,
         dropOffLocation: payload.dropOffLocation,
         totalDistance: payload.totalDistance,
@@ -202,196 +204,78 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
     throw new BadRequestError('Minimum passenger cannot exceed total seats');
   }
 
-  let updateData: Record<string, any> = {};
+  const updateData: Record<string, any> = {};
+  let isDateTimeChanged = false;
 
+  // ─── Departure Date & Time ───────────────────────────────────────────
+  if (payload.departureDate !== undefined || payload.departureTime !== undefined) {
+    const newDate = payload.departureDate ?? ride.departureDate;
+    const newTime = payload.departureTime ?? ride.departureTimeString;
+
+    const newDepartureDateTime = buildDepartureDateTime(newDate, newTime, ride.timezone);
+
+    if (newDepartureDateTime.getTime() <= Date.now()) {
+      throw new BadRequestError('Departure time must be in the future');
+    }
+
+    const timeMoment = moment(newTime, 'hh:mm A');
+    const hours = timeMoment.hours();
+    const minutes = timeMoment.minutes();
+
+    updateData.departureDate = sanitizeDepartureDate(newDate);
+    updateData.departureTimeString = newTime;
+    updateData.departureTimeMinutes = hours * 60 + minutes;
+    updateData.departureDateTime = newDepartureDateTime;
+
+    isDateTimeChanged = true;
+  }
+
+  // ─── Minimum Passenger ───────────────────────────────────────────────
   if (payload.minimumPassenger !== undefined) {
     updateData.minimumPassenger = payload.minimumPassenger;
-    if (ride.totalSeatBooked >= payload.minimumPassenger) {
-      updateData.tripStatus = TRIP_STATUS.UPCOMING;
-    }
+  }
+
+  // ─── Check minimum passenger reached ────────────────────────────────
+  const effectiveMinPassenger = payload.minimumPassenger ?? ride.minimumPassenger;
+  if (ride.totalSeatBooked >= effectiveMinPassenger) {
+    updateData.tripStatus = TRIP_STATUS.UPCOMING;
   }
 
   const updatedRide = await RidePublish.findByIdAndUpdate(rideId, updateData, { new: true });
 
-  return updatedRide;
+  // ─── Notify passengers if date/time changed ──────────────────────────
+  if (isDateTimeChanged) {
+    const activeBookings = await Booking.find({
+      ride: rideId,
+      status: BOOKING_STATUS.ACCEPTED,
+    }).populate({
+      path: 'passenger',
+      populate: {
+        path: 'user',
+        select: '_id fcmToken',
+      },
+    });
+
+    if (activeBookings.length > 0) {
+      await notifyPassengersOfScheduleChange({
+
+        bookings: activeBookings,
+        newDate: updateData.departureDate,
+        newTime: updateData.departureTimeString,
+      });
+    }
+  }
+
+  return {
+    departurDate: updatedRide?.departureDate,
+    departureTimeString: updatedRide?.departureTimeString,
+    minimumPassenger: updatedRide?.minimumPassenger,
+  };
 };
 
-// search available rides
-// const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
-//   const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly } = payload;
-
-//   if (seats <= 0) throw new BadRequestError('Seats must be at least 1');
-
-//   const now = new Date();
-//   const today = new Date();
-//   today.setUTCHours(0, 0, 0, 0);
-
-//   const searchDate = new Date(date);
-//   searchDate.setUTCHours(0, 0, 0, 0);
-
-//   if (searchDate < today) throw new BadRequestError('Search date cannot be in the past');
-
-//   const currentTimeMinutes = now.getUTCHours() * 60 + now.getUTCMinutes();
-//   console.log({currentTimeMinutes})
-//   const specifiedTimeMinutes = time ? timeStringToMinutes(time) : currentTimeMinutes;
-//   console.log({specifiedTimeMinutes})
-//   const diffDays = Math.round((searchDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-
-//   let dateFrom: Date;
-//   let dateTo: Date;
-//   let timeMin: number;
-
-//   if (diffDays === 0) {
-//     // Case 1: searching for today ride
-//     const adjustedTimeMin = specifiedTimeMinutes + 120;
-
-//     if (adjustedTimeMin < currentTimeMinutes) {
-//       // Searched time too far in past → dateTo = tomorrow only
-//       console.log("Access")
-//       dateFrom = new Date(today);
-//       dateTo = new Date(today);
-//       dateTo.setDate(dateTo.getDate() + 1);
-//       timeMin = currentTimeMinutes;
-//     } else {
-//       // Normal case → dateTo = today + 2 days
-//       dateFrom = new Date(today);
-//       dateTo = new Date(today);
-//       dateTo.setDate(dateTo.getDate() + 2);
-//       timeMin = adjustedTimeMin;
-//       console.log("Access 2")
-//     }
-//   } else if (diffDays === 1) {
-//     // Case 2: searching for tomorrow's ride
-//     dateFrom = new Date(searchDate);
-//     dateTo = new Date(searchDate);
-//     timeMin = 0;
-//     // dateFrom = new Date(today);
-//     // dateTo = new Date(searchDate);
-//     // dateTo.setDate(dateTo.getDate() + 1);
-//     // timeMin = currentTimeMinutes + 120;
-//   } else {
-//     // Case 3: searching for ride 2+ days in the future
-//     // searchDate-1 to searchDate+1
-//     dateFrom = new Date(searchDate);
-//     dateFrom.setDate(dateFrom.getDate() - 1);
-//     dateTo = new Date(searchDate);
-//     dateTo.setDate(dateTo.getDate() + 1);
-//     timeMin = 0;
-//   }
-
-//   dateTo.setUTCHours(23, 59, 59, 999);
-
-//   console.log({ dateFrom, dateTo, timeMin, diffDays });
-
-//   const passenger = await passengerRepository.findPassengerByUserId(user._id);
-//   const bookedRideIds = passenger
-//     ? await Booking.find({
-//       passenger: passenger._id,
-//       status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] },
-//     }).distinct('ride')
-//     : [];
-
-//   const driver = await driverRepository.findDriverByUserId(user._id);
-
-//   const matchStage: Record<string, any> = {
-//     status: PUBLISH_STATUS.ACTIVE,
-//     tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
-//     availableSeats: { $gte: seats },
-//     departureDate: { $gte: dateFrom, $lte: dateTo },
-//     departureTimeMinutes: { $gte: timeMin, $lte: 1439 },
-//     pickUpLocation: {
-//       $geoWithin: {
-//         $centerSphere: [pickUpLocation.coordinates, 10 / 6378.1],
-//       },
-//     },
-//     dropOffLocation: {
-//       $geoWithin: {
-//         $centerSphere: [dropOffLocation.coordinates, 10 / 6378.1],
-//       },
-//     },
-//   };
-
-//   if (bookedRideIds.length > 0) matchStage._id = { $nin: bookedRideIds };
-//   if (driver) matchStage.driver = { $ne: driver._id };
-
-//   if (isLadiesOnly) {
-//     matchStage.isLadiesOnly = true;
-//   } else {
-//     matchStage.isLadiesOnly = { $ne: true };
-//   }
-
-//   const rides = await RidePublish.aggregate([
-//     { $match: matchStage },
-//     {
-//       $lookup: {
-//         from: 'drivers',
-//         localField: 'driver',
-//         foreignField: '_id',
-//         as: 'driverData',
-//       },
-//     },
-//     { $unwind: '$driverData' },
-//     {
-//       $lookup: {
-//         from: 'users',
-//         localField: 'driverData.user',
-//         foreignField: '_id',
-//         as: 'userData',
-//       },
-//     },
-//     { $unwind: '$userData' },
-//     {
-//       $addFields: {
-//         driverInfo: {
-//           name: '$driverData.fullName',
-//           photo: '$driverData.avatar',
-//           hasAc: '$driverData.hasAc',
-//           rating: '$driverData.avgRating',
-//           totalReviews: '$driverData.totalReviews',
-//         },
-//         planPriority: {
-//           $switch: {
-//             branches: [
-//               { case: { $eq: ['$userData.subscription.plan', 'premium-plus'] }, then: 4 },
-//               { case: { $eq: ['$userData.subscription.plan', 'all-access'] }, then: 3 },
-//               { case: { $eq: ['$userData.subscription.plan', 'premium'] }, then: 2 },
-//             ],
-//             default: 1,
-//           },
-//         },
-//       },
-//     },
-//     {
-//       $sort: {
-//         planPriority: -1,
-//         'driverInfo.rating': -1,
-//         'driverInfo.totalReviews': -1,
-//       },
-//     },
-//     {
-//       $project: {
-//         _id: 1,
-//         tripId: 1,
-//         tripStatus: 1,
-//         driverInfo: 1,
-//         pickupAddress: '$pickUpLocation.address',
-//         dropOffAddress: '$dropOffLocation.address',
-//         departureDate: 1,
-//         departureTimeString: 1,
-//         price: 1,
-//         availableSeats: 1,
-//         totalSeats: 1,
-//         genderPreference: 1,
-//         isLadiesOnly: 1,
-//       },
-//     },
-//   ]);
-
-//   return rides;
-// };
-
+// search avaiable rides
 const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
-  const { date, time, seats, pickUpLocation, dropOffLocation, isLadiesOnly, timezone } = payload;
+  const { date, time, seats, pickUpLocation, dropOffLocation, gender, timezone } = payload;
 
   console.log({ timezone })
 
@@ -419,9 +303,9 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
 
   if (diffDays === 0) {
 
-    const FiveHoursBefore = moment(specifiedDateTimeUTC).subtract(5, 'hours').toDate();
-    departureDateTimeFrom = FiveHoursBefore < nowUTC ? nowUTC : FiveHoursBefore;
-    departureDateTimeTo = moment(specifiedDateTimeUTC).add(5, 'hours').toDate();
+    const hoursBefore = moment(specifiedDateTimeUTC).subtract(8, 'hours').toDate();
+    departureDateTimeFrom = hoursBefore < nowUTC ? nowUTC : hoursBefore;
+    departureDateTimeTo = moment(specifiedDateTimeUTC).add(8, 'hours').toDate();
 
   } else if (diffDays === 1) {
 
@@ -469,10 +353,14 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
   if (bookedRideIds.length > 0) matchStage._id = { $nin: bookedRideIds };
   if (driver) matchStage.driver = { $ne: driver._id };
 
-  if (isLadiesOnly) {
-    matchStage.isLadiesOnly = true;
-  } else {
-    matchStage.isLadiesOnly = { $ne: true };
+  if (gender === GENDER.FEMALE) {
+    matchStage.gender = GENDER.FEMALE;
+
+  } else if (gender === GENDER.MALE) {
+    matchStage.gender = GENDER.MALE;
+  }
+  else {
+    matchStage.gender = GENDER.NO_PREFERENCE;
   }
 
   const rides = await RidePublish.aggregate([
@@ -541,11 +429,11 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
         availableSeats: 1,
         totalSeats: 1,
         genderPreference: 1,
-        isLadiesOnly: 1,
+        gender: 1,
       },
     },
   ]);
-
+  2
   return rides;
 };
 

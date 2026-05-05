@@ -179,7 +179,8 @@ const getUserShortInfo = async (user: IUser) => {
     bio: currentProfile.bio || '',
     rating: currentProfile.avgRating,
     accountId: user.accountId,
-    badge: user.badge
+    badge: user.badge,
+    userVerified: user.isActive ? true : false
   };
 }
 

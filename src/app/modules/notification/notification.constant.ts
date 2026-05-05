@@ -18,6 +18,7 @@ export const NOTIFICATION_TYPE = {
   ADMIN_NOTIFICATION: 'admin_notification',
   MINIMUM_PASSENGER_REACHED: 'minimum_passenger_reached',
   SUBSCRIPTION_REQUEST: 'subscription-request',
+  TRIP_SCHEDULE_CHANGED: 'trip_schedule_changed',
   SUBSCRIPTION_REQUEST_ACCEPTED: 'subscription-request-accepted',
   SUBSCRIPTION_REQUEST_REJECTED: 'subscription-request-rejected',
 } as const;
