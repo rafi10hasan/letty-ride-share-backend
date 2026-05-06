@@ -1,4 +1,3 @@
-import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express, { Application, Request, Response } from 'express';
 import { StatusCodes } from 'http-status-codes';
@@ -17,17 +16,23 @@ import { helmetConfig } from './config/helmet.config';
 import rootDesign from './helpers/rootDesign';
 
 const app: Application = express();
+const IS_MAINTENANCE = false;
 
-// app.post('/webhook', express.raw({ type: 'application/json' }), stripeWebhookHandler);
-// global middlewares
 
-app.use(express.static(path.resolve('./src/public')));
 
 // Serve index.html at root
-app.get('/', (req, res) => {
+app.get('/', (_req: Request, res: Response): void => {
+  if (IS_MAINTENANCE) {
+    res
+      .status(503)
+      .send('🚧 Server is under maintenance. Please come back later.');
+    return;
+  }
+
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+app.use(express.static(path.resolve('./src/public')));
 
 app.use(
   cors({
@@ -51,10 +56,8 @@ if (config.node_env !== 'test') {
   app.use(errorHandler);
 }
 
-app.use(cookieParser());
 app.use(compression(compressionOptions));
 app.use(helmetConfig);
-app.use('/v1/uploads', express.static(path.join('uploads')));
 app.use(applyRateLimit());
 
 // application middleware
@@ -63,13 +66,6 @@ app.use('/api', routers);
 // send html design with a button 'click to see server health' and integrate an api to check server health
 app.get('/root', rootDesign);
 
-app.get('/', (_req: Request, res: Response) => {
-  res.status(StatusCodes.OK).json({
-    message: 'Server is running.',
-    status: 'OK',
-    success: true
-  });
-});
 
 app.get('/health_check', (_req: Request, res: Response) => {
   res.status(StatusCodes.OK).json({
@@ -77,13 +73,9 @@ app.get('/health_check', (_req: Request, res: Response) => {
   });
 });
 
-//
-app.get('/plan', (_req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'index.html'));
-});
 
 // Example error logging
-app.get('/error', (req, _res, next) => {
+app.get('/error', (_req: Request, _res: Response, next: Function) => {
   next(new BadRequestError('Testing error'));
 });
 

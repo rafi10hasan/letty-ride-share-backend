@@ -275,6 +275,7 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 
 // search avaiable rides
 const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
+  console.log({ payload })
   const { date, time, seats, pickUpLocation, dropOffLocation, gender, timezone } = payload;
 
   console.log({ timezone })
@@ -291,32 +292,62 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
 
   const diffDays = Math.round((searchDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-  const specifiedDateTimeUTC = moment
-    .tz(`${date} ${time}`, 'YYYY-MM-DD hh:mm A', timezone)
-    .utc()
-    .toDate();
+  // const specifiedDateTimeUTC = moment
+  //   .tz(`${date} ${time}`, 'YYYY-MM-DD hh:mm A', timezone)
+  //   .utc()
+  //   .toDate();
 
-  const nowUTC = new Date();
+  // const nowUTC = new Date();
+
+  // let departureDateTimeFrom: Date;
+  // let departureDateTimeTo: Date;
+
+  // if (diffDays === 0) {
+
+  //   const hoursBefore = moment(specifiedDateTimeUTC).subtract(5, 'hours').toDate();
+  //   departureDateTimeFrom = hoursBefore < nowUTC ? nowUTC : hoursBefore;
+  //   departureDateTimeTo = moment(specifiedDateTimeUTC).add(8, 'hours').toDate();
+
+  //   //hoursBefore < nowUTC ? nowUTC : hoursBefore;
+  // } else if (diffDays === 1) {
+
+  //   departureDateTimeFrom = nowUTC;
+  //   departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).endOf('day').utc().toDate();
+
+  // } else {
+
+  //   departureDateTimeFrom = nowUTC;
+  //   departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).add(1, 'day').endOf('day').utc().toDate();
+  // }
+
+  const nowUTC = moment.utc();
+
+  // 2. Parse the user's searched date and time in their timezone, then convert to UTC
+  const searchMoment = moment.tz(`${date} ${time}`, 'YYYY-MM-DD hh:mm A', timezone);
+
+  // 3. Get the start (00:00:00) and end (23:59:59) of the searched day in UTC
+  const startOfSearchDay = searchMoment.clone().startOf('day').utc().toDate();
+  const endOfSearchDay = searchMoment.clone().endOf('day').utc().toDate();
 
   let departureDateTimeFrom: Date;
-  let departureDateTimeTo: Date;
+  let departureDateTimeTo: Date = endOfSearchDay; // The search will always end at 23:59:59 of the searched day
 
-  if (diffDays === 0) {
+  // 4. Production Logic: Check if the search is for "Today" or a "Future" date
+  const isToday = nowUTC.toDate() >= startOfSearchDay && nowUTC.toDate() <= endOfSearchDay;
 
-    const hoursBefore = moment(specifiedDateTimeUTC).subtract(8, 'hours').toDate();
-    departureDateTimeFrom = hoursBefore < nowUTC ? nowUTC : hoursBefore;
-    departureDateTimeTo = moment(specifiedDateTimeUTC).add(8, 'hours').toDate();
+  if (isToday) {
+    // IF THE SEARCH IS FOR TODAY:
+    // Do not show past rides. However, keep a 2-minute grace period for recently departed rides.
+    const nowWithBuffer = nowUTC.clone().subtract(2, 'minutes').toDate();
 
-  } else if (diffDays === 1) {
-
-    departureDateTimeFrom = nowUTC;
-    departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).endOf('day').utc().toDate();
-
+    // Start searching from the current time (minus buffer) to show all remaining rides for today.
+    departureDateTimeFrom = nowWithBuffer;
   } else {
-
-    departureDateTimeFrom = nowUTC;
-    departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).add(1, 'day').endOf('day').utc().toDate();
+    // IF THE SEARCH IS FOR TOMORROW OR ANY FUTURE DATE:
+    // Start searching from the very beginning of that day (00:00:00).
+    departureDateTimeFrom = startOfSearchDay;
   }
+
 
   console.log({ departureDateTimeFrom, departureDateTimeTo, diffDays });
 
@@ -358,9 +389,6 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
 
   } else if (gender === GENDER.MALE) {
     matchStage.gender = GENDER.MALE;
-  }
-  else {
-    matchStage.gender = GENDER.NO_PREFERENCE;
   }
 
   const rides = await RidePublish.aggregate([

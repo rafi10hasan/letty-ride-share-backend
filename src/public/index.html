@@ -1,86 +1,123 @@
-<html>
+<!doctype html>
+<html lang="en">
   <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Server Status - Rafi Hasan</title>
     <style>
-      #root {
-        width: 100vw;
-        height: 100vh;
+      /* পুরো পেজের ব্যাকগ্রাউন্ড (Dark Theme) */
+      body {
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        background-color: #0f172a; /* গাঢ় নীল/কালো */
+        font-family: 'Consolas', 'Courier New', monospace;
+      }
+
+      /* কোড এডিটরের বক্স */
+      .editor-window {
+        background-color: #1e293b; /* এডিটরের ভেতরের কালার */
+        width: 90%;
+        max-width: 750px;
+        border-radius: 10px;
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        overflow: hidden;
+        animation: fadeIn 1s ease-in-out;
+        border: 1px solid #334155;
+      }
+
+      /* ম্যাকবুকের মতো উপরের ৩টি ডট */
+      .top-bar {
+        background-color: #0f172a;
+        padding: 12px 15px;
+        display: flex;
+        gap: 8px;
+        border-bottom: 1px solid #334155;
+      }
+
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+      }
+      .dot.red {
+        background-color: #ff5f56;
+      }
+      .dot.yellow {
+        background-color: #ffbd2e;
+      }
+      .dot.green {
+        background-color: #27c93f;
+      }
+
+      /* কোড লেখার এরিয়া */
+      .code-content {
+        padding: 20px 30px;
+        color: #f8f8f2;
+        font-size: 16px;
+        line-height: 1.6;
+        overflow-x: auto;
+      }
+
+      /* সিনট্যাক্স হাইলাইটিং (কালারগুলো আপনার ছবির মতো) */
+      .pink {
+        color: #ff79c6;
+      }
+      .cyan {
+        color: #8be9fd;
+      }
+      .yellow {
+        color: #f1fa8c;
+      }
+      .green {
+        color: #50fa7b;
+      }
+      .orange {
+        color: #ffb86c;
+      }
+      .comment {
+        color: #6272a4;
+        font-style: italic;
+      }
+
+      /* সিম্পল ফেড ইন অ্যানিমেশন */
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(20px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
       }
     </style>
   </head>
   <body>
-    <div id="root">
-      <!-- Custom call invitation dialog -->
-      <div id="confirmDialog" style="display: none">
-        <!-- Caller info -->
-        <div id="caller"></div>
-        <!-- Buttons -->
-        <button id="acceptButton">Accept</button>
-        <button id="refuseButton">Refuse</button>
+    <div class="editor-window">
+      <!-- Top Bar with Mac dots -->
+      <div class="top-bar">
+        <div class="dot red"></div>
+        <div class="dot yellow"></div>
+        <div class="dot green"></div>
+      </div>
+
+      <!-- The Code inside -->
+      <div class="code-content">
+        <pre>
+<span class="comment">// 🚀 Server Status: Online & Running Successfully!</span>
+
+<span class="pink">const</span> server <span class="pink">=</span> {
+  project_name: <span class="green">'Ride Share App'</span>,
+  status: <span class="pink">'success'</span>,
+  success: <span class="pink">true</span>,
+  code: <span class="pink">200</span>,
+};
+</pre>
       </div>
     </div>
-
-    <!-- SDK Scripts -->
-    <script src="https://unpkg.com/@zegocloud/zego-uikit-prebuilt/zego-uikit-prebuilt.js"></script>
-    <script src="https://unpkg.com/zego-zim-web@2.9.0/index.js"></script>
-
-    <script>
-      // ==== CONFIG ====
-      const appID = 1686278503;
-      const serverSecret = "ae26e9fd74460a880d6f02fb7cae0caf";
-
-      // ✅ Use a short alphanumeric userID (no spaces/special chars)
-      const userID = "rafi123"; 
-      const userName = "rafi";
-       
-      /*
-
-  04AAAAAGigXD0ADAeGeQiSLUlxtSJ4RgCu84wUhiivC9JaID7eBzVHPrp9peQxT8k9Qvtu5pMFjF6OB2T8Qq8dzw6/7kygaaaz4Li9fj4CLTbliV7XQbmGuN3q6NvMc2ApS8R3vOGWDOHn0ShQqa8oAHlvAS44rW6zfQHou4GvjKdPYWQi701l2Is3DMjLrSUEDoOCDoiq2gFYLX+pOQBq4ME+crA+48ZT58Y9jrP8V67ss+G2wfnqN6PhV9teEtMicXCdrdnpAQ==
-      */
-      // ✅ Must be non-null string
-      const roomID = `room_${userID}`; 
-
-      const TOKEN = ZegoUIKitPrebuilt.generateKitTokenForTest(
-        appID,
-        serverSecret,
-        roomID,   // ✅ valid room ID
-        userID,
-        userName
-      );
-
-      // Create UIKit instance
-      const zp = ZegoUIKitPrebuilt.create(TOKEN);
-      zp.addPlugins({ ZIM });
-
-      // Call invitation config
-      zp.setCallInvitationConfig({
-        enableCustomCallInvitationDialog: true,
-
-        // Custom call invitation UI
-        onConfirmDialogWhenReceiving: (callType, caller, refuse, accept, data) => {
-          const confirmDialogDom = document.querySelector('#confirmDialog');
-          confirmDialogDom.style.display = 'block';
-
-          // Show caller name
-          document.querySelector('#caller').innerHTML = caller.userName;
-
-          // Accept button
-          document.querySelector('#acceptButton').onclick = () => { 
-            accept();          
-            confirmDialogDom.style.display = 'none';
-          };
-
-          // Refuse button
-          document.querySelector('#refuseButton').onclick = () => { 
-            refuse();          
-            confirmDialogDom.style.display = 'none';
-          };
-        },
-
-        // Hide custom dialog when call ends
-        onCallInvitationEnded: (reason) => {
-          document.querySelector('#confirmDialog').style.display = 'none';
-        }
-      });
-    </script>
   </body>
 </html>

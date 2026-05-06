@@ -38,7 +38,7 @@ const UpdateSpecificPublishedRide = asyncHandler(async (req: Request, res: Respo
 });
 
 const searchAvailableRides = asyncHandler(async (req: Request, res: Response) => {
-
+    
     const result = await ridePublishService.searchAvailableRides(req.user, req.query as any);
     sendResponse(res, {
         statusCode: StatusCodes.OK,

@@ -57,7 +57,7 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
         },
         { $unwind: '$userData' },
 
-        // ✅ Subscription lookup
+        // Subscription lookup
         {
             $lookup: {
                 from: 'subscriptions',

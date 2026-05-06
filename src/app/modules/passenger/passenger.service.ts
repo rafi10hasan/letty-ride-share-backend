@@ -139,7 +139,7 @@ const getPassengerRequests = async (user: IUser) => {
 
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
-    match: { tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] } },
+    match: { tripStatus: { $in: [TRIP_STATUS.PENDING] } },
     select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked',
     populate: {
       path: 'driver',
