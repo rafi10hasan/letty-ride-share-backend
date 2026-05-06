@@ -7,9 +7,9 @@ const storage = multer.memoryStorage();
 
 // Per-field max size (bytes)
 export const MAX_FILE_SIZES: Record<string, number> = {
-  profile_image: 1 * 1024 * 1024,
-  car_images: 2 * 1024 * 1024,
-  verification_image: 2 * 1024 * 1024,
+  profile_image: 5 * 1024 * 1024,
+  car_images: 5 * 1024 * 1024,
+  verification_image: 5 * 1024 * 1024,
   chat_images: 1 * 1024 * 1024,
 };
 

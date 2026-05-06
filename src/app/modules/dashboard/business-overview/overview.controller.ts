@@ -52,6 +52,17 @@ const getUserGrowthIntoDb = asyncHandler(async (req: Request, res: Response) => 
     });
 });
 
+const getRecentUsersIntoDb = asyncHandler(async (req: Request, res: Response) => {
+
+    const result = await overviewUserService.getRecentUsers();
+    // console.log(result);
+    sendResponse(res, {
+        statusCode: StatusCodes.OK,
+        success: true,
+        message: result.length > 0 ? 'Recent users data has been retrieved successfully' : 'No recent users found',
+        data: result,
+    });
+});
 
 const getRecentActiveRidesIntodb = asyncHandler(async (req: Request, res: Response) => {
 
@@ -70,5 +81,6 @@ export const overviewUserController = {
     getTopOverviewIntoDb,
     getStatsOverviewIntoDb,
     getUserGrowthIntoDb,
-    getRecentActiveRidesIntodb
+    getRecentActiveRidesIntodb,
+    getRecentUsersIntoDb
 };

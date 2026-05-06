@@ -20,6 +20,12 @@ userOverviewRouter.get(
 );
 
 userOverviewRouter.get(
+  '/users',
+  authMiddleware(USER_ROLE.SUPER_ADMIN),
+  overviewUserController.getRecentUsersIntoDb,
+);
+
+userOverviewRouter.get(
   '/revenue-analytics',
   authMiddleware(USER_ROLE.SUPER_ADMIN),
   overviewUserController.getRevenueAnalyticsIntoDb,

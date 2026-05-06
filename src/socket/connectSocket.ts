@@ -9,7 +9,6 @@ import { sendNotificationBySocket } from '../app/modules/notification/notificati
 import { USER_ROLE } from '../app/modules/user/user.constant';
 import User from '../app/modules/user/user.model';
 import config from '../config';
-import getUnreadMessageCount from '../helpers/getUnreadMessageCount';
 import jwtHelpers from '../helpers/jwtHelpers';
 import getUserNotificationCount from '../utilities/getUserNotificationCount';
 import handleChatEvents from './handleChatEvents';
@@ -62,7 +61,7 @@ const socketAuthMiddleware = async (
       return next(new Error('Account has been deleted'));
     }
 
-    if (!currentUser.isActive) {
+    if (currentUser.isActive === false) {
       return next(new Error('Account is deactivated'));
     }
 
@@ -172,7 +171,6 @@ const connectSocket = (server: HTTPServer) => {
   if (!io) {
     io = new ChatServer(server, {
       cors: {
-        origin: config.frontend_url || '*',
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
         allowedHeaders: ['Authorization', 'Content-Type'],
       },

@@ -1,3 +1,4 @@
+import moment from "moment";
 import getUserNotificationCount from "../../../../utilities/getUserNotificationCount";
 import { TRIP_STATUS } from "../../ride-publish/ride.publish.constant";
 import RidePublish from "../../ride-publish/ride.publish.model";
@@ -130,7 +131,7 @@ const getRecentActiveRides = async () => {
         .populate<{ driver: { fullName: string, avatar: string } }>('driver', 'fullName avatar')
         .select('tripId pickUpLocation dropOffLocation tripStatus driver')
         .sort({ createdAt: -1 })
-        .limit(10) // Optimization: dashboard er jonno limit kora bhalo
+        .limit(5) 
         .lean();
 
     return rides.map(ride => ({
@@ -143,10 +144,37 @@ const getRecentActiveRides = async () => {
     }));
 };
 
+
+// ─── 4. RECENT USERS ────────────────────────────────────────────
+const getRecentUsers = async () => {
+    const users = await User.find({
+        isDeleted: false,
+        currentRole: { $nin: ['admin', 'super-admin'] }
+    })
+        .select('fullName avatar email phone accountId isActive subscription createdAt ')
+        .sort({ createdAt: -1 })
+        .limit(10) 
+        .lean();
+
+    return users.map(user => ({
+        fullName: user.fullName,
+        avatar: user.avatar,
+        email: user.email? user.email : 'N/A',
+        phone: user.phone ? user.phone : 'N/A',
+        accountId: user.accountId,
+        isActive: user.isActive,
+        plan: user.subscription?.plan || 'Free',
+        createdAt: moment(user.createdAt).format('YYYY-MM-DD')
+    }));
+
+};
+
+
 export const overviewUserService = {
     getStatsOverview,
     getRevenueAnalytics,
     getUserGrowth,
     getRecentActiveRides,
-    getTopOverview
+    getTopOverview,
+    getRecentUsers
 };
