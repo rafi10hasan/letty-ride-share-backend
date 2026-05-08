@@ -7,8 +7,6 @@ import { onlineUsers } from '../connectSocket';
 import { SOCKET_EVENTS } from '../socket.constant';
 
 
-
-
 interface MessagePageData {
   conversationId: string;
   page?: number;

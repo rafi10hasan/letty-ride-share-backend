@@ -16,7 +16,7 @@ export const validateFileSizes = (req: Request, res: Response, next: NextFunctio
         res.status(400).json({
           status: 'failed',
           success: false,
-          message: `you can't upload --${file.originalname}-- file larger than ${Number(maxSize / (1024 * 1024)).toFixed(1)} Mb`,
+          message: `You can't upload --${file.originalname}-- file larger than ${Number(maxSize / (1024 * 1024)).toFixed(1)} Mb`,
         });
         return;
       }

@@ -1,7 +1,7 @@
 import moment from "moment";
+import { NOTIFICATION_TYPE } from "../app/modules/notification/notification.constant";
 import { notifyUser } from "../cron/rideCron";
 import { SOCKET_EVENTS } from "../socket/socket.constant";
-import { NOTIFICATION_TYPE } from "../app/modules/notification/notification.constant";
 
 export const notifyPassengersOfScheduleChange = async ({
   bookings,

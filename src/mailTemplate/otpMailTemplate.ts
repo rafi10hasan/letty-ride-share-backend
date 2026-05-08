@@ -90,10 +90,10 @@ const otpMailTemplate = (verificationCode: string, expiredTime: number) => `
       <div class="container">
         <div class="content">
           <h2>Hi</h2>
-          <p>You have requested to reset your password. Please use the following One-Time Password (OTP) to complete the process</p>
+          <p>You have requested to reset Your password. Please use the following One-Time Password (OTP) to complete the process</p>
           <div class="activation-code"> Your OTP: ${verificationCode || 'XXXXXX'}</div>
-          <p>Enter this code to reset your password within the next <strong class="expired-time">${expiredTime} minutes.<strong> </p>
-          <p> If you did not request this, please ignore this email and your password will remain unchanged.</p>
+          <p>Enter this code to reset Your password within the next <strong class="expired-time">${expiredTime} minutes.<strong> </p>
+          <p> If You did not request this, please ignore this email and Your password will remain unchanged.</p>
           <p>For security reasons, do not share this OTP with anyone.</p>
         </div>
       </div>

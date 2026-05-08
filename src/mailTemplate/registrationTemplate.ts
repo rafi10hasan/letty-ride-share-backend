@@ -89,11 +89,11 @@ const registrationEmailTemplate = (verificationCode: string, expiredTime: number
     <body>
       <div class="container">
         <div class="content">
-          <p>Thank you for registering with ${teamName}. To activate your account, please use the following activation code:</p>
+          <p>Thank You for registering with ${teamName}. To activate Your account, please use the following activation code:</p>
           <div class="activation-code">${verificationCode || 'XXXXXX'}</div>
           <p>Enter this code on the activation page within the next <strong class="expired-time">${expiredTime} minutes.<strong> </p>
-          <p> If you don't verify your account, it will be blocked.</p>
-          <p>If you didn't register, ignore this email.</p>
+          <p> If You don't verify Your account, it will be blocked.</p>
+          <p>If You didn't register, ignore this email.</p>
         </div>
       </div>
     </body>

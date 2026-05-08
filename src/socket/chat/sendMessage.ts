@@ -24,7 +24,7 @@ export async function handleSendMessage(
 
 ) {
 
-  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/; 
+  const emailRegex = /[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/;
 
   if (messageData.text) {
     const hasEmail = emailRegex.test(messageData.text);
@@ -168,7 +168,7 @@ export async function handleSendMessage(
 //   if (currentUserId === data.receiverId) {
 //     return socket.emit('socket-error', {
 //       event: 'new-message',
-//       message: `You can't chat with yourself`,
+//       message: `You can't chat with Yourself`,
 //     });
 //   }
 

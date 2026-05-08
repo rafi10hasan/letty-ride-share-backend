@@ -13,7 +13,7 @@ const sendReportToAdmin = asyncHandler(async (req: Request, res: Response) => {
     sendResponse(res, {
         statusCode: 201,
         success: true,
-        message: 'Report added successfully! admin will review your report and take necessary action',
+        message: 'Report added successfully! admin will review Your report and take necessary action',
         data: result,
     });
 });

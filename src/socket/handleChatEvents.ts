@@ -1,5 +1,6 @@
 import NodeCache from 'node-cache';
 import { Server as IOServer, Socket } from 'socket.io';
+import Conversation from '../app/modules/conversation/conversation.model';
 import { createConversation } from '../helpers/createConversation';
 import { getConversationList } from '../helpers/getConversationLIst';
 import { handleMessagePage } from './chat/getMessages';
@@ -7,7 +8,7 @@ import { handleSendMessage } from './chat/sendMessage';
 import { SOCKET_EVENTS } from './socket.constant';
 
 
-
+//
 const handleChatEvents = async (
   io: IOServer,
   socket: Socket,
@@ -29,17 +30,46 @@ const handleChatEvents = async (
   });
   console.log('🎯 Listening for event:', SOCKET_EVENTS.CREATE_CONVERSATION);
   // join conversation
+
   socket.on(SOCKET_EVENTS.JOIN_CONVERSATION, async (conversationId: string) => {
-    socket.join(conversationId);
-    socket.data.currentConversationId = conversationId;
+    if (!conversationId) return;
+
+    try {
+      const isParticipant = await Conversation.exists({
+        _id: conversationId,
+        participants: currentUserId, // users array te currentUserId ase kina check korbe
+      });
+
+      if (isParticipant) {
+        // Valid user, room join 
+        socket.join(conversationId);
+        socket.data.currentConversationId = conversationId;
+        console.log(`User ${currentUserId} joined conversation: ${conversationId}`);
+
+      } else {
+        // Invalid user! Room e dhukate dibe na
+        console.warn(`Unauthorized join attempt by ${currentUserId} for conversation: ${conversationId}`);
+        socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
+          message: "You are not authorized to join this conversation"
+        });
+      }
+    } catch (err) {
+      console.error("Join conversation DB error:", err);
+    }
   });
+
 
   socket.on(SOCKET_EVENTS.LEAVE_CONVERSATION, (conversationId?: string) => {
     const targetConversationId =
       conversationId ?? socket.data.currentConversationId;
 
     if (targetConversationId) {
-      socket.data.currentConversationId = null;
+      const rooms = Array.from(socket.rooms);
+      if (rooms.includes(targetConversationId)) {
+        socket.leave(targetConversationId);
+        socket.data.currentConversationId = null;
+        console.log(`User ${currentUserId} left conversation: ${targetConversationId}`);
+      }
     }
   });
 

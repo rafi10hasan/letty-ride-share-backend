@@ -56,11 +56,11 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
         },
         { $unwind: '$userData' },
 
-     
+
         {
             $lookup: {
                 from: 'subscriptions',
-                localField: 'userData.subscription.id',  
+                localField: 'userData.subscription.id',
                 foreignField: '_id',
                 as: 'subscriptionData',
             },
@@ -68,7 +68,7 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
         {
             $unwind: {
                 path: '$subscriptionData',
-                preserveNullAndEmptyArrays: true,  
+                preserveNullAndEmptyArrays: true,
             },
         },
 
@@ -147,13 +147,13 @@ const getAllDrivers = async (query: Record<string, unknown>) => {
 
 
 // update driver status
-const updateDriverStatus = async (id: string, payload: { status: true | false , reason?: string }) => {
+const updateDriverStatus = async (id: string, payload: { status: true | false, reason?: string }) => {
 
     if (payload.status === undefined) {
         throw new BadRequestError('status is required')
     }
 
-    if(payload.status === false && !payload.reason){
+    if (payload.status === false && !payload.reason) {
         throw new BadRequestError('reason is required when deactivating a driver')
     }
     const user = await userRepository.findById(id, "isActive fcmToken email");
@@ -172,7 +172,7 @@ const updateDriverStatus = async (id: string, payload: { status: true | false , 
             from: config.gmail_app_user,
             to: user.email,
             subject: 'Account Status Changed',
-            html: `your account status has been changed by admin. Reason: ${payload.reason}`,
+            html: `Your account status has been changed by admin. Reason: ${payload.reason}`,
         }
         : null;
 
@@ -183,7 +183,7 @@ const updateDriverStatus = async (id: string, payload: { status: true | false , 
                 try {
                     await sendPushNotification(fcmToken, {
                         title: 'Account Status changed',
-                        content: `Admin has changed your account status. Reason: ${payload.reason}`,
+                        content: `Admin has changed Your account status. Reason: ${payload.reason}`,
                     });
                 } catch (error) {
                     logger.error(`FCM failed for driver: ${error}`);

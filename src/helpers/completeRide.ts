@@ -30,7 +30,7 @@ export const completeRide = async (rideId: string) => {
   const alreadyExists = await TripHistory.findOne({ rideId: ride._id });
   if (alreadyExists) {
     logger.warn(`completeRide: Ride ${rideId} already completed`);
-    return; 
+    return;
   }
 
   const bookings = await Booking.find({
@@ -152,7 +152,7 @@ export const completeRide = async (rideId: string) => {
         userId: passengerId.toString(),
         fcmToken,
         title: 'Ride Completed',
-        message: `Your ride ${ride.tripId} has been completed. If you faced any problem please submit a report.`,
+        message: `Your ride ${ride.tripId} has been completed. If You faced any problem please submit a report.`,
         socketEvent: 'ride-completed',
         notificationType: NOTIFICATION_TYPE.RIDE_COMPLETED,
       });

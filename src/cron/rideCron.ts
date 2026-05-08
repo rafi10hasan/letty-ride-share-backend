@@ -286,7 +286,7 @@ export const initializeRideCrons = () => {
                             userId: passengerId.toString(),
                             fcmToken,
                             title: 'Near Destination',
-                            message: `You are 30 minutes away from your destination for ride ${ride.tripId}.`,
+                            message: `You are 30 minutes away from Your destination for ride ${ride.tripId}.`,
                             socketEvent: 'near-destination',
                             notificationType: NOTIFICATION_TYPE.NEAR_DESTINATION,
                         });

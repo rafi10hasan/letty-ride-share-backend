@@ -145,7 +145,7 @@ const getMyPublishedRides = async (user: IUser) => {
   }
 
   if (driver.user.toString() !== user._id.toString()) {
-    throw new UnauthorizedError('this driver profile does not belong to you');
+    throw new UnauthorizedError('this driver profile does not belong to You');
   }
 
   const myPublishedRides = await RidePublish.find({ driver: driver._id, tripStatus: TRIP_STATUS.PENDING })
@@ -189,7 +189,7 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
   }
 
   if (ride.driver.toString() !== driver._id.toString()) {
-    throw new UnauthorizedError('This ride is not yours');
+    throw new UnauthorizedError('This ride is not Yours');
   }
 
   if (ride.status !== PUBLISH_STATUS.ACTIVE) {
@@ -480,7 +480,7 @@ const startRide = async (user: IUser, rideId: string) => {
     }
 
     if (ride.driver.toString() !== driver._id.toString()) {
-      throw new UnauthorizedError('This ride is not yours');
+      throw new UnauthorizedError('This ride is not Yours');
     }
 
     if (ride.tripStatus !== TRIP_STATUS.UPCOMING) {
@@ -558,7 +558,7 @@ const completeRideByDriver = async (user: IUser, rideId: string) => {
   if (!ride) throw new NotFoundError('Ongoing ride not found');
 
   if (ride.driver.toString() !== driver._id.toString()) {
-    throw new UnauthorizedError('This ride is not yours');
+    throw new UnauthorizedError('This ride is not Yours');
   }
   await completeRide(rideId);
 };
@@ -577,7 +577,7 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
   }
 
   if (ride.driver.toString() !== driver._id.toString()) {
-    throw new UnauthorizedError('This ride is not yours');
+    throw new UnauthorizedError('This ride is not Yours');
   }
 
   if (ride.status === PUBLISH_STATUS.CANCELLED) {

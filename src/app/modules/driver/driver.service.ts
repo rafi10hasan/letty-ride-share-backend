@@ -275,7 +275,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
   }
 
   if (ride.driver.toString() !== driver._id.toString()) {
-    throw new UnauthorizedError('This ride is not yours');
+    throw new UnauthorizedError('This ride is not Yours');
   }
 
   const passengers = await Booking.find({ ride: rideId }).populate<{ passenger: IPassenger }>({
@@ -321,7 +321,7 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
 
   if (ride) {
     if (ride.driver.toString() !== driver._id.toString()) {
-      throw new UnauthorizedError('This ride is not yours');
+      throw new UnauthorizedError('This ride is not Yours');
     }
 
     const passengers = await Booking.find({
@@ -357,7 +357,7 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
   if (!tripHistory) throw new NotFoundError('trip not found');
 
   if (tripHistory.driver.toString() !== driver._id.toString()) {
-    throw new UnauthorizedError('This ride is not yours');
+    throw new UnauthorizedError('This ride is not Yours');
   }
 
   const passengers = await Booking.find({

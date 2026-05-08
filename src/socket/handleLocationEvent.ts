@@ -82,7 +82,7 @@ const handleLocationEvents = async (io: IOServer, socket: Socket): Promise<void>
             if (booking.passenger.user.fcmToken && isNearDestination) {
               try {
                 await sendPushNotification(booking.passenger.user.fcmToken, {
-                  title: '🚗 You are near your destination!',
+                  title: '🚗 You are near Your destination!',
                   content: `Your driver will arrive in approximately ${Math.ceil(etaSeconds / 60)} minutes`,
                 });
               } catch (error) {

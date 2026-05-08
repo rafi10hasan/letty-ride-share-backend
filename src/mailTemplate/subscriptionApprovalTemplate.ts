@@ -1,14 +1,14 @@
 const subscriptionApprovalEmailTemplate = (
   userName: string,
   planName: string | null,
-  status: string 
+  status: string
 ) => {
-  
+
   const isApproved = status.toLowerCase() === 'approved';
-  
-  const statusMessage = isApproved 
-    ? `You now have full access to the <strong>${planName}</strong> plan. Enjoy your premium features!`
-    : `Unfortunately, your request for the ${planName} plan could not be processed at this time.`;
+
+  const statusMessage = isApproved
+    ? `You now have full access to the <strong>${planName}</strong> plan. Enjoy Your premium features!`
+    : `Unfortunately, Your request for the ${planName} plan could not be processed at this time.`;
 
   return `
   <html lang="en">
@@ -67,7 +67,7 @@ const subscriptionApprovalEmailTemplate = (
         <div class="content">
           <div class="message-box">
             Hello <strong>${userName}</strong>,<br><br>
-            The administrator has <strong>${status.toLowerCase()}</strong> your subscription request.<br><br>
+            The administrator has <strong>${status.toLowerCase()}</strong> Your subscription request.<br><br>
             ${statusMessage}
           </div>
         </div>

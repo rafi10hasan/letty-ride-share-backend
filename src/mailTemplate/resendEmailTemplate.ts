@@ -90,10 +90,10 @@ const resendEmailTemplate = (verificationCode: string, expiredTime: number) => `
       <div class="container">
         <div class="content">
           <h2>Hi</h2>
-          <p>You have requested to resend your verification email. Please use the following One-Time Password (OTP) to complete the process</p>
+          <p>You have requested to resend Your verification email. Please use the following One-Time Password (OTP) to complete the process</p>
           <div class="activation-code"> Your OTP: ${verificationCode || 'XXXXXX'}</div>
-          <p>Enter this code to verify your email within the next <strong class="expired-time">${expiredTime} minutes.<strong> </p>
-          <p> If you did not request this, please ignore this email and your password will remain unchanged.</p>
+          <p>Enter this code to verify Your email within the next <strong class="expired-time">${expiredTime} minutes.<strong> </p>
+          <p> If You did not request this, please ignore this email and Your password will remain unchanged.</p>
           <p>For security reasons,do not share this OTP with anyone.</p>
         </div>
       </div>

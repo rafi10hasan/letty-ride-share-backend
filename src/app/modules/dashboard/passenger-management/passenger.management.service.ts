@@ -173,7 +173,7 @@ const updatePassengerStatus = async (id: string, payload: { status: "true" | "fa
                     if (fcmToken) {
                         await sendPushNotification(fcmToken, {
                             title: 'Account Status changed',
-                            content: `Admin has changed your account status`,
+                            content: `Admin has changed Your account status`,
                         });
                     }
                 } catch (error) {
@@ -190,7 +190,7 @@ const updatePassengerStatus = async (id: string, payload: { status: "true" | "fa
                             from: config.gmail_app_user,
                             to: email,
                             subject: 'Account Status Changed',
-                            html: 'your account status has been changed by admin, now you can not access your account, please contact support for more details.',
+                            html: 'Your account status has been changed by admin, now You can not access Your account, please contact support for more details.',
                         });
                     }
                 } catch (error) {

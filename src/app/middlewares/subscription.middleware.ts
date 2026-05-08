@@ -77,7 +77,7 @@ export const checkSubscription = async (
                     statusCode: StatusCodes.FORBIDDEN,
                     success: false,
                     message: isPending
-                        ? 'Your subscription is pending approval. Once approved, you can use this feature.'
+                        ? 'Your subscription is pending approval. Once approved, You can use this feature.'
                         : 'Your subscription is not active or was rejected.',
                 });
                 return;
@@ -134,11 +134,11 @@ export const checkSubscription = async (
             } else {
                 const driverTotalTrip = await getDriverRideCountCurrentMonth(profileId);
                 console.log("driverTotalTrip", driverTotalTrip)
-                if (driverTotalTrip >= 5) {
+                if (driverTotalTrip >= 1) {
                     sendResponse(res, {
                         statusCode: StatusCodes.FORBIDDEN,
                         success: false,
-                        message: 'Monthly limit reached (5 free trips as driver). Please upgrade.',
+                        message: 'Monthly limit reached (1 free trip as driver). Please upgrade.',
                         data: null,
                     });
                     return;
@@ -293,7 +293,7 @@ export const requireBothModes = (
 //                     statusCode: StatusCodes.FORBIDDEN,
 //                     success: false,
 //                     message: isPending
-//                         ? 'Your subscription is pending approval. Once approved, you can use this feature.'
+//                         ? 'Your subscription is pending approval. Once approved, You can use this feature.'
 //                         : 'Your subscription is not active or was rejected.',
 //                 });
 //                 return;

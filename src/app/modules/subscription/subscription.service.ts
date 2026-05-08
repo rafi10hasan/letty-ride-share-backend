@@ -88,7 +88,7 @@ const sendSubscriptionPurchaseRequest = async (
             });
         }
 
-    
+
         if (canUseEmail) {
             const mailOptions = {
                 from: user.email!,

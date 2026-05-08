@@ -1,6 +1,5 @@
 import cors from 'cors';
 import express, { Application, Request, Response } from 'express';
-import { StatusCodes } from 'http-status-codes';
 import path from 'path';
 import config from './config';
 import { errorHandler, successHandler } from './config/morgan';
@@ -68,9 +67,7 @@ app.get('/root', rootDesign);
 
 
 app.get('/health_check', (_req: Request, res: Response) => {
-  res.status(StatusCodes.OK).json({
-    message: 'Welcome to the server. Server health is good.',
-  });
+  res.sendFile(path.join(__dirname, 'public', 'health.html'));
 });
 
 

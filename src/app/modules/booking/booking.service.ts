@@ -10,7 +10,6 @@ import { IUser } from "../user/user.interface";
 import { Booking } from "./booking.model";
 
 import logger from "../../../config/logger";
-import Notification from "../notification/notification.model";
 import { sendNotificationBySocket, sendPushNotification } from "../notification/notification.utils";
 import { TRIP_STATUS } from "../ride-publish/ride.publish.constant";
 import { USER_ROLE } from "../user/user.constant";
@@ -47,7 +46,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
 
     const isExistingBooking = await Booking.findOne({ passenger: passenger._id, ride: rideId });
     if (isExistingBooking) {
-        throw new BadRequestError('you have already a request for this ride')
+        throw new BadRequestError('You have already a request for this ride')
     }
 
     const ride = await RidePublish.findById(rideId)
@@ -78,19 +77,19 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
     }
 
     if (payload.seatsBooked > ride.availableSeats) {
-        throw new BadRequestError(`you booked ${payload.seatsBooked} seats but available seat has ${ride.availableSeats}`)
+        throw new BadRequestError(`You booked ${payload.seatsBooked} seats but available seat has ${ride.availableSeats}`)
     }
 
     const pickupDistance = getDistanceInKm(payload.pickUpLocation.coordinates, ride.pickUpLocation.coordinates);
     console.log({ pickupDistance })
     if (pickupDistance > 10) {
-        throw new BadRequestError("you can't booked outside 10 km from pick up location")
+        throw new BadRequestError("You can't booked outside 10 km from pick up location")
     }
 
     const dropOffDistance = getDistanceInKm(payload.dropOffLocation.coordinates, ride.dropOffLocation.coordinates);
     console.log({ dropOffDistance })
     if (dropOffDistance > 10) {
-        throw new BadRequestError("you can't booked outside 10 km from drop off location")
+        throw new BadRequestError("You can't booked outside 10 km from drop off location")
     }
 
     const booking = await Booking.create({
@@ -177,7 +176,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
     }
 
     if (booking.ride?.driver.toString() !== driver._id.toString()) {
-        throw new UnauthorizedError('This booking is not yours');
+        throw new UnauthorizedError('This booking is not Yours');
     }
 
     if (booking.status !== BOOKING_STATUS.PENDING) {
@@ -256,7 +255,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
                 try {
                     await sendPushNotification(passengerFcmToken, {
                         title: 'Booking Accepted',
-                        content: `${user.fullName} has accepted your booking ${booking.ride.tripId}`,
+                        content: `${user.fullName} has accepted Your booking ${booking.ride.tripId}`,
                     });
                 } catch (error) {
                     logger.error(`FCM failed for passenger: ${error}`);
@@ -310,7 +309,7 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string) => {
     if (!booking) throw new NotFoundError('Request not found');
 
     if (user.currentRole === USER_ROLE.DRIVER && booking.ride.driver._id.toString() !== driver._id.toString()) {
-        throw new UnauthorizedError('This booking is not yours');
+        throw new UnauthorizedError('This booking is not Yours');
     }
 
     if (booking.status !== BOOKING_STATUS.PENDING) {

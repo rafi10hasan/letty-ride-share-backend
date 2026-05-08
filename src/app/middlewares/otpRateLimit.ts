@@ -1,7 +1,7 @@
 import rateLimit from 'express-rate-limit';
 
 export const otpRateLimiter = rateLimit({
-  windowMs: 2 * 60 * 1000, 
+  windowMs: 2 * 60 * 1000,
   limit: 3,
   keyGenerator: (req) => {
     const ip = req.ip?.replace('::ffff:', '') ?? 'unknown';

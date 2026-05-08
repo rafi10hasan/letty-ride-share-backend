@@ -23,7 +23,7 @@ export const createConversation = async (
         if (currentUserId === data.receiverId) {
             return socket.emit('socket-error', {
                 event: 'create-conversation',
-                message: "You can't chat with yourself",
+                message: "You can't chat with Yourself",
             });
         }
 

@@ -11,7 +11,7 @@ const loginWithCredential = asyncHandler(async (req: Request, res: Response) => 
   sendResponse(res, {
     statusCode: isVerificationRequired ? StatusCodes.BAD_REQUEST : StatusCodes.OK,
     success: isVerificationRequired ? false : true,
-    message: isVerificationRequired ? 'Your Account is not verified. Please verify your account to login' : 'Welcome back! You have successfully logged in.',
+    message: isVerificationRequired ? 'Your Account is not verified. Please verify Your account to login' : 'Welcome back! You have successfully logged in.',
     data: result,
   });
 });
@@ -113,7 +113,7 @@ const sendResetPasswordOtpAgain = asyncHandler(async (req: Request, res: Respons
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'A new OTP has been sent to your email.',
+    message: 'A new OTP has been sent to Your email.',
     data: result,
   });
 });

@@ -2,8 +2,10 @@ import { OAuth2Client } from 'google-auth-library';
 import config from '../../../config';
 import jwtHelpers from '../../../helpers/jwtHelpers';
 import otpMailTemplate from '../../../mailTemplate/otpMailTemplate';
+import resendEmailTemplate from '../../../mailTemplate/resendEmailTemplate';
 import { generateOTP } from '../../../utilities/generateOtp';
 import sendMail from '../../../utilities/sendEmail';
+import sendOtpSms from '../../../utilities/sendOtpSms';
 import { BadRequestError, UnauthorizedError } from '../../errors/request/apiError';
 import { SessionModel } from '../session/session.model';
 import { USER_ROLE } from '../user/user.constant';
@@ -13,8 +15,6 @@ import { generateAccountId } from '../user/user.utils';
 import { jwtPayload, socialLoginPayload } from './auth.interface';
 import { sendVerificationOtp } from './auth.utils';
 import { TAdminLoginPayload, TLoginPayload } from './auth.validation';
-import resendEmailTemplate from '../../../mailTemplate/resendEmailTemplate';
-import sendOtpSms from '../../../utilities/sendOtpSms';
 
 const googleClient = new OAuth2Client();
 
@@ -32,7 +32,7 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   if (user.isActive === false) throw new UnauthorizedError('user need admin approval to access');
 
   if (!user.password && user.isSocialLogin) {
-    throw new BadRequestError('Please login with your social account');
+    throw new BadRequestError('Please login with Your social account');
   }
 
   const isPasswordMatch = await user.isPasswordMatched(password);
@@ -171,7 +171,7 @@ const loginWithOAuth = async (credential: socialLoginPayload, deviceId: string) 
 
   // Social login check
   if (!user.isSocialLogin) {
-    throw new BadRequestError('Please login with your email and password');
+    throw new BadRequestError('Please login with Your email and password');
   }
 
   if (user.isDeleted || !user.isActive) {

@@ -43,13 +43,13 @@ const createReport = async (user: IUser, rideId: string, payload: TReportPayload
 
 
     if (user.currentRole === USER_ROLE.PASSENGER) {
-        anotherUser = await  passengerRepository.findPassengerByUserId(new mongoose.Types.ObjectId(reportedId), "user");
+        anotherUser = await passengerRepository.findPassengerByUserId(new mongoose.Types.ObjectId(reportedId), "user");
     } else if (user.currentRole === USER_ROLE.DRIVER) {
         anotherUser = await driverRepository.findDriverByUserId(new mongoose.Types.ObjectId(reportedId), "user");
     }
 
     if (anotherUser && anotherUser.user.toString() === user._id.toString()) {
-        throw new BadRequestError("you can't report yourself");
+        throw new BadRequestError("You can't report Yourself");
     }
 
     const result = await Report.create({

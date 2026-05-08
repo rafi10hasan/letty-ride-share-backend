@@ -14,7 +14,7 @@ const createReview = async (user: IUser, tripId: string, payload: any) => {
   console.log(user._id)
   const hasTrip = await TripHistory.findById(tripId);
   if (!hasTrip) {
-    throw new BadRequestError(`you can not give rating in unknown trip`);
+    throw new BadRequestError(`You can not give rating in unknown trip`);
   }
 
   const isExistReviewForSameTrip = await Review.findOne({
@@ -23,7 +23,7 @@ const createReview = async (user: IUser, tripId: string, payload: any) => {
   });
 
   if (isExistReviewForSameTrip) {
-    throw new BadRequestError(`you already give a review for this trip`);
+    throw new BadRequestError(`You already give a review for this trip`);
   }
 
   let anotherUser;
@@ -34,7 +34,7 @@ const createReview = async (user: IUser, tripId: string, payload: any) => {
   }
 
   if (anotherUser && anotherUser.user.toString() === user._id.toString()) {
-    throw new BadRequestError("you can't rate yourself");
+    throw new BadRequestError("You can't rate Yourself");
   }
 
   const session = await mongoose.startSession();

@@ -112,21 +112,6 @@ const handleConnection = async (socket: Socket) => {
     console.error('Failed to get notification count for:', currentUserId, err);
   }
 
-  // Join all user conversations
-  try {
-    const userConversations = await Conversation.find({
-      participants: currentUserId,
-    })
-      .select('_id')
-      .lean();
-
-    for (const conv of userConversations) {
-      socket.join(conv._id.toString());
-    }
-  } catch (err) {
-    console.error('Conversation join failed:', err);
-  }
-
   // Test notification (only available in non-production)
   if (config.node_env !== 'production') {
     socket.on('test:notification', async (data) => {
@@ -171,9 +156,10 @@ const connectSocket = (server: HTTPServer) => {
   if (!io) {
     io = new ChatServer(server, {
       cors: {
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+        methods: ['GET', 'POST'],
         allowedHeaders: ['Authorization', 'Content-Type'],
       },
+      transports: ['websocket'],
       pingInterval: 30000,
       pingTimeout: 5000,
       connectTimeout: 45000,

@@ -70,7 +70,7 @@
 //     : ''
 //   }
 //       <div class="footer">
-//         <p>Thank you for being part of Steady Hands.</p>
+//         <p>Thank You for being part of Steady Hands.</p>
 //       </div>
 //     </div>
 //   </body>
@@ -116,7 +116,7 @@
 //     const { fullName, serviceName } = data as BookingRequestPayload;
 //     return baseEmailTemplate(
 //       'New Booking Request',
-//       `Hello ${fullName}, you have a new booking request for <b>${serviceName}</b>. Please review and confirm.`,
+//       `Hello ${fullName}, You have a new booking request for <b>${serviceName}</b>. Please review and confirm.`,
 //       'View Booking',
 //     );
 //   },
@@ -125,7 +125,7 @@
 //     const { fullName, serviceName, date } = data as ConfirmedBookingPayload;
 //     return baseEmailTemplate(
 //       'Booking Confirmed',
-//       `Hi ${fullName}, your booking for <b>${serviceName}</b> on <b>${date}</b> has been confirmed.`,
+//       `Hi ${fullName}, Your booking for <b>${serviceName}</b> on <b>${date}</b> has been confirmed.`,
 //       'View Details',
 //     );
 //   },
@@ -134,7 +134,7 @@
 //     const { fullName, serviceName } = data as CompletedBookingPayload;
 //     return baseEmailTemplate(
 //       'Booking Completed',
-//       `Hello ${fullName}, your booking for <b>${serviceName}</b> is now marked as completed. Thank you!`
+//       `Hello ${fullName}, Your booking for <b>${serviceName}</b> is now marked as completed. Thank You!`
 //     );
 //   },
 
@@ -142,7 +142,7 @@
 //     const { fullName, serviceName } = data as CancelBookingPayload;
 //     return baseEmailTemplate(
 //       'Booking Cancelled',
-//       `Dear ${fullName}, your booking for <b>${serviceName}</b> has been cancelled. Please contact support if you think this is a mistake.`
+//       `Dear ${fullName}, Your booking for <b>${serviceName}</b> has been cancelled. Please contact support if You think this is a mistake.`
 //     );
 //   },
 

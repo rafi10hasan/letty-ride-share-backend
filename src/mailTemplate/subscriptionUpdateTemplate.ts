@@ -6,10 +6,10 @@ const subscriptionUpdateEmailTemplate = (
 ): string => {
   const formattedExpiry = expiryDate
     ? new Date(expiryDate).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    })
     : null;
 
   const formattedCycle = billingCycle
@@ -58,7 +58,7 @@ const subscriptionUpdateEmailTemplate = (
                 Hi <strong>${fullName}</strong>,
               </p>
               <p style="margin:0 0 32px;color:#6B7280;font-size:15px;line-height:1.6;">
-                Your subscription has been updated by our team. Here are your new plan details:
+                Your subscription has been updated by our team. Here are Your new plan details:
               </p>
 
               <!-- Plan Details Card -->
@@ -105,10 +105,10 @@ const subscriptionUpdateEmailTemplate = (
               </table>
 
               <p style="margin:0 0 16px;color:#6B7280;font-size:14px;line-height:1.6;">
-                If you have any questions about your subscription, please don't hesitate to contact our support team.
+                If You have any questions about Your subscription, please don't hesitate to contact our support team.
               </p>
               <p style="margin:0;color:#6B7280;font-size:14px;">
-                Thank you for being with us!
+                Thank You for being with us!
               </p>
             </td>
           </tr>

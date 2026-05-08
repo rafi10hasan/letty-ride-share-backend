@@ -4,7 +4,7 @@ import config from "../../../config";
 import { BadRequestError } from "../../errors/request/apiError";
 import { IUser } from "../user/user.interface";
 import User from "../user/user.model";
-// adjust to your actual model import
+// adjust to Your actual model import
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 const buildChannelName = (idA: string, idB: string) =>
