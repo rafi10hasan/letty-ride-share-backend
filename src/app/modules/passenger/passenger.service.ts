@@ -281,6 +281,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
     },
   }).sort({ createdAt: -1 });
 
+  console.log({bookings})
   return bookings.map((b) => {
     const trip = b.tripHistory as unknown as ITripHistory & {
       driver: {
@@ -291,7 +292,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
         totalReviews: number;
       };
     };
-
+    console.log({ trip, b })
     return {
       tripHistoryId: trip._id,
       rideId: trip.rideId,

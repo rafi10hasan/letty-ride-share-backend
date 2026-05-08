@@ -12,7 +12,6 @@ import { TripHistory } from '../app/modules/trip-history/trip.history.model';
 import logger from '../config/logger';
 import { notifyUser } from '../cron/rideCron';
 
-// complete ride
 export const completeRide = async (rideId: string) => {
 
   const ride = await RidePublish.findById(rideId).populate<{ driver: IPopulatedDriver }>({
@@ -21,15 +20,8 @@ export const completeRide = async (rideId: string) => {
     populate: { path: 'user', select: 'fcmToken _id' },
   });
 
-
   if (!ride) {
     logger.error(`completeRide: Ride ${rideId} not found`);
-    return;
-  }
-
-  const alreadyExists = await TripHistory.findOne({ rideId: ride._id });
-  if (alreadyExists) {
-    logger.warn(`completeRide: Ride ${rideId} already completed`);
     return;
   }
 
@@ -42,9 +34,10 @@ export const completeRide = async (rideId: string) => {
     populate: { path: 'user', select: 'fcmToken _id' },
   });
 
+  const validBookings = bookings.filter((b) => b.passenger?.user?._id);
+
   const session = await mongoose.startSession();
   session.startTransaction();
-
 
   const now = new Date();
 
@@ -95,21 +88,12 @@ export const completeRide = async (rideId: string) => {
           totalTripCompleted: 1,
           totalEarning: driverEarning,
         },
-        // $set: {
-        //   location: {
-        //     address: ride.dropOffLocation.address,
-        //     geo: {
-        //       type: 'Point',
-        //       coordinates: ride.dropOffLocation.coordinates,
-        //     },
-        //   },
-        // },
       },
       { session },
     );
 
     await Promise.all(
-      bookings.map((booking) => {
+      validBookings.map((booking) => {
         const amountPaid = pricePerSeat * booking.seatsBooked;
         return Passenger.findByIdAndUpdate(
           booking.passenger._id,
@@ -129,14 +113,22 @@ export const completeRide = async (rideId: string) => {
     await session.commitTransaction();
 
     logger.info(`Ride ${ride.tripId} completed`);
-  } catch (error) {
+  } catch (error: any) {
     await session.abortTransaction();
+
+    // unique index — 
+    if (error.code === 11000) {
+      logger.warn(`completeRide: Ride ${rideId} already completed by another process`);
+      return;
+    }
+
     logger.error(`completeRide error: ${error}`);
     throw error;
   } finally {
     await session.endSession();
   }
 
+  // Fire-and-forget: notification failure doesn't affect ride completion
   Promise.all([
     notifyUser({
       userId: ride.driver.user._id.toString(),
@@ -146,13 +138,13 @@ export const completeRide = async (rideId: string) => {
       socketEvent: 'ride-completed',
       notificationType: NOTIFICATION_TYPE.RIDE_COMPLETED,
     }),
-    ...bookings.map((booking) => {
+    ...validBookings.map((booking) => {
       const { _id: passengerId, fcmToken } = booking.passenger.user;
       return notifyUser({
         userId: passengerId.toString(),
         fcmToken,
         title: 'Ride Completed',
-        message: `Your ride ${ride.tripId} has been completed. If You faced any problem please submit a report.`,
+        message: `Your ride ${ride.tripId} has been completed. If you faced any problem please submit a report.`,
         socketEvent: 'ride-completed',
         notificationType: NOTIFICATION_TYPE.RIDE_COMPLETED,
       });

@@ -12,7 +12,7 @@ import { TReportPayload } from './report.zod';
 
 // create report
 const createReport = async (user: IUser, rideId: string, payload: TReportPayload) => {
-
+    console.log("rideId", rideId)
     const { reportedId, reportReason } = payload;
 
     let tripId;
@@ -43,15 +43,24 @@ const createReport = async (user: IUser, rideId: string, payload: TReportPayload
 
 
     if (user.currentRole === USER_ROLE.PASSENGER) {
-        anotherUser = await passengerRepository.findPassengerByUserId(new mongoose.Types.ObjectId(reportedId), "user");
+        anotherUser = await driverRepository.findByDriverId(
+            new mongoose.Types.ObjectId(reportedId), "user"
+        );
     } else if (user.currentRole === USER_ROLE.DRIVER) {
-        anotherUser = await driverRepository.findDriverByUserId(new mongoose.Types.ObjectId(reportedId), "user");
+        anotherUser = await passengerRepository.findByPassengerId(
+            new mongoose.Types.ObjectId(reportedId), "user"
+        );
     }
 
     if (anotherUser && anotherUser.user.toString() === user._id.toString()) {
         throw new BadRequestError("You can't report Yourself");
     }
 
+    if (!anotherUser) {
+        throw new BadRequestError("Reported user not found");
+    }
+
+    console.log("anotherUser", anotherUser)
     const result = await Report.create({
         tripId: tripId,
         reporterId: user._id,

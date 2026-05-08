@@ -311,9 +311,10 @@ export const initializeRideCrons = () => {
             const rides = await RidePublish.find({
                 tripStatus: TRIP_STATUS.ONGOING,
                 estimatedArrivalTime: { $lte: now },
+                startedAt: { $exists: true },
             }).select('_id tripId').lean();
 
-            await Promise.all(
+            await Promise.allSettled(
                 rides.map((ride) => completeRide((ride._id as string).toString()))
             );
 

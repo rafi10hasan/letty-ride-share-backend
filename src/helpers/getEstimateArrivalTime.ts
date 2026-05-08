@@ -1,3 +1,4 @@
+import { BadRequestError } from "../app/errors/request/apiError";
 import config from "../config";
 
 export const getETAFromGoogleMaps = async (
@@ -11,13 +12,13 @@ export const getETAFromGoogleMaps = async (
    const data = await response.json();
 
    if (data.status !== 'OK') {
-      throw new Error(`Google Maps API error: ${data.status}`);
+      throw new BadRequestError(`Google Maps API error: ${data.status}`);
    }
 
    const element = data.rows[0].elements[0];
 
    if (element.status !== 'OK') {
-      throw new Error(`location is more away! please try with nearby location`);
+      throw new BadRequestError(`location is more away! please try with nearby location`);
    }
 
    return {

@@ -204,6 +204,22 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
     throw new BadRequestError('Minimum passenger cannot exceed total seats');
   }
 
+  const oneHourFromNow = new Date(Date.now() + 30 * 60 * 1000);
+
+  if (payload.departureDate && payload.departureTime) {
+    const selectedDepartureDateTime = buildDepartureDateTime(
+      payload.departureDate,
+      payload.departureTime,
+      ride.timezone,
+    );
+
+    if (selectedDepartureDateTime < oneHourFromNow) {
+      throw new BadRequestError('Departure time must be at least 30 minutes before from now');
+    }
+  } else if (payload.departureTime && buildDepartureDateTime(ride.departureDate, payload.departureTime, ride.timezone) < oneHourFromNow) {
+    throw new BadRequestError('Departure time must be at least 30 minutes before from now');
+  }
+
   const updateData: Record<string, any> = {};
   let isDateTimeChanged = false;
 
@@ -492,10 +508,10 @@ const startRide = async (user: IUser, rideId: string) => {
     }
 
     const now = new Date();
-    const tenMinutesBefore = new Date(ride.departureDateTime.getTime() - 30 * 60 * 1000);
+    const thirtyMinutesBefore = new Date(ride.departureDateTime.getTime() - 30 * 60 * 1000);
 
-    console.log(tenMinutesBefore, now)
-    if (now < tenMinutesBefore) {
+    console.log(thirtyMinutesBefore, now)
+    if (now < thirtyMinutesBefore) {
       throw new BadRequestError('Cannot start ride before 30 minutes before departure time');
     }
 
@@ -537,7 +553,7 @@ const startRide = async (user: IUser, rideId: string) => {
     ).catch((error) => logger.error(`Background task failed in start ride: ${error}`));
     return updatedRide;
   } catch (error) {
-    throw new Error(`Failed to start ride: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    throw new BadRequestError(`Failed to start ride: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 
 };

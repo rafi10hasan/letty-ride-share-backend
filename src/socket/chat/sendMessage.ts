@@ -1,9 +1,9 @@
+import moment from 'moment';
 import { Types } from 'mongoose';
 import { Server, Socket } from 'socket.io';
 import Conversation from '../../app/modules/conversation/conversation.model';
 import Message from '../../app/modules/Message/message.model';
 import { SOCKET_EVENTS } from '../socket.constant';
-import moment from 'moment';
 
 interface SendMessageData {
   conversationId: string;
@@ -126,7 +126,7 @@ export async function handleSendMessage(
     message: messagePayload,
   });
 
- // auto seen
+  // auto seen
   if (receiverIsSeen && receiverId) {
     io.to(senderId).emit(SOCKET_EVENTS.MESSAGES_SEEN, {
       conversationId: conversationIdString,
@@ -135,27 +135,33 @@ export async function handleSendMessage(
     });
   }
 
+
+  console.log('lastSeen from DB:', JSON.stringify(conversation.lastSeen));
+  console.log('lastSeenUpdates:', JSON.stringify(lastSeenUpdates));
+
   for (const participantId of conversation.participants) {
     const participantIdString = participantId.toString();
 
-    const participantLastSeen = (conversation.lastSeen as any)?.[participantIdString];
-
+    const participantLastSeen =
+      lastSeenUpdates[participantIdString] ||
+      (conversation.lastSeen as any)?.[participantIdString];
+    console.log('participantLastSeen:', participantLastSeen, typeof participantLastSeen);
     const unreadCount = participantLastSeen
       ? await Message.countDocuments({
-          conversationId: conversationObjectId,
-          _id: { $gt: participantLastSeen },
-        })
+        conversationId: conversationObjectId,
+        _id: { $gt: participantLastSeen },
+      })
       : await Message.countDocuments({ conversationId: conversationObjectId });
-
+    console.log('unreadCount:', unreadCount);
+    // handleSendMessage.ts এ
     io.to(participantIdString).emit(SOCKET_EVENTS.CONVERSATION_UPDATED, {
       conversationId: conversationIdString,
-      lastMessage: {
-        text: saveMessage.text,
-        senderId: senderId,
-        createdAt:  saveMessage.createdAt ? moment(saveMessage.createdAt).fromNow() : "No messages yet",
-      },
+      lastMsg: saveMessage.text,
+      lastMsgCreatedAt: saveMessage.createdAt
+        ? moment(saveMessage.createdAt).fromNow()
+        : 'No messages yet',
+      unseenMsg: unreadCount,
       updatedAt: now,
-      unreadCount,
     });
   }
 

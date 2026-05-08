@@ -29,7 +29,7 @@ const updateAdminProfileImage = async (user: IUser, files: TProfileImage) => {
     );
 
     if (!result?.secure_url) {
-      throw new Error('Cloudinary upload failed');
+      throw new BadRequestError('Cloudinary upload failed');
     }
 
     newProfileImageUrl = result.secure_url;

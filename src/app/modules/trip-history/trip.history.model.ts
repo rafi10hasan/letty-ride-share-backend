@@ -5,7 +5,7 @@ import { ITripHistory } from "./trip.history.interface";
 const TripHistorySchema = new Schema<ITripHistory>(
     {
         tripId: { type: String, required: true },
-        rideId: { type: Schema.Types.ObjectId, ref: "RidePublish", required: true },
+        rideId: { type: Schema.Types.ObjectId, ref: "RidePublish", required: true, unique: true },
         driver: { type: Schema.Types.ObjectId, ref: 'Driver', required: true },
         tripStatus: {
             type: String,

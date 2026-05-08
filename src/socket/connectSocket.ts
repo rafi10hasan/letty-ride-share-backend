@@ -161,7 +161,7 @@ const connectSocket = (server: HTTPServer) => {
       },
       transports: ['websocket'],
       pingInterval: 30000,
-      pingTimeout: 5000,
+      pingTimeout: 20000,
       connectTimeout: 45000,
     });
 

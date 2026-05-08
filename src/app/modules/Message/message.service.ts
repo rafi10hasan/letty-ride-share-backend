@@ -435,7 +435,7 @@ const extractPublicIdFromUrl = (url: string): string => {
     const uploadIndex = parts.findIndex(part => part === 'upload');
 
     if (uploadIndex === -1) {
-      throw new Error('Invalid Cloudinary URL');
+      throw new BadRequestError('Invalid Cloudinary URL');
     }
 
     // Get everything after /upload/v{version}/
@@ -447,7 +447,7 @@ const extractPublicIdFromUrl = (url: string): string => {
     return publicId;
   } catch (error) {
     console.error('Error extracting public_id:', error);
-    throw new Error(`Failed to extract public_id from URL: ${url}`);
+    throw new BadRequestError(`Failed to extract public_id from URL: ${url}`);
   }
 };
 
