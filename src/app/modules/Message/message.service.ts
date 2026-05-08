@@ -48,7 +48,7 @@ const newMessageIntoDb = async (
   const conversation = await Conversation.findById(conversationObjectId).lean();
 
   if (!conversation) {
-    throw new Error('Conversation not found');
+    throw new BadRequestError('Conversation not found');
   }
 
   // Find receiver
@@ -348,13 +348,11 @@ const deleteMessageByIdIntoDb = async (
 
     const conversation = await Conversation.findById(conversationId).session(session);
 
-    if (!conversation) {
-      throw new BadRequestError('Conversation not found');
-    }
+  
 
     // Check if deleted message was the last message
     const wasLastMessage =
-      conversation.lastMessage?.messageId?.toString() === messageId.toString();
+      conversation?.lastMessage?.messageId?.toString() === messageId.toString();
 
     console.log('Was last message?', wasLastMessage);
 
@@ -401,7 +399,7 @@ const deleteMessageByIdIntoDb = async (
           options?.deleteAllImages,
       };
 
-      conversation.participants.forEach((participantId) => {
+      conversation?.participants.forEach((participantId) => {
         io.to(participantId.toString()).emit('message-deleted', eventData);
       });
 

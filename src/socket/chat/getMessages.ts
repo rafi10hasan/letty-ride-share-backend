@@ -1,11 +1,9 @@
-
 import { Types } from 'mongoose';
 import { Socket } from 'socket.io';
 import Conversation from '../../app/modules/conversation/conversation.model';
 import Message from '../../app/modules/Message/message.model';
 import { onlineUsers } from '../connectSocket';
 import { SOCKET_EVENTS } from '../socket.constant';
-
 
 interface MessagePageData {
   conversationId: string;
@@ -24,7 +22,13 @@ interface ConversationWithParticipants {
   lastSeen?: Map<string, unknown> | Record<string, unknown>;
 }
 
-// chat/getMessages.ts
+// Helper to extract lastSeen message ID for a specific user from Map or plain object
+const getLastSeen = (lastSeen: any, userId: string): any => {
+  if (!lastSeen) return null;
+  if (lastSeen instanceof Map) return lastSeen.get(userId);
+  return lastSeen[userId] ?? null;
+};
+
 export async function handleMessagePage(
   socket: Socket,
   currentUserId: string,
@@ -34,22 +38,25 @@ export async function handleMessagePage(
     const { conversationId, page = 1, limit = 50 } = data;
     const skip = (page - 1) * limit;
 
+    // Fetch conversation with participant details
     const conversation = (await Conversation.findById(conversationId)
       .populate('participants', 'fullName avatar')
       .lean()) as ConversationWithParticipants | null;
 
-    console.log(conversation?.participants);
     if (!conversation) {
       socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
         errorMessage: 'Conversation not found',
       });
       return;
     }
+
+    // Track current conversation and join its socket room
     if (conversationId) {
       socket.data.currentConversationId = conversationId;
       socket.join(conversationId);
     }
 
+    // Ensure current user is a participant of this conversation
     if (!conversation.participants.some((p: any) => p._id.toString() === currentUserId)) {
       socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
         errorMessage: 'Unauthorized',
@@ -57,6 +64,7 @@ export async function handleMessagePage(
       return;
     }
 
+    // Fetch paginated messages sorted by oldest first
     const messages = await Message.find({ conversationId })
       .sort({ _id: 1 })
       .skip(skip)
@@ -64,22 +72,26 @@ export async function handleMessagePage(
       .populate('senderId', 'fullName avatar')
       .lean();
 
+    // Identify the other participant in the conversation
+    const otherUser = conversation.participants.find(
+      (p: any) => p._id.toString() !== currentUserId
+    );
+
+    // Update current user's lastSeen and track the effective value
+    let effectiveCurrentUserLastSeen: any = getLastSeen(conversation.lastSeen, currentUserId);
+
     if (messages.length > 0) {
       const latestMessageId = messages[messages.length - 1]._id;
 
       await Conversation.updateOne(
         { _id: conversationId },
-        {
-          $set: {
-            [`lastSeen.${currentUserId}`]: latestMessageId,
-          },
-        }
+        { $set: { [`lastSeen.${currentUserId}`]: latestMessageId } }
       );
 
-      const otherUser = conversation.participants.find(
-        (p: any) => p._id.toString() !== currentUserId
-      );
+      // Use the just-updated value instead of stale lean() value
+      effectiveCurrentUserLastSeen = latestMessageId;
 
+      // Notify the other user that current user has seen up to this message
       if (otherUser) {
         socket.to(otherUser._id.toString()).emit(SOCKET_EVENTS.MESSAGES_SEEN, {
           conversationId,
@@ -89,40 +101,41 @@ export async function handleMessagePage(
       }
     }
 
-    //  Proper handling of lastSeen
-    const otherUser = conversation.participants.find(
-      (p: any) => p._id.toString() !== currentUserId
-    );
+    // Get other user's lastSeen from the original conversation (not affected by our update)
+    const otherUserLastSeen = otherUser
+      ? getLastSeen(conversation.lastSeen, otherUser._id.toString())
+      : null;
 
-    let otherUserLastSeen: any = null;
+    const messagesWithStatus = messages.map((msg: any) => {
+      const isMyMessage = msg.senderId._id.toString() === currentUserId;
 
-    if (otherUser && conversation.lastSeen) {
-      // Check if it's a Map or plain object
-      if (conversation.lastSeen instanceof Map) {
-        otherUserLastSeen = conversation.lastSeen.get(otherUser._id.toString());
-      } else if (typeof conversation.lastSeen === 'object') {
-        // Plain object from lean()
-        otherUserLastSeen = (conversation.lastSeen as any)[otherUser._id.toString()];
+      let isSeen: boolean;
+
+      if (isMyMessage) {
+        // Message sent by me — check if the other user has seen it
+        isSeen = otherUserLastSeen
+          ? msg._id.toString() <= otherUserLastSeen.toString()
+          : false;
+      } else {
+        // Message sent by other user — check if I have seen it
+        isSeen = effectiveCurrentUserLastSeen
+          ? msg._id.toString() <= effectiveCurrentUserLastSeen.toString()
+          : false;
       }
-    }
 
-    const messagesWithStatus = messages.map((msg: any) => ({
-      messageId: msg._id.toString(),
-      text: msg.text,
-      images: msg.images,
-      senderId: msg.senderId._id.toString(),
-      fullName: msg.senderId.fullName,
-      profileImage: msg.senderId.avatar || '',
+      return {
+        messageId: msg._id.toString(),
+        text: msg.text,
+        images: msg.images,
+        senderId: msg.senderId._id.toString(),
+        fullName: msg.senderId.fullName,
+        profileImage: msg.senderId.avatar || '',
+        createdAt: msg.createdAt,
+        isSeen,
+      };
+    });
 
-      createdAt: msg.createdAt,
-      isSeen:
-        msg.senderId._id.toString() === currentUserId
-          ? otherUserLastSeen
-            ? msg._id <= otherUserLastSeen
-            : false
-          : null,
-    }));
-
+    // Emit full message page data back to the requesting client
     socket.emit('message-data', {
       fullName: otherUser?.fullName,
       profileImage: otherUser?.avatar || '',
@@ -138,5 +151,3 @@ export async function handleMessagePage(
     });
   }
 }
-
-

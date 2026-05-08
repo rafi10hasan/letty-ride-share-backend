@@ -26,11 +26,10 @@ const handleChatEvents = async (
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
       socket.emit('socket-error', { errorMessage });
     }
-
+    console.log('🎯 Listening for event:', SOCKET_EVENTS.CREATE_CONVERSATION);
   });
-  console.log('🎯 Listening for event:', SOCKET_EVENTS.CREATE_CONVERSATION);
-  // join conversation
 
+  // join conversation
   socket.on(SOCKET_EVENTS.JOIN_CONVERSATION, async (conversationId: string) => {
     if (!conversationId) return;
 
@@ -97,16 +96,18 @@ const handleChatEvents = async (
     });
   });
 
-  socket.on(SOCKET_EVENTS.TYPING, ({ conversationId, userId }) => {
+  socket.on(SOCKET_EVENTS.TYPING, ({ conversationId }) => {
+    console.log(`User ${currentUserId} is typing in conversation ${conversationId}`);
     socket
       .to(conversationId)
-      .emit(SOCKET_EVENTS.USER_TYPING, { conversationId, userId });
+      .emit(SOCKET_EVENTS.USER_TYPING, { conversationId, userId: currentUserId });
   });
 
-  socket.on(SOCKET_EVENTS.STOP_TYPING, ({ conversationId, userId }) => {
+  socket.on(SOCKET_EVENTS.STOP_TYPING, ({ conversationId }) => {
+    console.log(`User ${currentUserId} stopped typing in conversation ${conversationId}`);
     socket
       .to(conversationId)
-      .emit(SOCKET_EVENTS.USER_STOP_TYPING, { conversationId, userId });
+      .emit(SOCKET_EVENTS.USER_STOP_TYPING, { conversationId, userId: currentUserId });
   });
 
   socket.on(SOCKET_EVENTS.SEND_MESSAGE, (data) =>

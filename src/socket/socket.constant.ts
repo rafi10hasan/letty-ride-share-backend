@@ -9,6 +9,8 @@ export const SOCKET_EVENTS = {
   GET_CONVERSATIONS: 'get-conversations',
   GET_USER_STATUS: 'get-user-status',
   MESSAGE_PAGE: 'message-page',
+  NEW_MESSAGE: 'new-message',
+  CONVERSATION_UPDATED: 'conversation-updated',
   SEND_MESSAGE: 'send-message',
   SOCKET_ERROR: 'socket-error',
   NOTIFICATION_UPDATE_COUNT: 'notification-update-count',
