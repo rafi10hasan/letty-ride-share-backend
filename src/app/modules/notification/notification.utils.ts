@@ -115,9 +115,9 @@ export const sendPushNotification = async (
       },
       token: fcmToken,
     };
-
+   
     const response = await firebaseAdmin.messaging().send(message);
-    console.log('fcm response successfully', response);
+    console.log(`${fcmToken}: ${response}`);
 
     return response;
   } catch (error: unknown) {
