@@ -8,7 +8,7 @@ import { reportService } from "./report.service";
 const sendReportToAdmin = asyncHandler(async (req: Request, res: Response) => {
     const { rideId } = req.params;
     console.log(req.body)
-    const result = await reportService.createReport(req.user, rideId, req.body);
+    const result = await reportService.createReport(req.user, rideId as string, req.body);
     sendResponse(res, {
         statusCode: 201,
         success: true,

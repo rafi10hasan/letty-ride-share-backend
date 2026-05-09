@@ -365,7 +365,7 @@ const switchUserRole = async (user: IUser) => {
   };
 
   const accessToken = jwt.sign(JwtPayload, config.jwt_access_token_secret!, {
-    expiresIn: config.jwt_access_token_expiresin,
+    expiresIn: config.jwt_access_token_expiresin as jwt.SignOptions['expiresIn'],
   });
 
   return {

@@ -6,7 +6,7 @@ import { reviewService } from "./review.service";
 
 const sendReviewToUser = asyncHandler(async (req: Request, res: Response) => {
     const {tripId} = req.params;
-    const result = await reviewService.createReview(req.user, tripId, req.body);
+    const result = await reviewService.createReview(req.user, tripId as string, req.body);
     sendResponse(res, {
         statusCode: 201,
         success: true,

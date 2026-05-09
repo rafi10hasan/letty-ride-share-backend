@@ -8,7 +8,7 @@ import { bookingService } from "./booking.service";
 const sendRideRequestToDriverIntoDb = asyncHandler(async (req: Request, res: Response) => {
 
     const { rideId } = req.params;
-    const result = await bookingService.sendRideRequestToDriver(req.user, rideId, req.body);
+    const result = await bookingService.sendRideRequestToDriver(req.user, rideId as string, req.body);
     sendResponse(res, {
         statusCode: StatusCodes.CREATED,
         success: true,
@@ -20,7 +20,7 @@ const sendRideRequestToDriverIntoDb = asyncHandler(async (req: Request, res: Res
 
 const acceptBookingIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { bookingId } = req.params;
-    const result = await bookingService.acceptBooking(req.user, bookingId);
+    const result = await bookingService.acceptBooking(req.user, bookingId as string);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
@@ -32,7 +32,7 @@ const acceptBookingIntoDb = asyncHandler(async (req: Request, res: Response) => 
 
 const rejectBookingIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { bookingId } = req.params;
-    const result = await bookingService.rejectOrCancelBooking(req.user, bookingId);
+    const result = await bookingService.rejectOrCancelBooking(req.user, bookingId as string);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,

@@ -30,7 +30,7 @@ const getAllRidesIntoDb = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const getRideDetailsIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const result = await rideManagementService.getRideDetails(req.params.rideId);
+    const result = await rideManagementService.getRideDetails(req.params.rideId as string);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,

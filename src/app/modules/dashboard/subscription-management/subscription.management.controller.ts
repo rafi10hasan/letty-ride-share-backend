@@ -33,7 +33,7 @@ const getAllSubscriptionRequestsIntoDb = asyncHandler(async (req: Request, res: 
 
 const getUserInfoIntoDb = asyncHandler(async (req: Request, res: Response) => {
   const { userId } = req.params
-  const result = await adminSubscriptionService.getUserDetails(userId);
+  const result = await adminSubscriptionService.getUserDetails(userId as string);
   // console.log(result);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -46,7 +46,7 @@ const getUserInfoIntoDb = asyncHandler(async (req: Request, res: Response) => {
 
 const updateUserSubscriptionAndStatusIntoDb = asyncHandler(async (req: Request, res: Response) => {
   const { userId } = req.params
-  const result = await adminSubscriptionService.changeUserSubscriptionAndStatus(userId, req.body);
+  const result = await adminSubscriptionService.changeUserSubscriptionAndStatus(userId as string, req.body);
   // console.log(result);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
@@ -58,7 +58,7 @@ const updateUserSubscriptionAndStatusIntoDb = asyncHandler(async (req: Request, 
 
 // update subscription
 const updateSubscription = asyncHandler(async (req: Request, res: Response) => {
-    const result = await adminSubscriptionService.updateSubscription(req.params.userId, req.body);
+    const result = await adminSubscriptionService.updateSubscription(req.params.userId as string, req.body);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,

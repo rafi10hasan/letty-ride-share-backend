@@ -70,7 +70,7 @@ const searchUsersIntoDb = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const getOtherUserProfileIntoDb = asyncHandler(async (req: Request, res: Response) => {
-  const result = await userService.getOtherUserProfile(req.user, req.params.profileId);
+  const result = await userService.getOtherUserProfile(req.user, req.params.profileId as string);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

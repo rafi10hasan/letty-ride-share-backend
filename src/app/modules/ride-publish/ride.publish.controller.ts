@@ -28,7 +28,7 @@ const getMyPublishedRides = asyncHandler(async (req: Request, res: Response) => 
 
 const UpdateSpecificPublishedRide = asyncHandler(async (req: Request, res: Response) => {
     const { rideId } = req.params;
-    const result = await ridePublishService.modifyPublishRide(req.user, rideId, req.body);
+    const result = await ridePublishService.modifyPublishRide(req.user, rideId as string, req.body);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
@@ -55,7 +55,7 @@ const cancelRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     if (!cancellationReason) {
         throw new BadRequestError(`cancellation reason is required`)
     }
-    const result = await ridePublishService.cancelRide(req.user, rideId, cancellationReason);
+    const result = await ridePublishService.cancelRide(req.user, rideId as string, cancellationReason);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
@@ -67,7 +67,7 @@ const cancelRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
 
 const startRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { rideId } = req.params;
-    const result = await ridePublishService.startRide(req.user, rideId);
+    const result = await ridePublishService.startRide(req.user, rideId as string);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
@@ -79,7 +79,7 @@ const startRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
 
 const completeRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { rideId } = req.params;
-    const result = await ridePublishService.completeRideByDriver(req.user, rideId);
+    const result = await ridePublishService.completeRideByDriver(req.user, rideId as string);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,

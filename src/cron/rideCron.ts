@@ -315,7 +315,7 @@ export const initializeRideCrons = () => {
             }).select('_id tripId').lean();
 
             await Promise.allSettled(
-                rides.map((ride) => completeRide((ride._id as string).toString()))
+                rides.map((ride) => completeRide((ride._id as unknown as string).toString()))
             );
 
         } catch (error) {

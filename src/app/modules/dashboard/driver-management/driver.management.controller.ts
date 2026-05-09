@@ -27,7 +27,7 @@ const getAllDriversIntoDb = asyncHandler(async (req: Request, res: Response) => 
 });
 
 const updateDriverStatus = asyncHandler(async (req: Request, res: Response) => {
-    const result = await adminDriverService.updateDriverStatus(req.params.userId, req.body);
+    const result = await adminDriverService.updateDriverStatus(req.params.userId as string, req.body);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
@@ -37,7 +37,7 @@ const updateDriverStatus = asyncHandler(async (req: Request, res: Response) => {
 });
 
 const getDriverDetailsIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const result = await adminDriverService.getDriverDetails(req.params.driverId);
+    const result = await adminDriverService.getDriverDetails(req.params.driverId as string);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,

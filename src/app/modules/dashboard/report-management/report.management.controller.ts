@@ -15,7 +15,7 @@ const getAllReportsIntoDashboard = asyncHandler(async (req: Request, res: Respon
 });
 
 const getReportDetailsIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const result = await adminReportService.getReportDetails(req.params.reportId);
+    const result = await adminReportService.getReportDetails(req.params.reportId as string);
     sendResponse(res, {
         statusCode: 200,
         success: true,
@@ -25,7 +25,7 @@ const getReportDetailsIntoDb = asyncHandler(async (req: Request, res: Response) 
 });
 
 const updateReportStatusIntoDb = asyncHandler(async (req: Request, res: Response) => {
-    const result = await adminReportService.updateReportStatus(req.params.reportId, req.body);
+    const result = await adminReportService.updateReportStatus(req.params.reportId as string, req.body);
     sendResponse(res, {
         statusCode: 200,
         success: true,

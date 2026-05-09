@@ -64,7 +64,7 @@ const updateDriverCarInfoIntoDb = asyncHandler(async (req: Request, res: Respons
 
 const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Response) => {
   const { rideId } = req.params;
-  const result = await driverService.retrievedPassengerRequest(req.user, rideId);
+  const result = await driverService.retrievedPassengerRequest(req.user, rideId as string);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
@@ -76,7 +76,7 @@ const getMySpecificRideRequests = asyncHandler(async (req: Request, res: Respons
 
 const getMyAlPassengerDetailsByRideId = asyncHandler(async (req: Request, res: Response) => {
   const { rideId } = req.params;
-  const result = await driverService.retrievedPassengerDetails(req.user, rideId);
+  const result = await driverService.retrievedPassengerDetails(req.user, rideId as string);
   console.log(result)
   sendResponse(res, {
     statusCode: StatusCodes.OK,

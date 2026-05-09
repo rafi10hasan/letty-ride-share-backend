@@ -1,10 +1,10 @@
 import { RequestHandler } from 'express';
-import httpStatus from 'http-status';
 
 import asyncHandler from '../../../shared/asynchandler';
 import sendResponse from '../../../shared/sendResponse';
 import { TChatImages } from './message.interface';
 import { MessageServices } from './message.service';
+import { StatusCodes } from 'http-status-codes';
 
 const newMessage: RequestHandler = asyncHandler(async (req, res) => {
   const files = req.files as TChatImages
@@ -16,7 +16,7 @@ const newMessage: RequestHandler = asyncHandler(async (req, res) => {
   );
 
   sendResponse(res, {
-    statusCode: httpStatus.CREATED,
+    statusCode: StatusCodes.CREATED,
     success: true,
     message: 'Successfully Send By The Message',
     data: result,
@@ -27,12 +27,12 @@ const updateMessageById: RequestHandler = asyncHandler(async (req, res) => {
   const { messageId } = req.params;
   console.log(req.body)
   const result = await MessageServices.updateMessageByIdIntoDb(
-    messageId,
+    messageId as string,
     req.body.text,
   );
 
   sendResponse(res, {
-    statusCode: httpStatus.OK,
+    statusCode: StatusCodes.OK,
     success: true,
     message: 'Message updated successfully',
     data: result,
@@ -41,11 +41,11 @@ const updateMessageById: RequestHandler = asyncHandler(async (req, res) => {
 
 const deleteMessageById: RequestHandler = asyncHandler(async (req, res) => {
   const result = await MessageServices.deleteMessageByIdIntoDb(
-    req.params.messageId,
+    req.params.messageId as string,
     req.body
   );
   sendResponse(res, {
-    statusCode: httpStatus.OK,
+    statusCode: StatusCodes.OK,
     success: true,
     message: 'Successfully Delete Message',
     data: result,

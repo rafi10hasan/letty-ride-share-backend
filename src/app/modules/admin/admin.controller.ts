@@ -13,9 +13,8 @@ const updateAdminIntoDb = handleAsync(async (req: Request, res: Response) => {
   const data = req.body;
 
   const updatedAdmin = await adminService.updateAdmin(req.user.id, data);
-
-  if (!updatedAdmin.modifiedCount) {
-    throw new BadRequestError('Failed to update Admin!');
+  if(!updatedAdmin){
+    throw new BadRequestError(`failed to updated admin`);
   }
   sendResponse(res, {
     statusCode: StatusCodes.OK,

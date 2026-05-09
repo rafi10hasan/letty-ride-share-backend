@@ -26,7 +26,7 @@ const getAllContent = asyncHandler(async (req, res) => {
 
 const getContentByType = asyncHandler(async (req, res) => {
   const { type } = req.params;
-  const result = await ContentService.getContentByType(type);
+  const result = await ContentService.getContentByType(type as string);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

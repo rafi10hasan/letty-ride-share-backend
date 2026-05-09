@@ -1,9 +1,8 @@
-import crypto from 'crypto';
-import jwt, { JwtPayload, Secret } from 'jsonwebtoken';
+import jwt, { JwtPayload, Secret, SignOptions} from 'jsonwebtoken';
 import { BadRequestError } from '../app/errors/request/apiError';
 
-import config from '../config';
 import { SessionModel } from '../app/modules/session/session.model';
+import config from '../config';
 
 
 // verify jwt token
@@ -15,13 +14,15 @@ const verifyToken = (token: string, secret: Secret): JwtPayload => {
 
 // generate access token
 const generateTokens = async (payload: JwtPayload) => {
-  const accessToken = jwt.sign(payload, config.jwt_access_token_secret!, {
-    expiresIn: config.jwt_access_token_expiresin,
-  });
+  const accessTokenOptions: SignOptions = {
+    expiresIn: Number(config.jwt_access_token_expiresin),
+  };
+  const accessToken = jwt.sign(payload, config.jwt_access_token_secret!, accessTokenOptions);
 
-  const refreshToken = jwt.sign(payload, config.jwt_refresh_token_secret!, {
-    expiresIn: config.jwt_refresh_token_expiresin,
-  });
+  const refreshTokenOptions: SignOptions = {
+    expiresIn: Number(config.jwt_refresh_token_expiresin),
+  };
+  const refreshToken = jwt.sign(payload, config.jwt_refresh_token_secret!, refreshTokenOptions);
 
   const decoded = jwt.decode(refreshToken) as JwtPayload;
   if (!decoded || !decoded.exp) {
@@ -30,11 +31,11 @@ const generateTokens = async (payload: JwtPayload) => {
 
   await SessionModel.findOneAndUpdate(
     { user: payload.id },
-    { refreshToken: refreshToken, expiresAt: decoded.exp * 1000, lastLoginAt: new Date()},
+    { refreshToken: refreshToken, expiresAt: decoded.exp * 1000, lastLoginAt: new Date() },
     { upsert: true, new: true },
   );
 
-  return { accessToken, refreshToken};
+  return { accessToken, refreshToken };
 };
 
 const jwtHelpers = {

@@ -28,7 +28,7 @@ const getAllPassengersIntoDb = asyncHandler(async (req: Request, res: Response) 
 });
 
 const updatePassengerStatus = asyncHandler(async (req: Request, res: Response) => {
-    const result = await adminPassengerService.updatePassengerStatus(req.params.userId, req.body);
+    const result = await adminPassengerService.updatePassengerStatus(req.params.userId as string, req.body);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,

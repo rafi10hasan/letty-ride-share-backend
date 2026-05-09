@@ -229,7 +229,7 @@ userSchema.methods.isJWTIssuedBeforePasswordChanged = function (jwtIssuedTimesta
 userSchema.set('toJSON', {
   versionKey: false,
   transform: (_doc, ret) => {
-    delete ret.password;
+      delete (ret as Partial<{ password?: string }>).password;
     return ret;
   },
 });

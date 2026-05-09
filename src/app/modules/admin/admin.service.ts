@@ -7,7 +7,7 @@ import User from "../user/user.model";
 
 // service for update specific admin
 const updateAdmin = async (id: string, data: Partial<IUser>) => {
-  return await User.updateOne({ _id: id }, data, { new: true });
+  return await User.findOneAndUpdate({ _id: id }, data, { new: true });
 };
 
 const updateAdminProfileImage = async (user: IUser, files: TProfileImage) => {
