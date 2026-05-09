@@ -25,11 +25,6 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
       }
       : {};
 
-  // Sort
-  const sortField = (query.sort as string)?.startsWith('-')
-    ? (query.sort as string).slice(1)
-    : (query.sort as string) || 'createdAt';
-  const sortOrder = (query.sort as string)?.startsWith('-') ? -1 : 1;
 
   const pipeline: PipelineStage[] = [
     // Match by receiver + optional search
@@ -52,7 +47,7 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
     },
 
     // Sort
-    { $sort: { [sortField]: sortOrder } },
+    { $sort: { createdAt: -1 } },
 
     // Facet: data + total count
     {

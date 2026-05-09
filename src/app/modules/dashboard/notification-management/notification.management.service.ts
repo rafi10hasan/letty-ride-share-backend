@@ -21,8 +21,6 @@ const sendSocketNotification = async (payload: TSendNotificationPayload) => {
 
     if (audience === "all") {
         const allUsers = await User.find({}, { fcmToken: 1 });
-        const valid = allUsers.filter(u => isValidFcmToken(u.fcmToken)).length;
-        console.log("Valid FCM tokens for all users:", valid);
         await Promise.allSettled([
             Notification.create({ ...rest, for: "all", type: "admin_notification" }),
             ...allUsers
@@ -35,13 +33,12 @@ const sendSocketNotification = async (payload: TSendNotificationPayload) => {
         ]);
     } else if (audience === USER_ROLE.DRIVER) {
         const drivers = await User.find({ currentRole: USER_ROLE.DRIVER }, { fcmToken: 1 });
-
         await Promise.allSettled([
             Notification.create({ ...rest, for: USER_ROLE.DRIVER, type: "admin_notification" }),
             io.to("driver_channel").emit("notification", rest),
             ...drivers
                 .filter((u): u is typeof u & { fcmToken: string } => isValidFcmToken(u.fcmToken))
-                .map(d => sendPushNotification(d.fcmToken, {
+                .map(d => sendPushNotification("d50pRTf8QVef-jFDc4ldGi:APA91bFI68hqAP7LCD5igjD_1Qih59oI6RpzkuBL616L372hZVapkx8DQTAstfjBgszzsaXO_DYgrzyJTNFhvM5I4VucFVKRRqR24uC3MaV0NpNkoI5Gx6M", {
                     title: rest.title,
                     content: rest.message,
                     type: "admin_notification"
