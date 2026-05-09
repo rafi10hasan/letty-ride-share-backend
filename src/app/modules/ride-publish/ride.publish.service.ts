@@ -584,12 +584,12 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
   const driver = await driverRepository.findDriverByUserId(user._id);
   console.log({ rideId })
   if (!driver) {
-    throw new NotFoundError('driver not found');
+    throw new NotFoundError('Driver not found');
   }
 
   const ride = await RidePublish.findById(rideId);
   if (!ride) {
-    throw new NotFoundError('trip not found');
+    throw new NotFoundError('Trip not found');
   }
 
   if (ride.driver.toString() !== driver._id.toString()) {

@@ -11,13 +11,13 @@ const adminData = {
   email: config.admin_email,
   password: config.admin_password,
   avatar: randomUserImage(),
-  isEmailVerified: new Date(),
 };
 
 const seedingAdmin = async () => {
   try {
     const admin = await User.findOne({
       email: config.admin_email,
+      currentRole: USER_ROLE.SUPER_ADMIN,
     });
     if (!admin) {
 

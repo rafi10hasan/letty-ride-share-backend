@@ -228,11 +228,11 @@ const verifyAccountByOtp = async (
   console.log('expired?', user.verificationOtpExpiry && user.verificationOtpExpiry < now);
 
   if (!user.verificationOtpExpiry || (user.verificationOtpExpiry && user.verificationOtpExpiry < now)) {
-    throw new BadRequestError('OTP has expired. Please request a fresh OTP!');
+    throw new BadRequestError('OTP has expired. Please request a new OTP!');
   }
 
   const isVerificationOtpMatched = await user.isVerificationOtpMatched(otp);
-  if (!isVerificationOtpMatched) throw new BadRequestError('OTP is invalid');
+  if (!isVerificationOtpMatched) throw new BadRequestError('Wrong OTP Attempt!');
 
 
   if (user.otpSentTo === 'email') {
@@ -416,7 +416,7 @@ const resetPassword = async (identifier: string, newPassword: string) => {
   if (!user) throw new BadRequestError('User not found');
 
   if (!user.isOtpVerified) {
-    throw new BadRequestError('Invalid OTP! Please verify OTP again');
+    throw new BadRequestError('Otp is not verified! Please verify OTP again');
   }
 
   if (!user.passwordResetOtp || !user.passwordResetExpiry) {

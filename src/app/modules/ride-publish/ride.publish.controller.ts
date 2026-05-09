@@ -32,7 +32,7 @@ const UpdateSpecificPublishedRide = asyncHandler(async (req: Request, res: Respo
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
-        message: 'driver trip has been updated successfully',
+        message: 'Driver trip has been updated successfully',
         data: result,
     });
 });
@@ -59,7 +59,7 @@ const cancelRideIntoDb = asyncHandler(async (req: Request, res: Response) => {
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
-        message: 'ride has been cancelled successfully',
+        message: 'Driver trip has been cancelled successfully',
         data: result,
     });
 });

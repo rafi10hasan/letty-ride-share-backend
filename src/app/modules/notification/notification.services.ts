@@ -6,6 +6,7 @@ import getUserNotificationCount from '../../../utilities/getUserNotificationCoun
 import { IUser } from '../user/user.interface';
 import User from '../user/user.model';
 import Notification from './notification.model';
+import { BadRequestError } from '../../errors/request/apiError';
 
 const getAllNotifications = async (query: Record<string, unknown>, userId: string, role: string) => {
   // Pagination params
@@ -35,7 +36,7 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
     {
       $match: {
         receiver: new Types.ObjectId(userId),
-        for: { $in: ['all', role, null] },
+        for: { $in: ['all', role, 'specific', null] },
         ...searchCondition,
 
       },
@@ -44,7 +45,7 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
     // Sort
     { $sort: { [sortField]: sortOrder } },
 
-    // Facet: data + total একসাথে
+    // Facet: data + total count
     {
       $facet: {
         data: [
@@ -96,7 +97,7 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
 const markNotificationAsSeen = async (user: IUser, notificationId: string) => {
   const isYourNotification = await Notification.findOne({ _id: notificationId, receiver: user._id });
   if (!isYourNotification) {
-    throw new Error('Notification not found or not owned by user');
+    throw new BadRequestError('Notification not found or not owned by user');
   }
   const updated = await Notification.findByIdAndUpdate(notificationId, { isRead: true }, { new: true });
   return {

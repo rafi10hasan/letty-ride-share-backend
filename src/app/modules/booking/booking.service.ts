@@ -41,7 +41,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
 
     const passenger = await passengerRepository.findPassengerByUserId(user._id, "_id fullName avatar");
     if (!passenger) {
-        throw new NotFoundError('passenger not found!')
+        throw new NotFoundError('Passenger not found!')
     }
 
     const isExistingBooking = await Booking.findOne({ passenger: passenger._id, ride: rideId });
@@ -61,7 +61,7 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
         });
 
     if (!ride) {
-        throw new NotFoundError('trip not found')
+        throw new NotFoundError('Trip not found')
     }
 
     if (!ride.tripStatus.includes(TRIP_STATUS.PENDING) && !ride.tripStatus.includes(TRIP_STATUS.UPCOMING)) {
@@ -156,7 +156,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 
     const driver = await driverRepository.findDriverByUserId(user._id);
     if (!driver) {
-        throw new NotFoundError('driver not found');
+        throw new NotFoundError('Driver not found');
     }
 
     const booking = await Booking.findById(bookingId)
@@ -172,7 +172,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 
     console.log({ booking })
     if (!booking) {
-        throw new NotFoundError('request not found');
+        throw new NotFoundError('Request not found');
     }
 
     if (booking.ride?.driver.toString() !== driver._id.toString()) {

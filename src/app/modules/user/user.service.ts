@@ -169,7 +169,7 @@ const getUserShortInfo = async (user: IUser) => {
     currentProfile = await driverRepository.findDriverByUserId(user._id, "avgRating");
   }
   if (!currentProfile) {
-    throw new NotFoundError('profile not found');
+    throw new NotFoundError('Profile not found');
   }
   return {
     fullName: user.fullName,
@@ -200,7 +200,7 @@ const updateUserLocation = async (user: IUser, payload: TUserLocationPayload) =>
     }
 
     if (!locationData) {
-      throw new BadRequestError(`${user.currentRole} profile not found`);
+      throw new BadRequestError(`${user.currentRole} Profile not found`);
     }
 
     const updatedUser = await User.findOneAndUpdate(
@@ -228,11 +228,11 @@ const searchUsers = async (params: SearchUsersParams) => {
   const { searchTerm, page = 1, limit = 10 } = params;
 
   if (!searchTerm) {
-    throw new BadRequestError("searchTerm is required");
+    throw new BadRequestError("Search term is required");
   }
 
   if (typeof searchTerm !== "string") {
-    throw new BadRequestError("searchTerm must be a string");
+    throw new BadRequestError("Search term must be a string");
   }
 
   const term = searchTerm.trim();

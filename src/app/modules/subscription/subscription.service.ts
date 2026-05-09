@@ -67,7 +67,7 @@ const sendSubscriptionPurchaseRequest = async (
 
         const notificationPayload = {
             title: 'Subscription Request',
-            message: `${user.fullName} sent a subscription request to purchase ${plan} plan with ${mode} mode`,
+            message: `${user.fullName} sent a new subscription request to purchase ${plan} plan with ${mode} mode`,
             receiver: superAdmin._id,
             type: NOTIFICATION_TYPE.SUBSCRIPTION_REQUEST,
         };

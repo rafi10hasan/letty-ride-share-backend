@@ -11,7 +11,7 @@ const sendNotificationInSpecificAudience = asyncHandler(async (req: Request, res
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
-        message: 'user notification has been retrieved successfully',
+        message: 'Notification sent successfully',
         data: data,
     });
 });

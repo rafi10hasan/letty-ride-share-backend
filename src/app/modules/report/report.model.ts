@@ -9,7 +9,6 @@ const reportSchema = new Schema<IReport>(
         tripId: {
             type: String,
             required: [true, 'Trip Id is required'],
-            unique: true
         },
         reporterId: {
             type: Schema.Types.ObjectId,
@@ -37,7 +36,7 @@ const reportSchema = new Schema<IReport>(
     { timestamps: true, versionKey: false }
 );
 
-reportSchema.index({ tripId: 1, reportedId: 1 });
+reportSchema.index({ reportedId: 1 });
 
 const Report = mongoose.model<IReport>('Report', reportSchema);
 

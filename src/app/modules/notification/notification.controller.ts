@@ -10,7 +10,7 @@ const getNotifications = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'user notification has been retrieved successfully',
+    message: 'Notification retrieved successfully',
     meta: data.meta,
     data: data.data,
   });
@@ -22,7 +22,7 @@ const markAsSeen = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'notification marked succesfully',
+    message: 'Notification marked successfully',
     data: data,
   });
 });
@@ -34,7 +34,7 @@ const getUnseenNotificationCount = asyncHandler(async (req: Request, res: Respon
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'notification unseen count successfully',
+    message: 'Unseen notification count retrieved successfully',
     data: count,
   });
 });

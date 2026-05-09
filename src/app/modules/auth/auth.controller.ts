@@ -48,7 +48,7 @@ const verifyEmailByOtp = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'user has been registered successfully!',
+    message: 'User has been registered successfully!',
     data: result,
   });
 });
@@ -100,7 +100,7 @@ const resetForgetPassword = asyncHandler(async (req: Request, res: Response) => 
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'password reset has been successfully',
+    message: 'Password reset has been successfully',
     data: result,
   });
 });
@@ -126,7 +126,7 @@ const changePassword = asyncHandler(async (req: Request, res: Response) => {
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,
-    message: 'password has been changed successfully',
+    message: 'Password has been changed successfully',
     data: result,
   });
 });

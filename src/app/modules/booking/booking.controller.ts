@@ -12,7 +12,7 @@ const sendRideRequestToDriverIntoDb = asyncHandler(async (req: Request, res: Res
     sendResponse(res, {
         statusCode: StatusCodes.CREATED,
         success: true,
-        message: 'booking request has been sent successfully',
+        message: 'Booking request has been sent successfully',
         data: result,
     });
 });
@@ -24,7 +24,7 @@ const acceptBookingIntoDb = asyncHandler(async (req: Request, res: Response) => 
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
-        message: 'booking request has been accepted successfully',
+        message: 'Booking request has been accepted successfully',
         data: result,
     });
 });
@@ -36,7 +36,7 @@ const rejectBookingIntoDb = asyncHandler(async (req: Request, res: Response) => 
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,
-        message: 'booking request has been rejected successfully',
+        message: 'Booking request has been rejected successfully',
         data: result,
     });
 });

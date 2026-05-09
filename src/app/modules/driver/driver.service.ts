@@ -119,7 +119,7 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
   const passenger = await passengerRepository.findPassengerByUserId(user._id, '_id');
 
   if (!driver) {
-    throw new NotFoundError('driver profile not found');
+    throw new NotFoundError('Driver profile not found');
   }
   console.log(payload)
   // 2. Start Transaction
@@ -165,7 +165,7 @@ const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePa
 const getDriverProfile = async (user: IUser) => {
   const driver = await driverRepository.findDriverByUserId(user._id, "fullName email avatar phone bio dateOfbirth licenseNumber languages governorate");
   if (!driver) {
-    throw new NotFoundError('driver profile not found');
+    throw new NotFoundError('Driver profile not found');
   }
   return {
     fullName: driver.fullName,
@@ -184,7 +184,7 @@ const getDriverProfile = async (user: IUser) => {
 const getDriverVehicle = async (user: IUser) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
   if (!driver) {
-    throw new NotFoundError('driver profile not found');
+    throw new NotFoundError('Driver profile not found');
   }
   return {
     carModel: driver.carModel,
@@ -208,7 +208,7 @@ const updateDriverVehicle = async (user: IUser, payload: TDriverCarUpdatePayload
 
   const driver = await driverRepository.findDriverByUserId(user._id);
   if (!driver) {
-    throw new NotFoundError('driver profile not found');
+    throw new NotFoundError('Driver profile not found');
   }
 
   const keptImages: string[] = payload.keptCarImages || [];
@@ -266,12 +266,12 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
 
   const driver = await driverRepository.findDriverByUserId(user._id);
   if (!driver) {
-    throw new NotFoundError('driver not found');
+    throw new NotFoundError('Driver not found');
   }
 
   const ride = await RidePublish.findById(rideId).select("driver requestsCount price dropOffLocation pickUpLocation totalSeats totalDistance");
   if (!ride) {
-    throw new NotFoundError('ride not found');
+    throw new NotFoundError('Ride not found');
   }
 
   if (ride.driver.toString() !== driver._id.toString()) {
@@ -354,7 +354,7 @@ const retrievedPassengerDetails = async (user: IUser, rideId: string) => {
   }
   const tripHistory = await TripHistory.findOne({ rideId: rideId });
 
-  if (!tripHistory) throw new NotFoundError('trip not found');
+  if (!tripHistory) throw new NotFoundError('Trip not found');
 
   if (tripHistory.driver.toString() !== driver._id.toString()) {
     throw new UnauthorizedError('This ride is not Yours');

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { getSocketIO } from "../../../../socket/connectSocket";
 import Notification from "../../notification/notification.model";
 import { sendPushNotification } from "../../notification/notification.utils";
@@ -8,6 +9,7 @@ import { TSendNotificationPayload } from "./notification.management.zod";
 
 const sendSocketNotification = async (payload: TSendNotificationPayload) => {
     const { audience, receiver, ...rest } = payload;
+    console.log({ audience, receiver, ...rest })
     const io = getSocketIO();
 
     if (audience === "all") {
@@ -57,8 +59,9 @@ const sendSocketNotification = async (payload: TSendNotificationPayload) => {
     } else {
         if (!receiver) return {};
         const user = await User.findById(receiver, { fcmToken: 1 });
-        await Promise.all([
-            Notification.create({ ...rest, for: null, receiver, type: "admin_notification" }),
+        console.log({user})
+        await Promise.allSettled([
+            Notification.create({ ...rest, for: 'specific', receiver: new mongoose.Types.ObjectId(receiver), type: "admin_notification" }),
             io.to(receiver).emit("notification", rest),
             user?.fcmToken && sendPushNotification(user.fcmToken, {
                 title: rest.title,

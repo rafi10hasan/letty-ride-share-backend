@@ -66,12 +66,12 @@ export async function handleMessagePage(
 
     // Fetch paginated messages sorted by oldest first
     const messages = await Message.find({ conversationId })
-      .sort({ _id: 1 })
+      .sort({ createdAt: -1 }) 
       .skip(skip)
       .limit(limit)
       .populate('senderId', 'fullName avatar')
       .lean();
-
+     messages.reverse();
     // Identify the other participant in the conversation
     const otherUser = conversation.participants.find(
       (p: any) => p._id.toString() !== currentUserId

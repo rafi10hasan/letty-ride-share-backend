@@ -160,8 +160,8 @@ const connectSocket = (server: HTTPServer) => {
         allowedHeaders: ['Authorization', 'Content-Type'],
       },
       transports: ['websocket'],
-      pingInterval: 30000,
-      pingTimeout: 20000,
+      pingInterval: 45000,
+      pingTimeout: 30000,
       connectTimeout: 45000,
     });
 
