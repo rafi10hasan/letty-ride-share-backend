@@ -3,10 +3,10 @@ import { PipelineStage, Types } from 'mongoose';
 import { getSocketIO } from '../../../socket/connectSocket';
 import { SOCKET_EVENTS } from '../../../socket/socket.constant';
 import getUserNotificationCount from '../../../utilities/getUserNotificationCount';
+import { BadRequestError } from '../../errors/request/apiError';
 import { IUser } from '../user/user.interface';
 import User from '../user/user.model';
 import Notification from './notification.model';
-import { BadRequestError } from '../../errors/request/apiError';
 
 const getAllNotifications = async (query: Record<string, unknown>, userId: string, role: string) => {
   // Pagination params
@@ -35,10 +35,19 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
     // Match by receiver + optional search
     {
       $match: {
-        receiver: new Types.ObjectId(userId),
-        for: { $in: ['all', role, 'specific', null] },
-        ...searchCondition,
-
+        $and: [
+          {
+            $or: [
+              { receiver: new Types.ObjectId(userId) },  // specific user
+              { receiver: null },                          // all / role-based
+              { receiver: { $exists: false } },            // receiver field নেই
+            ],
+          },
+          {
+            for: { $in: ['all', role, 'specific'] },
+          },
+          ...(Object.keys(searchCondition).length ? [searchCondition] : []),
+        ],
       },
     },
 
