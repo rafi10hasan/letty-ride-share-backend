@@ -1,4 +1,4 @@
-import jwt, { JwtPayload, Secret, SignOptions} from 'jsonwebtoken';
+import jwt, { JwtPayload, Secret, SignOptions } from 'jsonwebtoken';
 import { BadRequestError } from '../app/errors/request/apiError';
 
 import { SessionModel } from '../app/modules/session/session.model';
@@ -15,12 +15,12 @@ const verifyToken = (token: string, secret: Secret): JwtPayload => {
 // generate access token
 const generateTokens = async (payload: JwtPayload) => {
   const accessTokenOptions: SignOptions = {
-    expiresIn: Number(config.jwt_access_token_expiresin),
+    expiresIn: config.jwt_access_token_expiresin as SignOptions['expiresIn'],
   };
   const accessToken = jwt.sign(payload, config.jwt_access_token_secret!, accessTokenOptions);
 
   const refreshTokenOptions: SignOptions = {
-    expiresIn: Number(config.jwt_refresh_token_expiresin),
+    expiresIn: config.jwt_refresh_token_expiresin as SignOptions['expiresIn'],
   };
   const refreshToken = jwt.sign(payload, config.jwt_refresh_token_secret!, refreshTokenOptions);
 
