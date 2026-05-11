@@ -11,7 +11,7 @@ import { NOTIFICATION_TYPE } from '../notification/notification.constant';
 import { IUser } from '../user/user.interface';
 import { PUBLISH_STATUS, TRIP_STATUS } from './ride.publish.constant';
 import RidePublish from './ride.publish.model';
-import { generateTripId, timeStringToMinutes } from './ride.publish.utils';
+import { generateTripId, getBearing, timeStringToMinutes } from './ride.publish.utils';
 import { TCreateTripPayload, TSearchTripPayload, TUpdateTripPayload } from './ride.publish.zod';
 
 import { notifyUser } from '../../../cron/rideCron';
@@ -93,6 +93,13 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
 
   const estimatedArrivalTime = buildEstimatedArrivalTime(departureDateTime, etaSeconds);
 
+  const bearing = getBearing(
+    payload.pickUpLocation.coordinates,
+    payload.dropOffLocation.coordinates
+  );
+
+  console.log({ bearing })
+
   const MAX_RETRIES = 3;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -117,6 +124,7 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
         price: payload.price,
         estimatedArrivalTime,
         departureDateTime,
+        bearing,
       });
 
       return {
@@ -308,34 +316,6 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
 
   const diffDays = Math.round((searchDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-  // const specifiedDateTimeUTC = moment
-  //   .tz(`${date} ${time}`, 'YYYY-MM-DD hh:mm A', timezone)
-  //   .utc()
-  //   .toDate();
-
-  // const nowUTC = new Date();
-
-  // let departureDateTimeFrom: Date;
-  // let departureDateTimeTo: Date;
-
-  // if (diffDays === 0) {
-
-  //   const hoursBefore = moment(specifiedDateTimeUTC).subtract(5, 'hours').toDate();
-  //   departureDateTimeFrom = hoursBefore < nowUTC ? nowUTC : hoursBefore;
-  //   departureDateTimeTo = moment(specifiedDateTimeUTC).add(8, 'hours').toDate();
-
-  //   //hoursBefore < nowUTC ? nowUTC : hoursBefore;
-  // } else if (diffDays === 1) {
-
-  //   departureDateTimeFrom = nowUTC;
-  //   departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).endOf('day').utc().toDate();
-
-  // } else {
-
-  //   departureDateTimeFrom = nowUTC;
-  //   departureDateTimeTo = moment.tz(date, 'YYYY-MM-DD', timezone).add(1, 'day').endOf('day').utc().toDate();
-  // }
-
   const nowUTC = moment.utc();
 
   // 2. Parse the user's searched date and time in their timezone, then convert to UTC
@@ -365,7 +345,7 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
   }
 
 
-  console.log({ departureDateTimeFrom, departureDateTimeTo, diffDays });
+  // console.log({ departureDateTimeFrom, departureDateTimeTo, diffDays });
 
   const passenger = await passengerRepository.findPassengerByUserId(user._id);
   const bookedRideIds = passenger
@@ -377,6 +357,12 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
 
   const driver = await driverRepository.findDriverByUserId(user._id);
 
+  const searchBearing = getBearing(
+    pickUpLocation.coordinates,
+    dropOffLocation.coordinates
+  );
+
+  console.log({ searchBearing })
   const matchStage: Record<string, any> = {
     status: PUBLISH_STATUS.ACTIVE,
     tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] },
@@ -396,6 +382,20 @@ const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) =>
       },
     },
   };
+
+  matchStage.$expr = {
+    $let: {
+      vars: {
+        diff: { $abs: { $subtract: ["$bearing", searchBearing] } }
+      },
+      in: {
+        $lt: [
+          { $min: ["$$diff", { $subtract: [360, "$$diff"] }] },
+          90
+        ]
+      }
+    }
+  }
 
   if (bookedRideIds.length > 0) matchStage._id = { $nin: bookedRideIds };
   if (driver) matchStage.driver = { $ne: driver._id };

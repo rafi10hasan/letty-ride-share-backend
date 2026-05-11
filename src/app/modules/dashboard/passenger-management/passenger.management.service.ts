@@ -13,6 +13,8 @@ import { userRepository } from "../../user/user.repository";
 
 
 const getPassengerStats = async () => {
+    const onlineusers = onlineUsers.data;
+    console.log(onlineusers)
     const [
         totalPassengers,
         allPassengers,

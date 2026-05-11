@@ -4,7 +4,6 @@ import mongoose from 'mongoose';
 import NodeCache from 'node-cache';
 import { Server as ChatServer, Socket } from 'socket.io';
 
-import Conversation from '../app/modules/conversation/conversation.model';
 import { sendNotificationBySocket } from '../app/modules/notification/notification.utils';
 import { USER_ROLE } from '../app/modules/user/user.constant';
 import User from '../app/modules/user/user.model';
@@ -99,7 +98,14 @@ const handleConnection = async (socket: Socket) => {
       socket.join('passenger_channel');
     }
     socket.join(currentUserId);
-    onlineUsers.set(currentUserId, socket.id);
+    const sockets = await io.in(currentUserId).fetchSockets();
+
+    if (sockets.length === 1) {
+      await User.updateOne(
+        { _id: currentUserId },
+        { $set: { isOnline: true } }
+      );
+    }
   } catch (err) {
     console.error('Failed to join role channel:', currentUserId, err);
   }
@@ -145,9 +151,16 @@ const handleConnection = async (socket: Socket) => {
   handleLocationEvents(io, socket);
 
   // Disconnect cleanup
-  socket.on(SOCKET_EVENTS.DISCONNECT, () => {
+  socket.on(SOCKET_EVENTS.DISCONNECT, async () => {
     console.log(`User disconnected: ${currentUserId}`);
-    onlineUsers.del(currentUserId);
+    const sockets = await io.in(currentUserId).fetchSockets();
+
+    if (sockets.length === 0) {
+      await User.updateOne(
+        { _id: currentUserId },
+        { $set: { isOnline: false } }
+      );
+    }
   });
 };
 
@@ -159,7 +172,7 @@ const connectSocket = (server: HTTPServer) => {
         methods: ['GET', 'POST'],
         allowedHeaders: ['Authorization', 'Content-Type'],
       },
-      transports: ['websocket'],
+      transports: ['websocket', 'polling'],
       pingInterval: 25000,
       pingTimeout: 20000,
       connectTimeout: 45000,

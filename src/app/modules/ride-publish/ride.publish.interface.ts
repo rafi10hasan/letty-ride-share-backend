@@ -27,6 +27,7 @@ export interface IRidePublish extends Document {
     totalSeatBooked: number;
     cancellationReason?: string;
     timezone: string;
+    bearing: number;
     notifications: {
         notified24h: boolean;
         notified1h: boolean;

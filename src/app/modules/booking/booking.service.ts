@@ -45,8 +45,18 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
     }
 
     const isExistingBooking = await Booking.findOne({ passenger: passenger._id, ride: rideId });
-    if (isExistingBooking) {
+
+    if (isExistingBooking?.status === BOOKING_STATUS.REJECTED) {
+        throw new BadRequestError('Your previous booking request for this ride was rejected')
+    }
+    else if (isExistingBooking?.status === BOOKING_STATUS.PENDING) {
         throw new BadRequestError('You have already a request for this ride')
+    }
+    else if (isExistingBooking?.status === BOOKING_STATUS.ACCEPTED) {
+        throw new BadRequestError('Your booking request for this ride is already accepted')
+    }
+    else if (isExistingBooking?.status === BOOKING_STATUS.CANCELLED) {
+        throw new BadRequestError('Your booking request for this ride is already cancelled')
     }
 
     const ride = await RidePublish.findById(rideId)
@@ -281,9 +291,7 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 // reject booking
 
 const rejectOrCancelBooking = async (user: IUser, bookingId: string) => {
-    const driver = await driverRepository.findDriverByUserId(user._id);
-    if (!driver) throw new NotFoundError('Driver not found');
-
+    console.log("user role", user.currentRole)
     const booking = await Booking.findById(bookingId)
         .populate<{ ride: IRidePublish & { driver: IPopulatedDriver } }>({
             path: 'ride',
@@ -305,8 +313,13 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string) => {
                 select: 'fcmToken _id',
             },
         });
+    const driverId = booking?.ride?.driver?._id;
+    const driver = await driverRepository.findByDriverId(driverId as Types.ObjectId);
 
-    if (!booking) throw new NotFoundError('Request not found');
+    if (!driver) {
+        throw new NotFoundError('Driver not found');
+    }
+    if (!booking) throw new NotFoundError('Booking not found');
 
     if (user.currentRole === USER_ROLE.DRIVER && booking.ride.driver._id.toString() !== driver._id.toString()) {
         throw new UnauthorizedError('This booking is not Yours');

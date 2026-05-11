@@ -27,6 +27,8 @@ const createDriverProfile = async (
   files: TDriverImages
 ) => {
   // 1. Check if driver profile already exists
+
+    console.log({payload})
   const existingDriver = await driverRepository.findDriverByUserId(user._id);
   if (existingDriver || user.currentRole === 'driver') {
     throw new BadRequestError('Driver profile already completed');
@@ -113,7 +115,7 @@ const createDriverProfile = async (
 
 // updated driver profile
 const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePayload) => {
-
+ 
   const driver = await driverRepository.findDriverByUserId(user._id, '_id');
 
   const passenger = await passengerRepository.findPassengerByUserId(user._id, '_id');

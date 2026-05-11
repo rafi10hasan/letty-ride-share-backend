@@ -8,7 +8,10 @@ import { IUser } from '../user/user.interface';
 import User from '../user/user.model';
 import Notification from './notification.model';
 
-const getAllNotifications = async (query: Record<string, unknown>, userId: string, role: string) => {
+const getAllNotifications = async (query: Record<string, unknown>, user: IUser, role: string) => {
+
+  const { createdAt, _id } = user
+  console.log(createdAt)
   // Pagination params
   const page = Number(query.page) || 1;
   const limit = Number(query.limit) || 10;
@@ -33,13 +36,16 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
         $and: [
           {
             $or: [
-              { receiver: new Types.ObjectId(userId) },  // specific user
+              { receiver: new Types.ObjectId(_id) },  // specific user
               { receiver: null },                          // all / role-based
               { receiver: { $exists: false } },            // receiver field নেই
             ],
           },
           {
             for: { $in: ['all', role, 'specific'] },
+          },
+          {
+            createdAt: { $gt: new Date(createdAt) },
           },
           ...(Object.keys(searchCondition).length ? [searchCondition] : []),
         ],
@@ -72,15 +78,19 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
 
   const [result] = await Notification.aggregate(pipeline);
 
-  await User.findByIdAndUpdate(userId, { lastReadAt: new Date() });
+  await User.findByIdAndUpdate(_id, { lastReadAt: new Date() });
   const io = getSocketIO();
-  io.to(userId.toString()).emit(SOCKET_EVENTS.NOTIFICATION_UPDATE_COUNT, { unseenCount: 0 });
+  io.to(_id.toString()).emit(SOCKET_EVENTS.NOTIFICATION_UPDATE_COUNT, { unseenCount: 0 });
 
+
+
+  // createdAt → moment দিয়ে format
   const rawData = result?.data || [];
   const total = result?.totalCount?.[0]?.count || 0;
   const totalPages = Math.ceil(total / limit);
 
-  // createdAt → moment দিয়ে format
+
+
   const data = rawData.map((item: any) => ({
     ...item,
     createdAt: moment(item.createdAt).format('DD MMM YYYY, hh:mm A'),   // "07 Apr 2025, 03:45 PM"
@@ -99,14 +109,31 @@ const getAllNotifications = async (query: Record<string, unknown>, userId: strin
 };
 
 const markNotificationAsSeen = async (user: IUser, notificationId: string) => {
-  const isYourNotification = await Notification.findOne({ _id: notificationId, receiver: user._id });
-  if (!isYourNotification) {
-    throw new BadRequestError('Notification not found or not owned by user');
+  const notification = await Notification.findById(notificationId);
+
+  if (!notification) {
+    throw new BadRequestError('Notification not found');
   }
-  const updated = await Notification.findByIdAndUpdate(notificationId, { isRead: true }, { new: true });
-  return {
-    isRead: updated?.isRead
-  };
+
+  if (notification.for === 'specific' &&
+    notification.receiver?.toString() !== user._id.toString()) {
+    throw new BadRequestError('Notification not owned by user');
+  }
+
+  
+  if (notification.for !== 'specific' &&
+    notification.for !== 'all' &&
+    notification.for !== user.currentRole) {
+    throw new BadRequestError('Notification not accessible by user');
+  }
+
+  const updated = await Notification.findByIdAndUpdate(
+    notificationId,
+    { isRead: true },
+    { new: true }
+  );
+
+  return { isRead: updated?.isRead };
 };
 
 const getAllUnseenNotificationCount = async (userId: string) => {

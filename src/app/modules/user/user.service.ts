@@ -428,7 +428,7 @@ const getOtherUserProfile = async (user: IUser, profileId: string) => {
       languages: passengerProfile.languages,
       rating: passengerProfile.avgRating || 0,
       totalReviews: passengerProfile.totalReviews || 0,
-      totalRides: passengerProfile.totalRides || 0,
+      totalTrips: passengerProfile.totalRides || 0,
     };
   }
 

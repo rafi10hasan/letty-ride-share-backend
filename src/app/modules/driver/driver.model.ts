@@ -49,13 +49,17 @@ export const driverSchema = new mongoose.Schema<IDriver>(
 
     email: {
       type: String,
-      required: [true, 'Email is required!'],
+      required: false,
       lowercase: true,
       trim: true,
       validate: {
-        validator: (value: string) => validator.isEmail(value),
+        validator: (value: string) => {
+          if (value === null || value === undefined) return true;
+          return validator.isEmail(value);
+        },
         message: (props: { value: string }) => `${props.value} is not a valid email!`,
       },
+      default: null
     },
 
     phone: {
@@ -63,6 +67,7 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       unique: [true, 'phone number is already used!'],
       sparse: true,
       required: false,
+      default: undefined
     },
 
     bio: {

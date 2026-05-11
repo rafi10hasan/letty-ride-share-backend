@@ -73,6 +73,7 @@ export interface IUser extends Document {
   subscription?: ISubscription | null;
   isSocialLogin: boolean;
   isActive: boolean | null;
+  isOnline: boolean | null;
   isDeleted: boolean;
   lastReadAt: Date | null;
   deletedAt?: Date | null;

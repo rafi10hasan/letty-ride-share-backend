@@ -142,6 +142,10 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
             type: [Number],
 
         },
+        bearing: {
+            type: Number,
+            default: 0
+        },
         timezone: {
             type: String,
             required: [true, 'Timezone is required'],

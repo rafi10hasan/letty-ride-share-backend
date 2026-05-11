@@ -4,7 +4,6 @@ import moment from 'moment';
 import Conversation from '../app/modules/conversation/conversation.model';
 import Message from '../app/modules/Message/message.model';
 import User from '../app/modules/user/user.model';
-import { onlineUsers } from '../socket/connectSocket';
 
 
 interface ConversationQuery {
@@ -45,87 +44,116 @@ export const getConversationList = async (
   const skip = (page - 1) * limit;
   const searchTerm = query?.searchTerm;
 
-
   let filter: any = { participants: userObjectId };
 
   if (searchTerm && searchTerm.trim()) {
-
     const matchingUsers = await User.find(
-      {
-        fullName: { $regex: searchTerm.trim(), $options: 'i' }
-      },
+      { fullName: { $regex: searchTerm.trim(), $options: 'i' } },
       '_id'
     ).lean();
 
     if (matchingUsers.length > 0) {
       const matchingUserIds = matchingUsers.map((u) => u._id);
-
       filter = {
         $and: [
           { participants: userObjectId },
-          { participants: { $in: matchingUserIds } }
-        ]
+          { participants: { $in: matchingUserIds } },
+        ],
       };
     } else {
-      return {
-        total: 0,
-        conversations: []
-      };
+      return { total: 0, conversations: [] };
     }
   }
 
-  const total = await Conversation.countDocuments(filter);
+  const [total, conversations] = await Promise.all([
+    Conversation.countDocuments(filter),
+    Conversation.find(filter)
+      .populate<{ participants: IUserBasic[] }>('participants', 'fullName avatar isOnline')
+      .populate<{ 'lastMessage.senderId': IUserBasic }>('lastMessage.senderId', 'fullName')
+      .sort({ 'lastMessage.createdAt': -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean(),
+  ]);
 
-  const conversations = await Conversation.find(filter)
-    .populate<{ participants: IUserBasic[] }>('participants', 'fullName avatar')
-    .populate<{ 'lastMessage.senderId': IUserBasic }>(
-      'lastMessage.senderId',
-      'fullName'
-    )
-    .sort({ 'lastMessage.createdAt': -1 })
-    .skip(skip)
-    .limit(limit)
-    .lean();
+  if (conversations.length === 0) {
+    return { total, conversations: [] };
+  }
 
-  // Process conversations with unread count and online status
-  const conversationsWithDetails = await Promise.all(
-    conversations.map(async (conv) => {
-      const userLastSeen = conv.lastSeen instanceof Map ? conv.lastSeen.get(userId) : conv.lastSeen?.[userId];
+  const conversationIds = conversations.map((c) => c._id);
 
-      // Calculate unread count
-      let unreadCount = 0;
-      if (userLastSeen) {
-        unreadCount = await Message.countDocuments({
-          conversationId: conv._id,
-          _id: { $gt: userLastSeen },
-          senderId: { $ne: userObjectId },
-        });
-      } else {
-        unreadCount = await Message.countDocuments({
-          conversationId: conv._id,
-          senderId: { $ne: userObjectId },
-        });
-      }
+  // lean() এর পরে Map → plain object, তাই direct property access
+  const lastSeenByConversation = new Map<string, Types.ObjectId | null>();
+  for (const conv of conversations) {
+    const lastSeenMap = conv.lastSeen as unknown as Record<string, Types.ObjectId>;
+    const lastSeen = lastSeenMap?.[userId] ?? null;
+    lastSeenByConversation.set(conv._id.toString(), lastSeen);
+  }
 
-      // Find other user (the one who is not current user)
+  const lastSeenConditions = conversations
+    .filter((conv) => lastSeenByConversation.get(conv._id.toString()))
+    .map((conv) => ({
+      conversationId: conv._id,
+      lastSeen: lastSeenByConversation.get(conv._id.toString()),
+    }));
+
+  const noLastSeenIds = conversationIds.filter(
+    (id) => !lastSeenByConversation.get(id.toString())
+  );
+
+  // Run both aggregations in parallel
+  const [withLastSeenAgg, withoutLastSeenAgg] = await Promise.all([
+    lastSeenConditions.length > 0
+      ? Message.aggregate([
+        {
+          $match: {
+            $or: lastSeenConditions.map(({ conversationId, lastSeen }) => ({
+              conversationId,
+              senderId: { $ne: userObjectId },
+              _id: { $gt: lastSeen },
+            })),
+          },
+        },
+        {
+          $group: {
+            _id: '$conversationId',
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      : Promise.resolve([]),
+
+    noLastSeenIds.length > 0
+      ? Message.aggregate([
+        {
+          $match: {
+            conversationId: { $in: noLastSeenIds },
+            senderId: { $ne: userObjectId },
+          },
+        },
+        {
+          $group: {
+            _id: '$conversationId',
+            count: { $sum: 1 },
+          },
+        },
+      ])
+      : Promise.resolve([]),
+  ]);
+
+  // Merge both aggregation results
+  const unreadMap = new Map<string, number>();
+  for (const item of [...withLastSeenAgg, ...withoutLastSeenAgg]) {
+    unreadMap.set(item._id.toString(), item.count);
+  }
+
+  const conversationsWithDetails = conversations
+    .map((conv) => {
       const otherUser = conv.participants.find(
         (p: any) => p._id.toString() !== userId
       );
 
-      if (!otherUser) {
-        return null; // Skip if no other user found
-      }
-
-      // Check online status
-      const isOnline = onlineUsers.has(otherUser._id.toString());
-
-      // Format last message
-      let lastMsg = '';
-      if (conv.lastMessage) {
-        if (conv.lastMessage.text) {
-          lastMsg = conv.lastMessage.text;
-        }
-      }
+      if (!otherUser) return null;
 
       return {
         conversationId: conv._id.toString(),
@@ -133,84 +161,21 @@ export const getConversationList = async (
           userId: otherUser._id.toString(),
           name: otherUser.fullName,
           profileImage: otherUser.avatar || '',
-          online: isOnline, // Online status
+          online: (otherUser as any).isOnline ?? false,
         },
-        lastMsg,
-        lastMsgCreatedAt: conv.lastMessage?.createdAt ? moment(conv.lastMessage?.createdAt).fromNow() : "No messages yet",
-        unseenMsg: unreadCount,
+        lastMsg: conv.lastMessage?.text || '',
+        lastMsgCreatedAt: conv.lastMessage?.createdAt
+          ? moment(conv.lastMessage.createdAt).fromNow()
+          : 'No messages yet',
+        unseenMsg: unreadMap.get(conv._id.toString()) ?? 0,
       };
     })
-  );
-
-  // Filter out null entries (if any)
-  const validConversations = conversationsWithDetails.filter(
-    (conv) => conv !== null
-  );
+    .filter(Boolean);
 
   return {
     total,
-    conversations: validConversations,
+    conversations: conversationsWithDetails,
   };
-}
+};
 
 
-/*
-
-// conversation.service.ts
-export async function getUserConversations(userId: string) {
-  const conversations = await Conversation.find({
-    participants: userId,
-  })
-    .populate('participants', 'name email avatar')
-    .populate('last_message.sender_id', 'name avatar')
-    .sort({ 'last_message.created_at': -1 }); // সবচেয়ে নতুন আগে
-
-  const conversationsWithDetails = await Promise.all(
-    conversations.map(async (conv) => {
-      // Unread count
-      const userLastSeen = conv.last_seen.get(userId);
-      
-      let unreadCount = 0;
-      if (userLastSeen) {
-        unreadCount = await Message.countDocuments({
-          conversation_id: conv._id,
-          _id: { $gt: userLastSeen },
-          sender_id: { $ne: userId },
-        });
-      } else {
-        unreadCount = await Message.countDocuments({
-          conversation_id: conv._id,
-          sender_id: { $ne: userId },
-        });
-      }
-
-      // অন্য user
-      const otherUser = conv.participants.find(
-        (p: any) => p._id.toString() !== userId
-      );
-
-      return {
-        _id: conv._id,
-        otherUser: {
-          _id: otherUser._id,
-          name: otherUser.name,
-          avatar: otherUser.avatar,
-        },
-        lastMessage: conv.last_message
-          ? {
-              text: conv.last_message.text,
-              sender: conv.last_message.sender_id._id.toString(),
-              senderName: conv.last_message.sender_id.name,
-              createdAt: conv.last_message.created_at,
-            }
-          : null,
-        unreadCount,
-        updatedAt: conv.updatedAt,
-      };
-    })
-  );
-
-  return conversationsWithDetails;
-}
-
-*/

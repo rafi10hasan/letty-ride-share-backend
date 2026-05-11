@@ -20,6 +20,16 @@ export function minutesToTimeString(minutes: number): string {
     return `${String(display).padStart(2, '0')}:${String(mins).padStart(2, '0')} ${modifier}`;
 }
 
+export function getBearing(from: [number, number], to: [number, number]): number {
+    // from = [lon, lat], to = [lon, lat]
+    const dLon = to[0] - from[0];  // longitude difference
+    const dLat = to[1] - from[1];  // latitude difference
+
+    const bearing = Math.atan2(dLon, dLat) * (180 / Math.PI);
+
+    // -180~180  0~360 convert
+    return (bearing + 360) % 360;
+}
 
 export const generateTripId = async () => {
     const prefix = "TRIP";

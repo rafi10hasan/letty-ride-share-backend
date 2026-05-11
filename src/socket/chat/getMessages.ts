@@ -2,7 +2,6 @@ import { Types } from 'mongoose';
 import { Socket } from 'socket.io';
 import Conversation from '../../app/modules/conversation/conversation.model';
 import Message from '../../app/modules/Message/message.model';
-import { onlineUsers } from '../connectSocket';
 import { SOCKET_EVENTS } from '../socket.constant';
 
 interface MessagePageData {
@@ -66,12 +65,12 @@ export async function handleMessagePage(
 
     // Fetch paginated messages sorted by oldest first
     const messages = await Message.find({ conversationId })
-      .sort({ createdAt: -1 }) 
+      .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('senderId', 'fullName avatar')
+      .populate('senderId', 'fullName avatar isOnline')
       .lean();
-     messages.reverse();
+    messages.reverse();
     // Identify the other participant in the conversation
     const otherUser = conversation.participants.find(
       (p: any) => p._id.toString() !== currentUserId
@@ -106,6 +105,8 @@ export async function handleMessagePage(
       ? getLastSeen(conversation.lastSeen, otherUser._id.toString())
       : null;
 
+
+
     const messagesWithStatus = messages.map((msg: any) => {
       const isMyMessage = msg.senderId._id.toString() === currentUserId;
 
@@ -123,6 +124,7 @@ export async function handleMessagePage(
           : false;
       }
 
+
       return {
         messageId: msg._id.toString(),
         text: msg.text,
@@ -139,7 +141,7 @@ export async function handleMessagePage(
     socket.emit('message-data', {
       fullName: otherUser?.fullName,
       profileImage: otherUser?.avatar || '',
-      isOnline: otherUser ? onlineUsers.has(otherUser._id.toString()) : false,
+      isOnline: otherUser ? (otherUser as any).isOnline ?? false : false,
       conversationId,
       messages: messagesWithStatus,
       hasMore: messages.length === limit,

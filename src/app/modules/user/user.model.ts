@@ -170,6 +170,10 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: true,
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
     lastReadAt: {
       type: Date,
       default: null

@@ -6,7 +6,8 @@ import sendResponse from '../../../shared/sendResponse';
 import notificationServices from './notification.services';
 
 const getNotifications = asyncHandler(async (req: Request, res: Response) => {
-  const data = await notificationServices.getAllNotifications(req.query, req.user._id.toString(), req.user.currentRole);
+  
+  const data = await notificationServices.getAllNotifications(req.query, req.user, req.user.currentRole);
   sendResponse(res, {
     statusCode: StatusCodes.OK,
     success: true,

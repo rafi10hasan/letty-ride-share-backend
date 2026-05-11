@@ -136,24 +136,21 @@ export async function handleSendMessage(
   }
 
 
-  console.log('lastSeen from DB:', JSON.stringify(conversation.lastSeen));
-  console.log('lastSeenUpdates:', JSON.stringify(lastSeenUpdates));
-
   for (const participantId of conversation.participants) {
     const participantIdString = participantId.toString();
 
     const participantLastSeen =
       lastSeenUpdates[participantIdString] ||
       (conversation.lastSeen as any)?.[participantIdString];
-    console.log('participantLastSeen:', participantLastSeen, typeof participantLastSeen);
+
     const unreadCount = participantLastSeen
       ? await Message.countDocuments({
         conversationId: conversationObjectId,
         _id: { $gt: participantLastSeen },
       })
       : await Message.countDocuments({ conversationId: conversationObjectId });
-    console.log('unreadCount:', unreadCount);
-    // handleSendMessage.ts এ
+  
+    // handleSendMessage.ts 
     io.to(participantIdString).emit(SOCKET_EVENTS.CONVERSATION_UPDATED, {
       conversationId: conversationIdString,
       lastMsg: saveMessage.text,

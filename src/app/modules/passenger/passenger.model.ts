@@ -44,20 +44,24 @@ export const passengerSchema = new mongoose.Schema<IPassenger>(
 
     email: {
       type: String,
-      required: [true, 'Email is required!'],
+      required: false,
       lowercase: true,
       trim: true,
       validate: {
-        validator: (value: string) => validator.isEmail(value),
+        validator: (value: string) => {
+          if (value === null || value === undefined) return true;
+          return validator.isEmail(value);
+        },
         message: (props: { value: string }) => `${props.value} is not a valid email!`,
       },
+      default: null,
     },
 
     phone: {
       type: String,
       unique: [true, 'phone number is already used!'],
       sparse: true,
-      required: false,
+      required: undefined,
     },
 
     bio: {
