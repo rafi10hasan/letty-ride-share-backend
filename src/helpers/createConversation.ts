@@ -1,168 +1,171 @@
-
+import moment from 'moment';
 import mongoose, { startSession } from 'mongoose';
-import { Server, Socket, } from "socket.io";
-import Conversation from "../app/modules/conversation/conversation.model";
-import Message from "../app/modules/Message/message.model";
-import User from "../app/modules/user/user.model";
+import { Server, Socket } from 'socket.io';
+import Conversation from '../app/modules/conversation/conversation.model';
+import Message from '../app/modules/Message/message.model';
+import User from '../app/modules/user/user.model';
+import { SOCKET_EVENTS } from '../socket/socket.constant';
+
 
 export const createConversation = async (
-    io: Server,
-    socket: Socket,
-    currentUserId: string,
-    data: {
-        text: string;
-        receiverId: string;
-    }
+  io: Server,
+  socket: Socket,
+  currentUserId: string,
+  data: { receiverId: string; text: string },
+  callback: (response: { conversationId?: string; error?: string }) => void
 ) => {
-    const session = await startSession();
-
-    try {
-        session.startTransaction();
-
-        // 1. Validation
-        if (currentUserId === data.receiverId) {
-            return socket.emit('socket-error', {
-                event: 'create-conversation',
-                message: "You can't chat with Yourself",
-            });
-        }
-
-        // 2. Check receiver exists
-        const receiver = await User.findById(
-            new mongoose.Types.ObjectId(data.receiverId)
-        )
-            .select('_id')
-            .session(session);
-
-        if (!receiver) {
-            await session.abortTransaction();
-            return socket.emit('socket-error', {
-                event: 'create-conversation',
-                message: 'Receiver not found!',
-            });
-        }
-
-        // 3. Check existing conversation
-        const existingConversation = await Conversation.findOne({
-            participants: {
-                $all: [currentUserId, data.receiverId],
-                $size: 2,
-            },
-        }).session(session);
-
-        if (existingConversation) {
-            const [savedMessage] = await Message.create(
-                [
-                    {
-                        text: data.text,
-                        senderId: currentUserId,
-                        conversationId: existingConversation._id,
-                    },
-                ],
-                { session }
-            );
-
-            // Fix: lastMessage এ পুরো object save করো, শুধু ID না
-            await Conversation.updateOne(
-                { _id: existingConversation._id },
-                {
-                    lastMessage: {
-                        messageId: savedMessage._id,
-                        text: savedMessage.text || '',
-                        senderId: savedMessage.senderId,
-                        createdAt: savedMessage.createdAt,
-                    },
-                    updatedAt: new Date(),
-                },
-                { session }
-            );
-
-            await session.commitTransaction();
-
-            const responseData = {
-                conversationId: existingConversation._id.toString(),
-                message: {
-                    _id: savedMessage._id,
-                    text: savedMessage.text,
-                    senderId: currentUserId,
-                    createdAt: savedMessage.createdAt,
-                },
-            };
-
-            socket.emit('message-sent', responseData);
-            io.to(data.receiverId.toString()).emit('new-message', responseData);
-
-            return existingConversation._id.toString();
-        }
-
-        // 4. Create new conversation
-        const [conversation] = await Conversation.create(
-            [
-                {
-                    participants: [currentUserId, data.receiverId],
-                    // ✅ Fix: lastMessage দিও না, null থাকবে schema default অনুযায়ী
-                },
-            ],
-            { session }
-        );
-
-        // 5. Create message
-        const [savedMessage] = await Message.create(
-            [
-                {
-                    text: data.text,
-                    senderId: currentUserId,
-                    conversationId: conversation._id,
-                },
-            ],
-            { session }
-        );
-
-        // 6. Update conversation with full lastMessage object
-        // Fix: lastMessage এ পুরো object save করো, শুধু ID না
-        await Conversation.updateOne(
-            { _id: conversation._id },
-            {
-                lastMessage: {
-                    messageId: savedMessage._id,
-                    text: savedMessage.text || '',
-                    senderId: savedMessage.senderId,
-                    createdAt: savedMessage.createdAt,
-                },
-                updatedAt: new Date(),
-            },
-            { session }
-        );
-
-        await session.commitTransaction();
-
-        // 7. Prepare response
-        const responseData = {
-            conversationId: conversation._id.toString(),
-            message: {
-                _id: savedMessage._id,
-                text: savedMessage.text,
-                senderId: currentUserId,
-                createdAt: savedMessage.createdAt,
-            },
-        };
-
-        // 8. Emit events
-        socket.emit('conversation-created', responseData);
-        io.to(data.receiverId.toString()).emit('conversation-created', responseData);
-
-        return conversation._id.toString();
-    } catch (error) {
-        await session.abortTransaction();
-        console.error('Create conversation error:', error);
-
-        socket.emit('socket-error', {
-            event: 'create-conversation',
-            message: 'Failed to create conversation',
-        });
-
-        throw error;
-    } finally {
-        session.endSession();
+  try {
+    // Validation
+    if (currentUserId === data.receiverId) {
+      return callback({ error: "You can't chat with yourself" });
     }
+
+    if (!data.text?.trim()) {
+      return callback({ error: 'Message cannot be empty' });
+    }
+
+    const receiver = await User.findById(data.receiverId).select('_id');
+    if (!receiver) {
+      return callback({ error: 'Receiver not found' });
+    }
+
+    // Check existing conversation
+    const existing = await Conversation.findOne({
+      participants: {
+        $all: [currentUserId, data.receiverId],
+        $size: 2,
+      },
+    });
+
+    if (existing) {
+      const savedMessage = await Message.create({
+        text: data.text.trim(),
+        senderId: new mongoose.Types.ObjectId(currentUserId),
+        conversationId: existing._id,
+      });
+
+      await Conversation.updateOne(
+        { _id: existing._id },
+        {
+          $set: {
+            lastMessage: {
+              messageId: savedMessage._id,
+              text: savedMessage.text,
+              senderId: savedMessage.senderId,
+              createdAt: savedMessage.createdAt,
+            },
+            [`lastSeen.${currentUserId}`]: savedMessage._id,
+            updatedAt: new Date(),
+          },
+        }
+      );
+
+      const conversationIdString = existing._id.toString();
+
+      socket.join(conversationIdString);
+
+      // Receiver unread count
+      const receiverLastSeen = (existing.lastSeen as any)?.[data.receiverId];
+      const unreadCount = await Message.countDocuments({
+        conversationId: existing._id,
+        senderId: { $ne: new mongoose.Types.ObjectId(data.receiverId) },
+        ...(receiverLastSeen ? { _id: { $gt: receiverLastSeen } } : {}),
+      });
+
+      io.to(data.receiverId).emit(SOCKET_EVENTS.NEW_MESSAGE, {
+        conversationId: conversationIdString,
+        message: {
+          _id: savedMessage._id.toString(),
+          text: savedMessage.text,
+          senderId: currentUserId,
+          createdAt: savedMessage.createdAt,
+          isSeen: false,
+        },
+      });
+
+      io.to(data.receiverId).emit(SOCKET_EVENTS.CONVERSATION_UPDATED, {
+        conversationId: conversationIdString,
+        lastMsg: savedMessage.text,
+        lastMsgCreatedAt: moment(savedMessage.createdAt).fromNow(),
+        unseenMsg: unreadCount,
+        updatedAt: new Date(),
+      });
+
+      return callback({ conversationId: conversationIdString });
+    }
+
+    // New conversation + first message
+    const session = await startSession();
+    try {
+      session.startTransaction();
+
+      const [conversation] = await Conversation.create(
+        [{ participants: [currentUserId, data.receiverId] }],
+        { session }
+      );
+
+      const [savedMessage] = await Message.create(
+        [{
+          text: data.text.trim(),
+          senderId: new mongoose.Types.ObjectId(currentUserId),
+          conversationId: conversation._id,
+        }],
+        { session }
+      );
+
+      await Conversation.updateOne(
+        { _id: conversation._id },
+        {
+          $set: {
+            lastMessage: {
+              messageId: savedMessage._id,
+              text: savedMessage.text,
+              senderId: savedMessage.senderId,
+              createdAt: savedMessage.createdAt,
+            },
+            [`lastSeen.${currentUserId}`]: savedMessage._id,
+            updatedAt: new Date(),
+          },
+        },
+        { session }
+      );
+
+      await session.commitTransaction();
+
+      const conversationIdString = conversation._id.toString();
+
+      socket.join(conversationIdString);
+
+      io.to(data.receiverId).emit(SOCKET_EVENTS.NEW_MESSAGE, {
+        conversationId: conversationIdString,
+        message: {
+          _id: savedMessage._id.toString(),
+          text: savedMessage.text,
+          senderId: currentUserId,
+          createdAt: savedMessage.createdAt,
+          isSeen: false,
+        },
+      });
+
+      io.to(data.receiverId).emit(SOCKET_EVENTS.CONVERSATION_UPDATED, {
+        conversationId: conversationIdString,
+        lastMsg: savedMessage.text,
+        lastMsgCreatedAt: moment(savedMessage.createdAt).fromNow(),
+        unseenMsg: 1,
+        updatedAt: new Date(),
+      });
+
+      callback({ conversationId: conversationIdString });
+
+    } catch (error) {
+      await session.abortTransaction();
+      throw error;
+    } finally {
+      session.endSession();
+    }
+
+  } catch (error) {
+    console.error('Create conversation error:', error);
+    callback({ error: 'Failed to create conversation' });
+  }
 };

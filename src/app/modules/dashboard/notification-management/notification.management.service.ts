@@ -35,7 +35,6 @@ const sendSocketNotification = async (payload: TSendNotificationPayload) => {
         const drivers = await User.find({ currentRole: USER_ROLE.DRIVER }, { fcmToken: 1 });
         await Promise.allSettled([
             Notification.create({ ...rest, for: USER_ROLE.DRIVER, type: "admin_notification" }),
-            io.to("driver_channel").emit("notification", rest),
             ...drivers
                 .filter((u): u is typeof u & { fcmToken: string } => isValidFcmToken(u.fcmToken))
                 .map(d => sendPushNotification("d50pRTf8QVef-jFDc4ldGi:APA91bFI68hqAP7LCD5igjD_1Qih59oI6RpzkuBL616L372hZVapkx8DQTAstfjBgszzsaXO_DYgrzyJTNFhvM5I4VucFVKRRqR24uC3MaV0NpNkoI5Gx6M", {
@@ -50,7 +49,6 @@ const sendSocketNotification = async (payload: TSendNotificationPayload) => {
 
         await Promise.allSettled([
             Notification.create({ ...rest, for: USER_ROLE.PASSENGER, type: "admin_notification" }),
-            io.to("passenger_channel").emit("notification", rest),
             ...passengers
                 .filter((u): u is typeof u & { fcmToken: string } => isValidFcmToken(u.fcmToken))
                 .map(p => sendPushNotification(p.fcmToken, {

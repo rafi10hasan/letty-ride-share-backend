@@ -14,11 +14,11 @@ const TripHistorySchema = new Schema<ITripHistory>(
         },
         pickUpLocation: {
             address: { type: String },
-            coordinates: { type: [Number], index: '2dsphere' },
+            coordinates: { type: [Number]},
         },
         dropOffLocation: {
             address: { type: String },
-            coordinates: { type: [Number], index: '2dsphere' },
+            coordinates: { type: [Number]},
         },
         departureDateTime: { type: Date },
         cancellationReason: { type: String, default: null },
@@ -30,7 +30,7 @@ const TripHistorySchema = new Schema<ITripHistory>(
         completedAt: { type: Date },
 
     },
-    { timestamps: true }
+    { timestamps: true , versionKey: false}
 );
 
 export const TripHistory = mongoose.model<ITripHistory>('TripHistory', TripHistorySchema);

@@ -15,7 +15,7 @@ const trustedIPs = ['192.168.12.31', '192.168.12.37'];
 
 export const applyRateLimit = () =>
   rateLimit({
-    windowMs: 5 * 60 * 1000, // 5 minutes
+    windowMs: 1 * 60 * 1000, // 1 minute
     limit: 200,
     standardHeaders: 'draft-7',
     legacyHeaders: false,

@@ -105,9 +105,9 @@ const sendSubscriptionPurchaseRequest = async (
             sendMail(mailOptions).catch((err) => {
                 console.error('Failed to send subscription request email:', err);
             });
-        } else if (canUsePhone) {
+        } if (canUsePhone) {
             sendOtpSms(
-                user.phone!,
+                superAdmin.phone!,
                 `Your subscription request for ${plan} plan has been received.`
             ).catch((err) => {
                 console.error('Failed to send subscription request SMS:', err);

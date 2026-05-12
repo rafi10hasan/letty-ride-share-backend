@@ -123,7 +123,8 @@ const markNotificationAsSeen = async (user: IUser, notificationId: string) => {
   
   if (notification.for !== 'specific' &&
     notification.for !== 'all' &&
-    notification.for !== user.currentRole) {
+    notification.for !== user.currentRole
+  ) {
     throw new BadRequestError('Notification not accessible by user');
   }
 

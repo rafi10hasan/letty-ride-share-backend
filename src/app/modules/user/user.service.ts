@@ -112,6 +112,7 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
 
   // ─── 8. New user 
   const verificationOtp = generateOTP();
+  console.log({ verificationOtp })
   const otpExpiry = new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000);
   const accountId = await generateAccountId();
 
@@ -147,7 +148,7 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
     } else if (otpChannel === 'phone' && payload.phone) {
       await sendOtpSms(payload.phone, verificationOtp);
     } else {
-      throw new Error('No valid contact information provided for OTP delivery.');
+      throw new BadRequestError('No valid contact information provided for OTP delivery.');
     }
   } catch (error) {
     const channel = otpChannel === 'email' ? 'email' : 'phone';
@@ -269,6 +270,7 @@ const searchUsers = async (params: SearchUsersParams) => {
     data: users,
   };
 };
+
 // update user profile image
 const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
   if (!files?.profile_image?.length) {
@@ -296,7 +298,7 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
     );
 
     if (!result?.secure_url) {
-      throw new Error('Cloudinary upload failed');
+      throw new BadRequestError('Cloudinary upload failed');
     }
 
     newProfileImageUrl = result.secure_url;
@@ -334,6 +336,7 @@ const updateUserProfileImage = async (user: IUser, files: TProfileImage) => {
 
   return { avatar: newProfileImageUrl };
 };
+
 // switch user role
 const switchUserRole = async (user: IUser) => {
   let nextRole: string;
@@ -352,7 +355,7 @@ const switchUserRole = async (user: IUser) => {
     }
     nextRole = USER_ROLE.DRIVER;
   } else {
-    throw new Error('Invalid user role for switching');
+    throw new BadRequestError('Invalid user role for switching');
   }
 
   const updatedUser = await userRepository.updateUser(user._id, {
@@ -360,7 +363,7 @@ const switchUserRole = async (user: IUser) => {
   });
 
   if (!updatedUser) {
-    throw new Error('Failed to update user role');
+    throw new BadRequestError('Failed to update user role');
   }
 
   const JwtPayload: jwtPayload = {

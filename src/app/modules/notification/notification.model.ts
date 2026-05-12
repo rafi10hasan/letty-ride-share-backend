@@ -29,7 +29,7 @@ const notificationSchema = new Schema<INotification>(
     for: {
       type: String,
       enum: ["all", "driver", "passenger", "specific"],
-      default: null,
+      default: "specific",
     },
     redirectId: {
       type: String,

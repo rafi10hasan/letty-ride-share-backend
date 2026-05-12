@@ -9,6 +9,7 @@ const adminData = {
   fullName: 'ADMIN',
   currentRole: USER_ROLE.SUPER_ADMIN,
   email: config.admin_email,
+  phone: config.admin_phone,
   password: config.admin_password,
   avatar: randomUserImage(),
 };
@@ -17,12 +18,14 @@ const seedingAdmin = async () => {
   try {
     const admin = await User.findOne({
       email: config.admin_email,
+      phone: config.admin_phone,
       currentRole: USER_ROLE.SUPER_ADMIN,
     });
     if (!admin) {
 
       const user = await User.create(adminData);
       user.verification.emailVerifiedAt = new Date();
+      user.verification.phoneVerifiedAt = new Date();
       await user.save();
 
       logger.info('Admin seeded successfully!');

@@ -1,0 +1,164 @@
+[
+    {
+  "_id": {
+    "$oid": "69fedf8a5f60eb326e8b5ca9"
+  },
+  "fullName": "Test Driver",
+  "email": "testdriver@yopmail.com",
+  "password": "$2b$08$Zb7ifF5Ey1ii0e.JVpy4EuiXQQXMRvFySVhQPPvBge9Lp18tdu8p2",
+  "avatar": "https://cdn-icons-png.freepik.com/512/303/303593.png",
+  "accountId": "acc-MOY0HGP5E4",
+  "verification": {
+    "emailVerifiedAt": {
+      "$date": "2026-05-09T07:18:19.858Z"
+    },
+    "phoneVerifiedAt": null
+  },
+  "otpSentTo": "email",
+  "fcmToken": "fBEXXinmS4mQwJYUo9-gtR:APA91bE0f7li-1pLZeTBKVANDXyjzk8hWpXktcm8rpHywS6bJJU_OzhgIy8EHTlso3HN5Vwu0nOMMAXZNTpVEJ_tXH92G9sQ1TJHPpgFhYbGTA3wvwsgj2o",
+  "isSocialLogin": false,
+  "badge": "blue",
+  "subscription": {
+    "id": {
+      "$oid": "69fee4d09e1bdd3eff20ce8e"
+    },
+    "plan": "premium",
+    "status": "active"
+  },
+  "deviceId": "d10ab0f4202c05cc",
+  "currentRole": "driver",
+  "isActive": true,
+  "lastReadAt": {
+    "$date": "2026-05-11T08:22:30.480Z"
+  },
+  "isDeleted": false,
+  "createdAt": {
+    "$date": "2026-05-09T07:17:30.976Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-11T13:08:02.836Z"
+  },
+  "passwordChangedAt": {
+    "$date": "2026-05-09T09:44:27.620Z"
+  },
+  "isOnline": false
+},
+
+{
+  "_id": {
+    "$oid": "69fef4c25f60eb326e8b620c"
+  },
+  "fullName": "Rafi Driver",
+  "email": "rafidriver@yopmail.com",
+  "password": "$2b$08$Zb7ifF5Ey1ii0e.JVpy4EuiXQQXMRvFySVhQPPvBge9Lp18tdu8p2",
+  "avatar": "https://cdn-icons-png.freepik.com/512/303/303593.png",
+  "accountId": "acc-MOY3PW0B3E",
+  "verification": {
+    "emailVerifiedAt": {
+      "$date": "2026-05-09T08:48:25.534Z"
+    },
+    "phoneVerifiedAt": null
+  },
+  "otpSentTo": "email",
+  "fcmToken": "fwR26dl7QfaWafhppBewdH:APA91bHPX5QpDYbYIzZPpdKDlGdYkfboSCKkX-ASB7TMwaodV5jv2FdXXJMfwSMBs9c-rN8VJFm3Her3feReByRKNk0q_6L7M1iGW3NTRSJjnDgmqofFAjQ",
+  "isSocialLogin": false,
+  "badge": "purple",
+  "subscription": {
+    "id": {
+      "$oid": "6a01995a9e1bdd3eff228b28"
+    },
+    "plan": "premium-plus",
+    "status": "active"
+  },
+  "deviceId": "d10ab0f4202c05cc",
+  "currentRole": "driver",
+  "isActive": true,
+  "lastReadAt": {
+    "$date": "2026-05-11T04:34:49.852Z"
+  },
+  "isDeleted": false,
+  "createdAt": {
+    "$date": "2026-05-09T08:48:02.892Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-11T08:55:38.471Z"
+  },
+  "isOnline": false
+},
+
+{
+  "_id": {
+    "$oid": "69ff02cf65c69da42b31ff34"
+  },
+  "fullName": "Oliva Rae",
+  "email": "mecapet588@bezill.com",
+  "password": "$2b$08$Zb7ifF5Ey1ii0e.JVpy4EuiXQQXMRvFySVhQPPvBge9Lp18tdu8p2",
+  "avatar": "https://cdn-icons-png.freepik.com/512/303/303593.png",
+  "accountId": "acc-MOY5UZCO21",
+  "verification": {
+    "emailVerifiedAt": {
+      "$date": "2026-05-09T09:48:53.141Z"
+    },
+    "phoneVerifiedAt": null
+  },
+  "otpSentTo": "email",
+  "fcmToken": "using emulator",
+  "isSocialLogin": false,
+  "badge": "free",
+  "subscription": {
+    "id": null,
+    "plan": "free",
+    "status": "active"
+  },
+  "deviceId": "d90723182caf1118",
+  "currentRole": "driver",
+  "isActive": true,
+  "lastReadAt": null,
+  "isDeleted": false,
+  "createdAt": {
+    "$date": "2026-05-09T09:47:59.738Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-11T05:17:28.809Z"
+  },
+  "isOnline": false
+},
+
+{
+  "_id": {
+    "$oid": "69ff04a365c69da42b31ff71"
+  },
+  "fullName": "Rafiq Gentleman",
+  "email": "wotaweb265@codoteam.com",
+  "password": "$2b$08$Zb7ifF5Ey1ii0e.JVpy4EuiXQQXMRvFySVhQPPvBge9Lp18tdu8p2",
+  "avatar": "https://img.freepik.com/free-vector/blue-circle-with-white-user_78370-4707.jpg",
+  "accountId": "acc-MOY6502EZT",
+  "verification": {
+    "emailVerifiedAt": {
+      "$date": "2026-05-09T09:56:09.022Z"
+    },
+    "phoneVerifiedAt": null
+  },
+  "otpSentTo": "email",
+  "fcmToken": "using emulator",
+  "isSocialLogin": false,
+  "badge": "free",
+  "subscription": {
+    "id": null,
+    "plan": "free",
+    "status": "active"
+  },
+  "deviceId": "d90723182caf1118",
+  "currentRole": "driver",
+  "isActive": true,
+  "lastReadAt": null,
+  "isDeleted": false,
+  "createdAt": {
+    "$date": "2026-05-09T09:55:47.223Z"
+  },
+  "updatedAt": {
+    "$date": "2026-05-11T05:17:13.880Z"
+  },
+  "isOnline": false
+}
+]

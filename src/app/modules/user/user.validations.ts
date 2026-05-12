@@ -10,7 +10,7 @@ export const phoneSchema = z
   })
   .refine(
     (phone) => isValidPhoneNumber(phone),
-    'Invalid phone number. Please include country code (e.g. +8801XXXXXXXXX)'
+    'Invalid phone number.'
   )
   .transform((phone) => {
     const parsed = parsePhoneNumberWithError(phone);

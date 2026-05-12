@@ -5,8 +5,6 @@ import sendResponse from '../../../shared/sendResponse';
 import asyncHandler from '../../../shared/asynchandler';
 import { TProfileImage } from './user.interface';
 import { userService } from './user.service';
-import { ContentController } from '../Content/content.controller';
-
 
 // register user
 const createAccountIntoDb = asyncHandler(async (req: Request, res: Response) => {

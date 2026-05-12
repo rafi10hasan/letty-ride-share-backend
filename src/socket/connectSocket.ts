@@ -74,7 +74,6 @@ const socketAuthMiddleware = async (
     }
 
     socket.data.userId = currentUser._id.toString();
-    socket.data.user = currentUser;
 
     next();
   } catch (err) {
@@ -86,17 +85,11 @@ const socketAuthMiddleware = async (
 // Handle individual socket connection
 const handleConnection = async (socket: Socket) => {
   const currentUserId: string = socket.data.userId;
-  const user = socket.data.user;
 
   console.log(`User connected: ${currentUserId}`);
 
-  // Join role-based channel and personal room
+  // Join personal room
   try {
-    if (user?.currentRole === USER_ROLE.DRIVER) {
-      socket.join('driver_channel');
-    } else if (user?.currentRole === USER_ROLE.PASSENGER) {
-      socket.join('passenger_channel');
-    }
     socket.join(currentUserId);
     const sockets = await io.in(currentUserId).fetchSockets();
 

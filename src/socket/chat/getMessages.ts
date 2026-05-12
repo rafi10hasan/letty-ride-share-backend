@@ -39,7 +39,7 @@ export async function handleMessagePage(
 
     // Fetch conversation with participant details
     const conversation = (await Conversation.findById(conversationId)
-      .populate('participants', 'fullName avatar')
+      .populate('participants', 'fullName avatar isOnline')
       .lean()) as ConversationWithParticipants | null;
 
     if (!conversation) {

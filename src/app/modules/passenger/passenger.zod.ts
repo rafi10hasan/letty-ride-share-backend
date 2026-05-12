@@ -1,3 +1,4 @@
+import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 import z from 'zod';
 
 const dateOfBirthSchema = z
@@ -84,13 +85,19 @@ const updatePassengerProfileSchema = z.object({
     .min(3, 'Full name must be at least 3 characters long')
     .max(30, 'Full name cannot exceed 30 characters')
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces').optional(),
-  phone: z.string().refine((val) => {
-
-    const jordanRegex = /^(\+962|00962|0)?(7[789]|[2356])\d{7}$/;
-    return jordanRegex.test(val.replace(/\s+/g, ""));
-  }, {
-    message: "Invalid Jordanian number. Must be a valid Mobile (07x) or Landline (02, 03, 05, 06)."
-  }).nullable().optional(),
+  phone: z.preprocess(
+    (val) => {
+      if (val === null || val === undefined || val === '') return undefined;
+      return val;
+    },
+    z.string()
+      .refine(
+        (phone) => isValidPhoneNumber(phone),
+        'Invalid phone number.'
+      )
+      .transform((phone) => parsePhoneNumberWithError(phone).format('E.164'))
+      .optional()
+  ),
   languages: z
     .array(
       z.string({

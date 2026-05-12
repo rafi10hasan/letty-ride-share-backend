@@ -1,7 +1,7 @@
 import z from 'zod';
 
-import { phoneSchema } from '../user/user.validations';
 import { GOVERNORATE, VEHICLE_TYPE } from './driver.constant';
+import { isValidPhoneNumber, parsePhoneNumberWithError } from 'libphonenumber-js';
 
 const dateOfBirthSchema = z
   .string()
@@ -179,7 +179,19 @@ const updateDriverProfileSchema = z.object({
     .min(3, 'Full name must be at least 3 characters long')
     .max(30, 'Full name cannot exceed 30 characters')
     .regex(/^[a-zA-Z\s]+$/, 'Full name can only contain letters and spaces').optional(),
-  phone: phoneSchema.nullable().optional(),
+  phone: z.preprocess(
+    (val) => {
+      if (val === null || val === undefined || val === '') return undefined;
+      return val;
+    },
+    z.string()
+      .refine(
+        (phone) => isValidPhoneNumber(phone),
+        'Invalid phone number.'
+      )
+      .transform((phone) => parsePhoneNumberWithError(phone).format('E.164'))
+      .optional()
+  ),
   languages: z
     .array(
       z.string({

@@ -17,16 +17,13 @@ const handleChatEvents = async (
 ): Promise<void> => {
 
   // create conversation
-  socket.on(SOCKET_EVENTS.CREATE_CONVERSATION, async (data) => {
+  socket.on(SOCKET_EVENTS.CREATE_CONVERSATION, async (data, callback) => {
     try {
-      const conversationId = await createConversation(io, socket, currentUserId, data);
-      socket.join(conversationId.toString());
-      socket.data.currentConversationId = conversationId.toString();
+      await createConversation(io, socket, currentUserId, data, callback);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      socket.emit('socket-error', { errorMessage });
+      callback({ error: errorMessage });
     }
-    console.log('🎯 Listening for event:', SOCKET_EVENTS.CREATE_CONVERSATION);
   });
 
   // join conversation
