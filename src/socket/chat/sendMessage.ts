@@ -76,7 +76,7 @@ export async function handleSendMessage(
     }
   }
 
-  // lastSeen update — sender সবসময়, receiver শুধু active থাকলে
+  // lastSeen update — if receiver is active in conversation room, mark message as seen for receiver
   const lastSeenUpdates: Record<string, Types.ObjectId> = {
     [senderId]: saveMessage._id,
   };
@@ -149,9 +149,8 @@ export async function handleSendMessage(
         _id: { $gt: participantLastSeen },
       })
       : await Message.countDocuments({ conversationId: conversationObjectId });
-  
-    // handleSendMessage.ts 
-    io.to(participantIdString).emit(SOCKET_EVENTS.CONVERSATION_UPDATED, {
+   
+      io.to(participantIdString).emit(SOCKET_EVENTS.CONVERSATION_UPDATED, {
       conversationId: conversationIdString,
       lastMsg: saveMessage.text,
       lastMsgCreatedAt: saveMessage.createdAt
@@ -161,6 +160,6 @@ export async function handleSendMessage(
       updatedAt: now,
     });
   }
-
+  
   return saveMessage;
 }

@@ -3,9 +3,7 @@ import config from "../../../../config";
 import logger from "../../../../config/logger";
 import { onlineUsers } from "../../../../socket/connectSocket";
 import sendMail from "../../../../utilities/sendEmail";
-
 import { BadRequestError, NotFoundError } from "../../../errors/request/apiError";
-
 import { sendPushNotification } from "../../notification/notification.utils";
 import Passenger from "../../passenger/passenger.model";
 import { IUser } from "../../user/user.interface";
@@ -21,12 +19,12 @@ const getPassengerStats = async () => {
     ] = await Promise.all([
         Passenger.countDocuments(),
         Passenger.find()
-            .populate<{ user: IUser }>({ path: 'user', select: '_id isActive' })
+            .populate<{ user: IUser }>({ path: 'user', select: '_id isActive isOnline' })
             .lean(),
     ]);
 
     const onlinePassengers = allPassengers.filter((p) =>
-        p.user && onlineUsers.has(p.user._id.toString())
+        p.user && p.user.isOnline
     ).length;
 
     const activeAccountPassengers = allPassengers.filter((p) => p.user?.isActive).length;
@@ -99,7 +97,7 @@ const getAllPassengers = async (query: Record<string, unknown>) => {
                     {
                         $project: {
                             _id: 0,
-                            passengerId: '$_id',        // ✅ driverId → passengerId
+                            passengerId: '$_id',        // driverId → passengerId
                             accountId: '$userData.accountId',
                             isActive: '$userData.isActive',
                             userId: '$userData._id',

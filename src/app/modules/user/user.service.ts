@@ -6,6 +6,7 @@ import registrationEmailTemplate from '../../../mailTemplate/registrationTemplat
 import { generateOTP } from '../../../utilities/generateOtp';
 import { randomUserImage } from '../../../utilities/randomUserImage';
 import sendMail from '../../../utilities/sendEmail';
+import sendOtpSms from '../../../utilities/sendOtpSms';
 import { deleteImageFromCloudinary } from '../../cloudinary/deleteImageFromCloudinary';
 import { uploadToCloudinary } from '../../cloudinary/uploadImageToCLoudinary';
 import { BadRequestError, NotFoundError } from '../../errors/request/apiError';
@@ -21,34 +22,47 @@ import User from './user.model';
 import { userRepository } from './user.repository';
 import { generateAccountId } from './user.utils';
 import { TUserLocationPayload, TUserRegisterPayload } from './user.validations';
-import sendOtpSms from '../../../utilities/sendOtpSms';
 
 // registered account
 const createAccount = async (payload: TUserRegisterPayload, deviceId: string) => {
 
-  console.log({ payload })
   // ─── 1. Determine verification channel ───────────────────────────────────
   const otpChannel: 'email' | 'phone' = payload.otpSentTo === 'phone' ? 'phone' : 'email';
 
+  // ─── 2. Find existing user by email AND phone (parallel) ─────────────────
+  const [userByEmail, userByPhone] = await Promise.all([
+    payload.email ? userRepository.findByEmail(payload.email) : null,
+    payload.phone ? userRepository.findByPhone(payload.phone) : null,
+  ]);
 
-  // ─── 2. Find existing user by email or phone ─────────────────────────────
-  let existingUser: IUser | null = null;
+  // ─── 3. Conflict check ────────────────────────────────────────────────────
 
-  if (payload.email) {
-    existingUser = await userRepository.findByEmail(payload.email);
+  // email & phone 
+  if (userByEmail && userByPhone) {
+    if (userByEmail._id.toString() !== userByPhone._id.toString()) {
+      throw new BadRequestError('This phone number is already associated with another account.');
+    }
   }
 
-  // If not found by email, try phone (avoid duplicate accounts)
-  if (!existingUser && payload.phone) {
-    existingUser = await userRepository.findByPhone(payload.phone);
+  // phone exists 
+  if (userByPhone && !userByEmail) {
+    throw new BadRequestError('This phone number is already registered. Please use a different number.');
   }
 
-  // ─── 3. Blocked account check ────────────────────────────────────────────
+  // email exists 
+  if (userByEmail && !userByPhone) {
+    throw new BadRequestError('This email is already registered. Please use a different email.');
+  }
+
+  // ─── 4. Resolve existing user ─────────────────────────────────────────────
+  let existingUser: IUser | null = userByEmail ?? userByPhone;
+
+  // ─── 5. Blocked account check ────────────────────────────────────────────
   if (existingUser?.isDeleted) {
     throw new BadRequestError('This account is blocked. Please contact support to reactivate.');
   }
 
-  // ─── 4. Handle already-verified account ──────────────────────────────────
+  // ─── 6. Handle already-verified account ──────────────────────────────────
   if (
     existingUser?.verification.emailVerifiedAt ||
     existingUser?.verification.phoneVerifiedAt
@@ -56,29 +70,24 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
     throw new BadRequestError('An account with this email/phone already exists.');
   }
 
-  console.log({ existingUser })
-  // ─── 5. Handle existing but UNVERIFIED account ───────────────────────────
+  // ─── 7. Handle existing but UNVERIFIED account ───────────────────────────
   if (existingUser) {
     const now = new Date();
+
+    if (payload.email && !existingUser.email) existingUser.email = payload.email;
+    if (payload.phone && !existingUser.phone) existingUser.phone = payload.phone;
+
+    const channelChanged =
+      payload.otpSentTo && payload.otpSentTo !== existingUser.otpSentTo;
+
+    if (channelChanged) existingUser.otpSentTo = payload.otpSentTo;
+
+    await existingUser.save();
+
     const otpStillValid =
       existingUser.verificationOtpExpiry && existingUser.verificationOtpExpiry > now;
 
-    let needsSave = false;
-
-    if (payload.email && !existingUser.email) {
-      existingUser.email = payload.email;
-      needsSave = true;
-    }
-
-    if (payload.otpSentTo && payload.otpSentTo !== existingUser.otpSentTo) {
-      existingUser.otpSentTo = payload.otpSentTo;
-      needsSave = true;
-    }
-
-    if (needsSave) await existingUser.save();
-
-    if (otpStillValid && !needsSave) {
-
+    if (otpStillValid && !channelChanged) {
       return {
         status: 'UNVERIFIED',
         otpSentTo: existingUser.otpSentTo,
@@ -87,7 +96,6 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
           : { phone: existingUser.phone }),
       };
     }
-
 
     const existingChannel = existingUser.otpSentTo as 'email' | 'phone';
     const result = await sendVerificationOtp(existingUser, existingChannel);
@@ -101,14 +109,30 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
       ...result,
     };
   }
-  // ─── 6. New user — send OTP via chosen channel ───────────────────────────
+
+  // ─── 8. New user 
   const verificationOtp = generateOTP();
   const otpExpiry = new Date(Date.now() + Number(config.otp_expires_in) * 60 * 1000);
+  const accountId = await generateAccountId();
 
-  console.log({ otpChannel }, payload.email)
+  const userPayload = {
+    ...payload,
+    verificationOtp,
+    verificationOtpExpiry: otpExpiry,
+    avatar: randomUserImage(),
+    otpSentTo: otpChannel,
+    accountId,
+    deviceId,
+    currentRole: USER_ROLE.NORMAL_USER,
+  };
+
+  // create user
+  const newUser = await userRepository.createUser(userPayload);
+  if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
+
+  
   try {
     if (otpChannel === 'email' && payload.email) {
-      console.log('Sending OTP to email:', payload.email);
       const mailOptions = {
         from: config.gmail_app_user,
         to: payload.email,
@@ -121,39 +145,19 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
       };
       await sendMail(mailOptions);
     } else if (otpChannel === 'phone' && payload.phone) {
-      // phone channel
-      await sendOtpSms(payload?.phone, verificationOtp);
-    }
-    else {
-      throw new BadRequestError('No valid contact information provided for OTP delivery.');
+      await sendOtpSms(payload.phone, verificationOtp);
+    } else {
+      throw new Error('No valid contact information provided for OTP delivery.');
     }
   } catch (error) {
     const channel = otpChannel === 'email' ? 'email' : 'phone';
     throw new BadRequestError(`Failed to send verification ${channel}. Please try again.`);
   }
 
-  // ─── 7. Create new user ───────────────────────────────────────────────────
-  const accountId = await generateAccountId();
-
-  const userPayload = {
-    ...payload,
-    verificationOtp,
-    verificationOtpExpiry: otpExpiry,
-    avatar: randomUserImage(),
-    otpSentTo: otpChannel,          // store which channel was actually used
-    accountId,
-    deviceId,
-    currentRole: USER_ROLE.NORMAL_USER,
-  };
-
-  const newUser = await userRepository.createUser(userPayload);
-  if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
-  console.log({ verificationOtp })
-  // Return channel info so client knows where to redirect for verification
+  // ─── 9. Return response ───────────────────────────────────────────────────
   return {
     id: newUser._id,
-    otpSentTo: otpChannel === 'email' ? 'email' : 'phone',
-    // Remove `otp` from production response — only for dev/testing
+    otpSentTo: otpChannel,
     ...(config.node_env === 'development' && { otp: verificationOtp }),
   };
 };

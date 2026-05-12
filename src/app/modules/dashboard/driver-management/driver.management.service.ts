@@ -18,12 +18,12 @@ const getDriverStats = async () => {
     ] = await Promise.all([
         Driver.countDocuments(),
         Driver.find()
-            .populate<{ user: IUser }>({ path: 'user', select: '_id isActive' })
+            .populate<{ user: IUser }>({ path: 'user', select: '_id isActive isOnline' })
             .lean(),
     ]);
 
     const onlineDrivers = allDrivers.filter((d) =>
-        d.user && onlineUsers.has(d.user._id.toString())
+        d.user && d.user.isOnline
     ).length;
 
     const activeAccountDrivers = allDrivers.filter((d) => d.user?.isActive).length;

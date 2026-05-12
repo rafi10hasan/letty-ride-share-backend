@@ -139,7 +139,6 @@ const loginWithOAuth = async (credential: socialLoginPayload, deviceId: string) 
 
   let user = await userRepository.findByEmail(email);
 
-  // নতুন user
   if (!user) {
     user = await userRepository.createUser({
       fullName: name,
@@ -174,7 +173,7 @@ const loginWithOAuth = async (credential: socialLoginPayload, deviceId: string) 
     throw new BadRequestError('Please login with Your email and password');
   }
 
-  if (user.isDeleted || !user.isActive) {
+  if (user.isDeleted || user.isActive === false) {
     throw new UnauthorizedError('Unauthorized Access');
   }
 
