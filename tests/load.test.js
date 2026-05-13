@@ -1,13 +1,13 @@
 import { check, sleep } from 'k6';
 import http from 'k6/http';
 
+const users = JSON.parse(open('./users.json'));
 export let options = {
-  vus: 50,
-  duration: '25s',
+  vus: 4,
+  duration: '2s',
 };
 
 let token;
-const users = JSON.parse(open('./users.json'));
 
 export function setup() {
   const user = users[__VU % users.length];

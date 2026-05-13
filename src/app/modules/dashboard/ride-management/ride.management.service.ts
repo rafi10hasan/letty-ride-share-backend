@@ -45,7 +45,7 @@ const getRidesStatsOverview = async () => {
     const historyStats = await TripHistory.aggregate([
         {
             $facet: {
-                completedCount: [{ $count: "count" }],
+                completedCount: [{ $match: { tripStatus: TRIP_STATUS.COMPLETED } },{ $count: "count" }],
                 todayRevenue: [
                     { $match: { createdAt: { $gte: todayStart, $lte: todayEnd } } },
                     {
