@@ -9,7 +9,7 @@ import Notification from "../notification/notification.model";
 import { IUser } from "../user/user.interface";
 import User from "../user/user.model";
 
-import sendOtpSms from "../../../utilities/sendOtpSms";
+import sendSubscriptionSms from "../../../utilities/sendSubscriptionOtp";
 import { USER_ROLE } from "../user/user.constant";
 import { REQUESTED_SUBSCRIPTION_STATUS } from "./subscription.constant";
 import Subscription from "./subscription.model";
@@ -106,7 +106,7 @@ const sendSubscriptionPurchaseRequest = async (
                 console.error('Failed to send subscription request email:', err);
             });
         } if (canUsePhone) {
-            sendOtpSms(
+            sendSubscriptionSms(
                 superAdmin.phone!,
                 `Your subscription request for ${plan} plan has been received.`
             ).catch((err) => {
