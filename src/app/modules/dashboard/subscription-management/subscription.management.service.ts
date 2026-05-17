@@ -318,7 +318,7 @@ const updateSubscription = async (
             computedExpiry = new Date(now);
             computedExpiry.setFullYear(now.getFullYear() + 1);
         } else if (billingCycle === 'lifetime') {
-            computedExpiry = null; // Lifetime er jonno expiry date thakbe na
+            computedExpiry = null; // 
         }
         // plan === FREE hole billingCycle null, so computedExpiry null-i thakbe
     }
@@ -364,6 +364,7 @@ const updateSubscription = async (
         if (plan === SUBSCRIPTION_PLAN.PREMIUM) user.badge = BADGE.BLUE;
         else if (plan === SUBSCRIPTION_PLAN.PREMIUM_PLUS) user.badge = BADGE.PURPLE;
         else if (plan === SUBSCRIPTION_PLAN.ALL_ACCESS) user.badge = BADGE.GOLD;
+        else user.badge = BADGE.FREE;
         await user.save({ session });
 
         await session.commitTransaction();

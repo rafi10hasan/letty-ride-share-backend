@@ -8,7 +8,6 @@ import sendResponse from '../../shared/sendResponse';
 export const validateRequest = (schemas: { body?: z.ZodType<any>; query?: z.ZodType<any>; params?: z.ZodType<any> }): RequestHandler => {
   return asyncHandler(async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     if (schemas.body) {
-      console.log(req.body)
       req.body = await schemas.body.parseAsync(req.body);
     }
     if (schemas.query) {
@@ -21,8 +20,8 @@ export const validateRequest = (schemas: { body?: z.ZodType<any>; query?: z.ZodT
   });
 };
 
-/*
 
+/*
 userRouter.patch(
   '/:id',
   validateRequest({

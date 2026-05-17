@@ -28,7 +28,7 @@ const createDriverProfile = async (
 ) => {
   // 1. Check if driver profile already exists
 
-    console.log({payload})
+  console.log({ payload })
   const existingDriver = await driverRepository.findDriverByUserId(user._id);
   if (existingDriver || user.currentRole === 'driver') {
     throw new BadRequestError('Driver profile already completed');
@@ -115,7 +115,7 @@ const createDriverProfile = async (
 
 // updated driver profile
 const updateDriverProfile = async (user: IUser, payload: TDriverUpdatedProfilePayload) => {
- 
+
   const driver = await driverRepository.findDriverByUserId(user._id, '_id');
 
   const passenger = await passengerRepository.findPassengerByUserId(user._id, '_id');
@@ -280,11 +280,12 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new UnauthorizedError('This ride is not Yours');
   }
 
-  const passengers = await Booking.find({ ride: rideId }).populate<{ passenger: IPassenger }>({
+  const passengers = await Booking.find({ ride: rideId, status: { $in: [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] } }).populate<{ passenger: IPassenger }>({
     path: 'passenger',
     select: 'fullName phone avatar avgRating totalRides',
   }).sort({ createdAt: -1 });
 
+  console.log({ passengers })
   ride.requestsCount = passengers.length;
   await ride.save();
 

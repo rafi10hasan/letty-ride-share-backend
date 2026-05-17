@@ -104,6 +104,7 @@ export const ridePublishSchema = new mongoose.Schema<IRidePublish>(
 
         availableSeats: {
             type: Number,
+            default: 0
         },
 
         requestsCount: {

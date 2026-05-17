@@ -174,6 +174,10 @@ export const userSchema = new mongoose.Schema<IUser>(
       type: Boolean,
       default: false,
     },
+    isAlreadyEmailSent: {
+      type: Boolean,
+      default: false
+    },
     lastReadAt: {
       type: Date,
       default: null

@@ -18,6 +18,7 @@ export interface IPassenger extends Document {
   avgRating: number;
   totalRides: number;
   totalReviews: number;
+  totalCancelledTrips: number;
   totalSpent: number;
   gender: TGender;
   dateOfBirth: string;

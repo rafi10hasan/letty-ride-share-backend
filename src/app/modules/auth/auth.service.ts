@@ -38,7 +38,7 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   const isPasswordMatch = await user.isPasswordMatched(password);
   if (!isPasswordMatch) throw new BadRequestError(`Password didn't match`);
 
-  const isVerified =
+  const isVerified = 
     user.verification.emailVerifiedAt || user.verification.phoneVerifiedAt;
 
   if (!isVerified) {
@@ -54,6 +54,17 @@ const loginWithCredential = async (credential: TLoginPayload) => {
 
   if (fcmToken) {
     user.fcmToken = fcmToken;
+    await user.save();
+  }
+ 
+  if(!user.isAlreadyEmailSent) {
+    await sendMail({
+      from: config.gmail_app_user,
+      to: user.email!,
+      subject: 'Login Alert',
+      html: `<p>Hello ${user.fullName},</p><p>You have successfully logged in to your app first time.</p>`
+    });
+    user.isAlreadyEmailSent = true;
     await user.save();
   }
 

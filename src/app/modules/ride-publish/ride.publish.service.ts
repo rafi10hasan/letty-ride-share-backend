@@ -282,7 +282,6 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 
     if (activeBookings.length > 0) {
       await notifyPassengersOfScheduleChange({
-
         bookings: activeBookings,
         newDate: updateData.departureDate,
         newTime: updateData.departureTimeString,
@@ -291,7 +290,7 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
   }
 
   return {
-    departurDate: updatedRide?.departureDate,
+    departureDate: updatedRide?.departureDate,
     departureTimeString: updatedRide?.departureTimeString,
     minimumPassenger: updatedRide?.minimumPassenger,
   };
@@ -582,7 +581,7 @@ const completeRideByDriver = async (user: IUser, rideId: string) => {
 // cancel ride
 const cancelRide = async (user: IUser, rideId: string, cancellationReason: string) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
-  console.log({ rideId })
+
   if (!driver) {
     throw new NotFoundError('Driver not found');
   }
@@ -665,7 +664,8 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
     );
 
     await RidePublish.findByIdAndDelete(rideId, { session });
-
+    driver.totalCancelledTrips = (driver.totalCancelledTrips || 0) + 1;
+    await driver.save({session})
     await session.commitTransaction();
 
   } catch (error) {

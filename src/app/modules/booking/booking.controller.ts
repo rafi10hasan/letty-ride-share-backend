@@ -32,7 +32,7 @@ const acceptBookingIntoDb = asyncHandler(async (req: Request, res: Response) => 
 
 const rejectBookingIntoDb = asyncHandler(async (req: Request, res: Response) => {
     const { bookingId } = req.params;
-    const result = await bookingService.rejectOrCancelBooking(req.user, bookingId as string);
+    const result = await bookingService.rejectOrCancelBooking(req.user, bookingId as string, req.body.cancelReason);
     sendResponse(res, {
         statusCode: StatusCodes.OK,
         success: true,

@@ -11,10 +11,11 @@ import { Booking } from "./booking.model";
 
 import logger from "../../../config/logger";
 import { sendNotificationBySocket, sendPushNotification } from "../notification/notification.utils";
-import { TRIP_STATUS } from "../ride-publish/ride.publish.constant";
+import { TRIP_STATUS, TTripStatus } from "../ride-publish/ride.publish.constant";
 import { USER_ROLE } from "../user/user.constant";
-import { BOOKING_STATUS } from "./booking.constant";
+import { BOOKING_STATUS, TBookingStatus } from "./booking.constant";
 import { TSendRideRequestPayload } from "./booking.zod";
+import Passenger from "../passenger/passenger.model";
 
 
 
@@ -109,8 +110,8 @@ const sendRideRequestToDriver = async (user: IUser, rideId: string, payload: TSe
             profileImg: user.avatar,
             name: user.fullName
         },
-        bookedAt: departureDateTime,
-        expireAt: new Date(Date.now() + 30 * 60 * 1000),
+        bookedAt: new Date(),
+        expireAt: departureDateTime,
         passenger: passenger._id
     });
 
@@ -290,15 +291,19 @@ const acceptBooking = async (user: IUser, bookingId: string) => {
 
 // reject booking
 
-const rejectOrCancelBooking = async (user: IUser, bookingId: string) => {
-    console.log("user role", user.currentRole)
+const rejectOrCancelBooking = async (user: IUser, bookingId: string, cancelReason?: string) => {
+
+    if (user.currentRole === USER_ROLE.PASSENGER && !cancelReason) {
+        throw new BadRequestError('Cancel reason is required');
+    }
+
     const booking = await Booking.findById(bookingId)
         .populate<{ ride: IRidePublish & { driver: IPopulatedDriver } }>({
             path: 'ride',
             select: '_id tripId driver tripStatus',
             populate: {
                 path: 'driver',
-                select: 'user',
+                select: 'user _id',
                 populate: {
                     path: 'user',
                     select: 'fcmToken _id',
@@ -307,43 +312,74 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string) => {
         })
         .populate<{ passenger: IPopulatedPassenger }>({
             path: 'passenger',
-            select: 'user',
+            select: 'user _id',
             populate: {
                 path: 'user',
                 select: 'fcmToken _id',
             },
         });
-    const driverId = booking?.ride?.driver?._id;
-    const driver = await driverRepository.findByDriverId(driverId as Types.ObjectId);
 
-    if (!driver) {
-        throw new NotFoundError('Driver not found');
-    }
     if (!booking) throw new NotFoundError('Booking not found');
 
-    if (user.currentRole === USER_ROLE.DRIVER && booking.ride.driver._id.toString() !== driver._id.toString()) {
+
+    if (user.currentRole === USER_ROLE.DRIVER &&
+        booking.ride.driver._id.toString() !== user._id.toString()
+    ) {
         throw new UnauthorizedError('This booking is not Yours');
     }
 
-    if (booking.status !== BOOKING_STATUS.PENDING) {
+    const cancellableStatuses = [BOOKING_STATUS.PENDING, BOOKING_STATUS.ACCEPTED] as TBookingStatus[];
+    if (!cancellableStatuses.includes(booking.status as TBookingStatus)) {
         throw new BadRequestError(`Booking is already ${booking.status}`);
     }
 
-    if (user.currentRole === USER_ROLE.PASSENGER && booking.ride.tripStatus !== TRIP_STATUS.PENDING) {
-        throw new BadRequestError('You cannot cancel booking because the trip is already confirmed by driver');
+
+    if (user.currentRole === USER_ROLE.DRIVER) {
+        const allowedTripStatuses = [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] as TTripStatus[];
+        if (!allowedTripStatuses.includes(booking.ride.tripStatus as TTripStatus)) {
+            throw new BadRequestError('You cannot reject booking because the trip is already started');
+        }
     }
 
     if (booking.expireAt && booking.expireAt < new Date()) {
         throw new BadRequestError('Booking request has expired');
     }
 
-    await Booking.findByIdAndUpdate(bookingId, {
-        status: user.currentRole === USER_ROLE.PASSENGER ? BOOKING_STATUS.CANCELLED : BOOKING_STATUS.REJECTED,
-        cancelledBy: user.currentRole,
-        expireAt: user.currentRole === USER_ROLE.PASSENGER ? null : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-    });
-
     const isDriverAction = user.currentRole === USER_ROLE.DRIVER;
+    const newStatus = isDriverAction ? BOOKING_STATUS.REJECTED : BOOKING_STATUS.CANCELLED;
+    const seatsToRestore = booking.seatsBooked ?? 1;
+
+    const updatePromises: Promise<any>[] = [
+        Booking.findByIdAndUpdate(bookingId, {
+            status: newStatus,
+            cancelledBy: user.currentRole,
+            cancelReason: cancelReason,
+            expireAt: isDriverAction
+                ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                : null,
+        }),
+    ];
+
+    if (booking.status === BOOKING_STATUS.ACCEPTED) {
+        updatePromises.push(
+            RidePublish.findByIdAndUpdate(booking.ride._id, {
+                $inc: {
+                    availableSeats: seatsToRestore,
+                    totalSeatBooked: -seatsToRestore,
+                },
+            })
+        );
+    }
+
+    if (!isDriverAction) {
+        updatePromises.push(
+            Passenger.findByIdAndUpdate(booking.passenger._id, {
+                $inc: { totalCancelledTrips: 1 },
+            })
+        );
+    }
+
+    await Promise.all(updatePromises);
 
     const notifyUserId = isDriverAction
         ? booking.passenger.user._id.toString()
@@ -356,28 +392,20 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string) => {
     const title = isDriverAction ? 'Booking Rejected' : 'Booking Cancelled';
     const message = isDriverAction
         ? `Your booking has been rejected for ride ${booking.ride.tripId}`
-        : `A passenger has cancelled their booking for ride ${booking.ride.tripId}`;
-    const notificationType = isDriverAction ? NOTIFICATION_TYPE.BOOKING_REJECTED : NOTIFICATION_TYPE.BOOKING_CANCELLED;
+        : `A passenger has cancelled their booking for ride ${booking.ride.tripId} for the following reason: ${cancelReason}`;
+    const notificationType = isDriverAction
+        ? NOTIFICATION_TYPE.BOOKING_REJECTED
+        : NOTIFICATION_TYPE.BOOKING_CANCELLED;
 
     Promise.all([
-        // Socket or DB notification
         (async () => {
-
-            sendNotificationBySocket({
-                title,
-                message,
-                receiver: notifyUserId,
-            }, notificationType);
+            sendNotificationBySocket({ title, message, receiver: notifyUserId }, notificationType);
         })(),
 
-        // FCM
         (async () => {
             if (notifyFcmToken) {
                 try {
-                    await sendPushNotification(notifyFcmToken, {
-                        title,
-                        content: message,
-                    });
+                    await sendPushNotification(notifyFcmToken, { title, content: message });
                 } catch (error) {
                     logger.error(`FCM failed: ${error}`);
                 }

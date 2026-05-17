@@ -16,7 +16,6 @@ export interface IBooking {
     seatsBooked: number;
     pickUpLocation: ILocation;
     dropOffLocation: ILocation;
-
     status: string;
     cancelledBy: 'passenger' | 'driver' | null;
     cancelReason: string | null;

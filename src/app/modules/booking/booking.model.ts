@@ -49,7 +49,6 @@ const bookingSchema = new Schema<IBooking>(
 
     pickUpLocation: locationSchema,
 
-
     dropOffLocation: locationSchema,
 
     status: {

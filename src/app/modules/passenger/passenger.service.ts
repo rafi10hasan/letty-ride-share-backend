@@ -124,7 +124,7 @@ const getPassengerProfile = async (user: IUser) => {
     phone: passenger.phone,
     bio: passenger.bio || '',
     languages: passenger.languages,
-  
+
   };
 }
 
@@ -140,7 +140,7 @@ const getPassengerRequests = async (user: IUser) => {
   }).populate<{ ride: IRidePublish }>({
     path: 'ride',
     match: { tripStatus: { $in: [TRIP_STATUS.PENDING] } },
-    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked',
+    select: 'tripId driver tripStatus departureDate departureTimeString pickUpLocation dropOffLocation totalSeats price totalDistance totalSeatBooked minimumPassenger',
     populate: {
       path: 'driver',
       select: 'fullName avatar',
@@ -169,8 +169,12 @@ const getPassengerRequests = async (user: IUser) => {
         dropOffLocation: ride.dropOffLocation.address,
         seatPerPrice: (ride.price / ride.totalSeats),
         seatBooked: b.seatsBooked,
+        totalSeatBooked: ride.totalSeatBooked,
+        minimumPassenger: ride.minimumPassenger,
         totalPrice: b.seatsBooked * (ride.price / ride.totalSeats),
         totalDistance: ride.totalDistance,
+        cancelReason: b.cancelReason,
+        expireAt: moment(b.expireAt).fromNow(),
       };
     });
 };
@@ -281,7 +285,7 @@ const getPassengerCompletedRides = async (user: IUser) => {
     },
   }).sort({ createdAt: -1 });
 
-  console.log({bookings})
+  console.log({ bookings })
   return bookings.map((b) => {
     const trip = b.tripHistory as unknown as ITripHistory & {
       driver: {

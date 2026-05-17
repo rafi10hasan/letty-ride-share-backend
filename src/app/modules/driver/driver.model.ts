@@ -144,6 +144,10 @@ export const driverSchema = new mongoose.Schema<IDriver>(
       type: Number,
       default: 0,
     },
+    totalCancelledTrips:{
+      type: Number,
+      default: 0,
+    },
     hasAc: {
       type: Boolean,
       default: false,

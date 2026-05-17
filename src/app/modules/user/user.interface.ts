@@ -71,6 +71,7 @@ export interface IUser extends Document {
   provider?: TProvider;
   badge: TBadge;
   subscription?: ISubscription | null;
+  isAlreadyEmailSent?: boolean;
   isSocialLogin: boolean;
   isActive: boolean | null;
   isOnline: boolean | null;

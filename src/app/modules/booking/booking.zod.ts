@@ -34,6 +34,12 @@ const sendRideRequestSchema = z.object({
         }
     }).min(1),
 
+    timezone: z.string({
+        error: (issue) => {
+            if (issue.input === undefined) return { message: 'Timezone is required' };
+            return { message: 'Invalid timezone' };
+        },
+    }),
 
 })
 
@@ -42,8 +48,8 @@ export type TSendRideRequestPayload = z.infer<
     typeof sendRideRequestSchema
 >;
 
-const bookingValidationZodSchema= {
- sendRideRequestSchema
+const bookingValidationZodSchema = {
+    sendRideRequestSchema
 };
 
 export default bookingValidationZodSchema;

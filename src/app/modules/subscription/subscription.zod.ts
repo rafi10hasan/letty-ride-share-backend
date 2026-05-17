@@ -38,7 +38,7 @@ const updateSubscriptionSchema = z.object({
   ),
   expiryDate: z.preprocess(
     (val) => (val === null || val === undefined || val === '' ? null : new Date(val as string)),
-    z.date().nullable()
+    z.date().nullable().optional()
   ),
   status: z.enum(Object.values(SUBSCRIPTION_STATUS) as [string, ...string[]]).optional(),
 }).superRefine((data, ctx) => {

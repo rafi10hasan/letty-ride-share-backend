@@ -131,7 +131,7 @@ const createAccount = async (payload: TUserRegisterPayload, deviceId: string) =>
   const newUser = await userRepository.createUser(userPayload);
   if (!newUser) throw new BadRequestError('Failed to create user. Try again later.');
 
-  
+
   try {
     if (otpChannel === 'email' && payload.email) {
       const mailOptions = {
@@ -184,7 +184,7 @@ const getUserShortInfo = async (user: IUser) => {
     bio: currentProfile.bio || '',
     rating: currentProfile.avgRating,
     accountId: user.accountId,
-    badge: user.badge,
+    plan: user.subscription?.plan || null,
     userVerified: user.isActive ? true : false
   };
 }
@@ -412,6 +412,7 @@ const getOtherUserProfile = async (user: IUser, profileId: string) => {
       rating: driverProfile.avgRating || 0,
       totalReviews: driverProfile.totalReviews || 0,
       totalTrips: driverProfile.totalTripCompleted || 0,
+      totalCancelledTrips: driverProfile.totalCancelledTrips || 0,
     };
 
   } else {
