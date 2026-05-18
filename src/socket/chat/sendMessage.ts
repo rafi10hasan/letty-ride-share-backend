@@ -37,23 +37,11 @@ export async function handleSendMessage(
   const senderObjectId = new Types.ObjectId(senderId);
   const conversationObjectId = new Types.ObjectId(messageData.conversationId);
 
+
   // Fetch conversation with participants
   const conversation = await Conversation.findById(conversationObjectId).lean();
 
-  const activeTrip = await Trip.findOne({
-    $or: [
-      { driverId: senderId, passengerId: receiverId },
-      { driverId: receiverId, passengerId: senderId }
-    ],
-    status: { $in: ['upcoming', 'ongoing'] } // ট্রিপ রানিং বা আপকামিং হতে হবে
-  });
 
-  // ২. যদি কোনো একটিভ ট্রিপ না পাওয়া যায়, তবে মেসেজ সেভ বা সেন্ড হবে না
-  if (!activeTrip) {
-    return socket.emit('error_message', {
-      message: 'You can only chat during an upcoming or ongoing trip.'
-    });
-  }
   if (!conversation) {
     socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
       errorMessage: 'Conversation not found',
