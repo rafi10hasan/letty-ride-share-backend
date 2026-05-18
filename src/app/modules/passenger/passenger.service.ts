@@ -152,7 +152,7 @@ const getPassengerRequests = async (user: IUser) => {
     .filter((b) => b.ride !== null)
     .map((b) => {
       const ride = b.ride;
-      console.log({ ride, b })
+      console.log({ride})
       const driverInfo = ride.driver as any;
 
       return {
@@ -163,6 +163,7 @@ const getPassengerRequests = async (user: IUser) => {
         driverName: driverInfo.fullName,
         driverImage: driverInfo.avatar,
         status: b.status,
+        tripStatus: b.ride.tripStatus,
         departureDate: moment(ride.departureDate).format('YYYY-MM-DD'),
         departureTimeString: ride.departureTimeString,
         pickUpLocation: ride.pickUpLocation.address,

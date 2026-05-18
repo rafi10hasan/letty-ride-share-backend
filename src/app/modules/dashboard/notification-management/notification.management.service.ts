@@ -37,7 +37,7 @@ const sendSocketNotification = async (payload: TSendNotificationPayload) => {
             Notification.create({ ...rest, for: USER_ROLE.DRIVER, type: "admin_notification" }),
             ...drivers
                 .filter((u): u is typeof u & { fcmToken: string } => isValidFcmToken(u.fcmToken))
-                .map(d => sendPushNotification("d50pRTf8QVef-jFDc4ldGi:APA91bFI68hqAP7LCD5igjD_1Qih59oI6RpzkuBL616L372hZVapkx8DQTAstfjBgszzsaXO_DYgrzyJTNFhvM5I4VucFVKRRqR24uC3MaV0NpNkoI5Gx6M", {
+                .map(d => sendPushNotification(d.fcmToken, {
                     title: rest.title,
                     content: rest.message,
                     type: "admin_notification"

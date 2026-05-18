@@ -3,7 +3,9 @@ import mongoose from 'mongoose';
 import { BOOKING_STATUS } from '../app/modules/booking/booking.constant';
 import { Booking } from '../app/modules/booking/booking.model';
 import { IPopulatedDriver, IPopulatedPassenger } from '../app/modules/booking/booking.service';
+import Conversation from '../app/modules/conversation/conversation.model';
 import Driver from '../app/modules/driver/driver.model';
+import Message from '../app/modules/Message/message.model';
 import { NOTIFICATION_TYPE } from '../app/modules/notification/notification.constant';
 import Passenger from '../app/modules/passenger/passenger.model';
 import { TRIP_STATUS } from '../app/modules/ride-publish/ride.publish.constant';
@@ -109,6 +111,45 @@ export const completeRide = async (rideId: string) => {
     );
 
     await RidePublish.findByIdAndDelete(ride._id, { session });
+
+
+    // ১. প্যাসেঞ্জারদের আইডির একটি অ্যারে তৈরি করুন
+    const passengerIds = validBookings.map(b => b.passenger.user._id);
+
+    // ২. ড্রাইভারের সাথে প্রতিটি প্যাসেঞ্জারের আলাদা চ্যাট খোঁজার কোয়েরি তৈরি করুন
+    // এটি দেখতে এমন হবে: [ { participants: { $all: [driverId, P1] } }, { participants: { $all: [driverId, P2] } } ]
+    const orQueries = passengerIds.map(passengerId => ({
+      participants: {
+        $all: [ride.driver.user._id, passengerId]
+      }
+    }));
+
+    // ৩. যদি কোনো প্যাসেঞ্জার থাকে, তবেই কোয়েরি এক্সিকিউট করুন
+    let messagesDeleted = { deletedCount: 0 };
+    let conversationDeleted = { deletedCount: 0 };
+
+    if (orQueries.length > 0) {
+      // প্রথমে টার্গেটেড কনভারসেশনের আইডিগুলো বের করুন
+      const targetConversations = await Conversation.find({
+        $or: orQueries
+      }).session(session).select('_id');
+
+      const conversationIds = targetConversations.map(conv => conv._id);
+
+      if (conversationIds.length > 0) {
+        // আগে মেসেজ ডিলিট করুন
+        messagesDeleted = await Message.deleteMany({
+          conversationId: { $in: conversationIds }
+        }, { session });
+
+        // তারপর কনভারসেশন ডিলিট করুন
+        conversationDeleted = await Conversation.deleteMany({
+          _id: { $in: conversationIds }
+        }, { session });
+      }
+    }
+
+    console.log(`Deleted ${conversationDeleted.deletedCount} conversations and ${messagesDeleted.deletedCount} messages for ride ${ride.tripId}`);
 
     await session.commitTransaction();
 

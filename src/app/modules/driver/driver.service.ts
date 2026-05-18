@@ -271,7 +271,7 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     throw new NotFoundError('Driver not found');
   }
 
-  const ride = await RidePublish.findById(rideId).select("driver requestsCount price dropOffLocation pickUpLocation totalSeats totalDistance");
+  const ride = await RidePublish.findById(rideId).select("driver requestsCount price dropOffLocation tripStatus pickUpLocation totalSeats totalDistance");
   if (!ride) {
     throw new NotFoundError('Ride not found');
   }
@@ -285,17 +285,16 @@ const retrievedPassengerRequest = async (user: IUser, rideId: string) => {
     select: 'fullName phone avatar avgRating totalRides',
   }).sort({ createdAt: -1 });
 
-  console.log({ passengers })
   ride.requestsCount = passengers.length;
   await ride.save();
 
   const sanitizedPassenger = passengers.map((passenger) => {
     const passengerData = passenger.passenger as IPassenger;
-    console.log({ passengerData })
     return {
       bookingId: passenger._id,
       passengerId: passengerData._id,
       status: passenger.status,
+      tripStatus: ride.tripStatus,
       name: passengerData.fullName,
       totalPrice: (ride.price / ride.totalSeats) * passenger.seatsBooked,
       pricePerSeat: (ride.price / ride.totalSeats),
@@ -402,7 +401,7 @@ const getDriverUpcomingRides = async (user: IUser) => {
     tripStatus: TRIP_STATUS.UPCOMING,
   })
     .select(
-      '_id status tripStatus departureDate tripId departureTimeString pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
+      '_id status tripStatus departureDate tripId departureTimeString minimumPassenger pickUpLocation totalSeats dropOffLocation price totalDistance totalSeatBooked'
     )
     .sort({ departureDateTime: 1 });
 
@@ -430,6 +429,7 @@ const getDriverUpcomingRides = async (user: IUser) => {
       totalDistance: ride.totalDistance,
       totalSeats: ride.totalSeats,
       totalSeatBooked: ride.totalSeatBooked,
+      minimumPassenger: ride.minimumPassenger,
       pendingRequestsCount: pendingCountMap.get((ride._id as any).toString()) ?? 0,
     };
   });

@@ -34,13 +34,6 @@ const sendRideRequestSchema = z.object({
         }
     }).min(1),
 
-    timezone: z.string({
-        error: (issue) => {
-            if (issue.input === undefined) return { message: 'Timezone is required' };
-            return { message: 'Invalid timezone' };
-        },
-    }),
-
 })
 
 

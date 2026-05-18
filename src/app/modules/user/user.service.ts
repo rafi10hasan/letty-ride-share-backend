@@ -173,9 +173,11 @@ const getUserShortInfo = async (user: IUser) => {
   else if (user.currentRole === USER_ROLE.DRIVER) {
     currentProfile = await driverRepository.findDriverByUserId(user._id, "avgRating");
   }
+
   if (!currentProfile) {
     throw new NotFoundError('Profile not found');
   }
+
   return {
     fullName: user.fullName,
     avatar: user.avatar,
@@ -185,6 +187,7 @@ const getUserShortInfo = async (user: IUser) => {
     rating: currentProfile.avgRating,
     accountId: user.accountId,
     plan: user.subscription?.plan || null,
+    badge: user.badge,
     userVerified: user.isActive ? true : false
   };
 }
@@ -390,11 +393,11 @@ const getOtherUserProfile = async (user: IUser, profileId: string) => {
   if (user.currentRole === USER_ROLE.PASSENGER) {
     const driverProfile = await driverRepository.findByDriverId(new mongoose.Types.ObjectId(profileId));
     if (!driverProfile) throw new NotFoundError("Driver profile not found");
-
+   
     targetUserId = driverProfile.user;
     const existingConversation = await Conversation.findOne({
       participants: {
-        $all: [user._id, targetUserId],
+        $all: [user?._id, targetUserId],
         $size: 2
       },
     })

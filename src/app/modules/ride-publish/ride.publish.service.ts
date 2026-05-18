@@ -212,7 +212,7 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
     throw new BadRequestError('Minimum passenger cannot exceed total seats');
   }
 
-  const oneHourFromNow = new Date(Date.now() + 30 * 60 * 1000);
+  const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
 
   if (payload.departureDate && payload.departureTime) {
     const selectedDepartureDateTime = buildDepartureDateTime(
@@ -222,12 +222,9 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
     );
 
     if (selectedDepartureDateTime < oneHourFromNow) {
-      throw new BadRequestError('Departure time must be at least 30 minutes before from now');
+      throw new BadRequestError('Departure time must be at least 1 hour before from now');
     }
-  } else if (payload.departureTime && buildDepartureDateTime(ride.departureDate, payload.departureTime, ride.timezone) < oneHourFromNow) {
-    throw new BadRequestError('Departure time must be at least 30 minutes before from now');
-  }
-
+  } 
   const updateData: Record<string, any> = {};
   let isDateTimeChanged = false;
 

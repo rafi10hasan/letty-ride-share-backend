@@ -11,11 +11,11 @@ import { Booking } from "./booking.model";
 
 import logger from "../../../config/logger";
 import { sendNotificationBySocket, sendPushNotification } from "../notification/notification.utils";
+import Passenger from "../passenger/passenger.model";
 import { TRIP_STATUS, TTripStatus } from "../ride-publish/ride.publish.constant";
 import { USER_ROLE } from "../user/user.constant";
 import { BOOKING_STATUS, TBookingStatus } from "./booking.constant";
 import { TSendRideRequestPayload } from "./booking.zod";
-import Passenger from "../passenger/passenger.model";
 
 
 
@@ -300,7 +300,7 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string, cancelReaso
     const booking = await Booking.findById(bookingId)
         .populate<{ ride: IRidePublish & { driver: IPopulatedDriver } }>({
             path: 'ride',
-            select: '_id tripId driver tripStatus',
+            select: '_id tripId driver tripStatus totalSeatBooked minimumPassenger',
             populate: {
                 path: 'driver',
                 select: 'user _id',
@@ -321,7 +321,6 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string, cancelReaso
 
     if (!booking) throw new NotFoundError('Booking not found');
 
-
     if (user.currentRole === USER_ROLE.DRIVER &&
         booking.ride.driver._id.toString() !== user._id.toString()
     ) {
@@ -332,7 +331,6 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string, cancelReaso
     if (!cancellableStatuses.includes(booking.status as TBookingStatus)) {
         throw new BadRequestError(`Booking is already ${booking.status}`);
     }
-
 
     if (user.currentRole === USER_ROLE.DRIVER) {
         const allowedTripStatuses = [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING] as TTripStatus[];
@@ -360,17 +358,24 @@ const rejectOrCancelBooking = async (user: IUser, bookingId: string, cancelReaso
         }),
     ];
 
+    // ACCEPTED 
     if (booking.status === BOOKING_STATUS.ACCEPTED) {
+        const remainingSeats = booking.ride.totalSeatBooked - seatsToRestore;
+
         updatePromises.push(
             RidePublish.findByIdAndUpdate(booking.ride._id, {
                 $inc: {
                     availableSeats: seatsToRestore,
                     totalSeatBooked: -seatsToRestore,
                 },
+                ...(remainingSeats < booking.ride.minimumPassenger && {
+                    tripStatus: TRIP_STATUS.PENDING,
+                }),
             })
         );
     }
 
+    // Passenger cancel করলে totalCancelledTrips increment
     if (!isDriverAction) {
         updatePromises.push(
             Passenger.findByIdAndUpdate(booking.passenger._id, {

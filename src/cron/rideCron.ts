@@ -63,7 +63,13 @@ export const initializeRideCrons = () => {
             // find rides that are still PENDING but past their departure time
             const expiredRides = await RidePublish.find({
                 departureDateTime: { $lt: now.toDate() },
-                tripStatus: TRIP_STATUS.PENDING,
+                $or: [
+                    { tripStatus: TRIP_STATUS.PENDING },
+                    {
+                        tripStatus: TRIP_STATUS.UPCOMING,
+                        $expr: { $lt: ['$totalSeatBooked', '$minimumPassenger'] },
+                    },
+                ],
             }).select('_id');
 
             if (expiredRides.length === 0) return;
