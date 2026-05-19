@@ -59,8 +59,8 @@ const loginWithCredential = async (credential: TLoginPayload) => {
  
   if(!user.isAlreadyEmailSent) {
     await sendMail({
-      from: config.gmail_app_user,
-      to: user.email!,
+      from: user.email!,
+      to: config.gmail_app_user!,
       subject: 'Login Alert',
       html: `<p>Hello ${user.fullName},</p><p>You have successfully logged in to your app first time.</p>`
     });

@@ -31,16 +31,11 @@ export async function handleSendMessage(
       return;
     }
   }
-
-
-
   const senderObjectId = new Types.ObjectId(senderId);
   const conversationObjectId = new Types.ObjectId(messageData.conversationId);
 
-
   // Fetch conversation with participants
   const conversation = await Conversation.findById(conversationObjectId).lean();
-
 
   if (!conversation) {
     socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
