@@ -5,7 +5,6 @@ import NodeCache from 'node-cache';
 import { Server as ChatServer, Socket } from 'socket.io';
 
 import { sendNotificationBySocket } from '../app/modules/notification/notification.utils';
-import { USER_ROLE } from '../app/modules/user/user.constant';
 import User from '../app/modules/user/user.model';
 import config from '../config';
 import jwtHelpers from '../helpers/jwtHelpers';
@@ -13,6 +12,7 @@ import getUserNotificationCount from '../utilities/getUserNotificationCount';
 import handleChatEvents from './handleChatEvents';
 import handleLocationEvents from './handleLocationEvent';
 import { SOCKET_EVENTS } from './socket.constant';
+import getUnreadMessageCount from '../helpers/getUnreadMessageCount';
 
 let io: ChatServer;
 
@@ -106,17 +106,30 @@ const handleConnection = async (socket: Socket) => {
   // Send unseen notification count on connect
   try {
     const notificationCount = await getUserNotificationCount(currentUserId);
-    socket.emit(SOCKET_EVENTS.NOTIFICATION_UPDATE_COUNT, notificationCount);
+    io.to(currentUserId).emit(SOCKET_EVENTS.NOTIFICATION_UPDATE_COUNT, notificationCount);
   } catch (err) {
     console.error('Failed to get notification count for:', currentUserId, err);
   }
+
+
+  // Send unseen notification count on connect
+  try {
+    const unreadCount = await getUnreadMessageCount(currentUserId);
+    console.log("unreadCount", unreadCount)
+    io.to(currentUserId).emit(SOCKET_EVENTS.UNREAD_MESSAGE_COUNT, {
+      unreadCount,
+    });
+  } catch (err) {
+    console.error('Failed to get unread message count for:', currentUserId, err);
+  }
+
 
   // Test notification (only available in non-production)
   if (config.node_env !== 'production') {
     socket.on('test:notification', async (data) => {
       try {
         if (!data?.title || !data?.message || !data?.receiver || !data?.type) {
-          socket.emit(SOCKET_EVENTS.SOCKET_ERROR, {
+          io.to(currentUserId).emit(SOCKET_EVENTS.SOCKET_ERROR, {
             message: 'Missing required fields: title, message, receiver, type',
           });
           return;

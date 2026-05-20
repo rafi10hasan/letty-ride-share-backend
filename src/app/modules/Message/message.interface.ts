@@ -1,6 +1,6 @@
 import { Types } from 'mongoose';
 
-export interface IMessage {
+export interface IMessage{
   text: string;
   images: string[];
   senderId: Types.ObjectId;
@@ -9,10 +9,6 @@ export interface IMessage {
   updatedAt: Date;
 }
 
-export interface NewMessagePayload {
-  conversationId: string;
-  text: string;
-}
 export type TChatImages = {
   chat_images: Express.Multer.File[];
 };

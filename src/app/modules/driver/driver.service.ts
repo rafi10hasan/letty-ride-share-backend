@@ -7,17 +7,22 @@ import { TDriverImages } from './driver.interface';
 import { driverRepository } from './driver.repository';
 
 import moment from 'moment-timezone';
+import config from '../../../config';
 import jwtHelpers from '../../../helpers/jwtHelpers';
+import sendMail from '../../../utilities/sendEmail';
 import { jwtPayload } from '../auth/auth.interface';
 import { BOOKING_STATUS } from '../booking/booking.constant';
 import { Booking } from '../booking/booking.model';
+import Notification from '../notification/notification.model';
 import { IPassenger } from '../passenger/passenger.interface';
 import { passengerRepository } from '../passenger/passenger.repository';
 import { TRIP_STATUS } from '../ride-publish/ride.publish.constant';
 import RidePublish from '../ride-publish/ride.publish.model';
 import { TripHistory } from '../trip-history/trip.history.model';
 import { USER_ROLE } from '../user/user.constant';
+import User from '../user/user.model';
 import { TDriverCarUpdatePayload, TDriverProfilePayload, TDriverUpdatedProfilePayload } from './driver.zod';
+import { NOTIFICATION_TYPE } from '../notification/notification.constant';
 
 
 // create driver profile
@@ -88,6 +93,27 @@ const createDriverProfile = async (
     };
 
     const tokens = await jwtHelpers.generateTokens(JwtPayload);
+
+    const superAdmin = await User.findOne({ email: config.admin_email, currentRole: USER_ROLE.SUPER_ADMIN }).select("_id");
+
+    if (superAdmin) {
+
+      if (user.email) {
+        await sendMail({
+          from: user.email!,
+          to: config.gmail_app_user!,
+          subject: 'new driver signing',
+          html: `<p>${user.email} have successfully created a driver profile in your app for the first time. <br>phone number: ${user.phone || 'Not provided'}</br></p>`
+        });
+      }
+
+      await Notification.create({
+        title: 'new driver signing',
+        message: `${user.email} have successfully created a driver profile in your app for the first time. please check it out`,
+        receiver: superAdmin._id,
+        type: NOTIFICATION_TYPE.ADMIN_NOTIFICATION
+      });
+    }
 
     // 7. Commit 
     await session.commitTransaction();

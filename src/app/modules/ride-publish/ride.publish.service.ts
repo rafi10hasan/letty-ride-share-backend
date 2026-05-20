@@ -18,6 +18,7 @@ import { notifyUser } from '../../../cron/rideCron';
 import { notifyPassengersOfScheduleChange } from '../../../helpers/notifyUserRideSchduleChange';
 import { buildDepartureDateTime, buildEstimatedArrivalTime, sanitizeDepartureDate } from '../../../helpers/ride.helper';
 import { passengerRepository } from '../passenger/passenger.repository';
+import { SUBSCRIPTION_PLAN } from '../subscription/subscription.constant';
 import { TripHistory } from '../trip-history/trip.history.model';
 import { GENDER } from '../user/user.constant';
 
@@ -35,7 +36,7 @@ interface IPopulatedPassenger {
 // publish ride
 
 const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
-  const driver = await driverRepository.findDriverByUserId(user._id);
+  const driver = await driverRepository.findDriverByUserId(user._id, '_id user');
   if (!driver) {
     throw new NotFoundError('Driver profile not found');
   }
@@ -49,27 +50,12 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   }
 
   const departureTimeInMinutes = timeStringToMinutes(payload.departureTimeString);
-
   const departureDate = sanitizeDepartureDate(payload.departureDate);
-  const departureDateTime = buildDepartureDateTime(payload.departureDate, payload.departureTimeString, payload.timezone);
-
-  console.log({
-    departureTimeString: payload.departureTimeString,
-    departureDate: payload.departureDate,
-  })
-  const isConflict = await RidePublish.findOne({
-    driver: driver._id,
-    status: PUBLISH_STATUS.ACTIVE,
-    tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING, TRIP_STATUS.ONGOING] },
-  }).select("departureTimeString departureDate departureTimeMinutes");
-
-  console.log({ isConflict })
-  if (isConflict) {
-    throw new BadRequestError(
-      `You already have an active ride. Please complete or cancel it before publishing a new one.`
-    );
-  }
-
+  const departureDateTime = buildDepartureDateTime(
+    payload.departureDate,
+    payload.departureTimeString,
+    payload.timezone
+  );
 
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
@@ -79,17 +65,49 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   }
 
   const isToday = departureDate.getTime() === today.getTime();
-
   if (isToday) {
-    const oneHourFromNow = new Date(Date.now() + 30 * 60 * 1000);
-    console.log({ oneHourFromNow })
-    console.log({ departureDateTime })
-    if (departureDateTime < oneHourFromNow) {
-      throw new BadRequestError('Departure time must be at least 30 minutes before from now');
+    const thirtyMinFromNow = new Date(Date.now() + 30 * 60 * 1000);
+    if (departureDateTime < thirtyMinFromNow) {
+      throw new BadRequestError('Departure time must be at least 30 minutes from now');
     }
   }
 
-  const { etaSeconds } = await getETAFromGoogleMaps(payload.pickUpLocation.coordinates, payload.dropOffLocation.coordinates);
+  const isFreePlan = !user.subscription?.plan || user.subscription?.plan === SUBSCRIPTION_PLAN.FREE; // adjust to your IUser plan field
+
+  const conflictingRide = await RidePublish.findOne({
+    driver: driver._id,
+    status: PUBLISH_STATUS.ACTIVE,
+    tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING, TRIP_STATUS.ONGOING] },
+    ...(isFreePlan
+      ? {}
+      : {
+        departureDateTime: { $lte: departureDateTime },
+        estimatedArrivalTime: { $gt: departureDateTime },
+      }),
+  }).select('estimatedArrivalTime departureTimeString');
+
+  if (conflictingRide) {
+    if (isFreePlan) {
+      throw new BadRequestError(
+        'Free plan can not publish ride at a time, if you publish ride more please upgrade your plan.'
+      );
+    }
+
+    const formatted = conflictingRide.estimatedArrivalTime.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: payload.timezone,
+    });
+
+    throw new BadRequestError(
+      `You have a ride ending around ${formatted}. Please schedule your new ride after that.`
+    );
+  }
+
+  const { etaSeconds } = await getETAFromGoogleMaps(
+    payload.pickUpLocation.coordinates,
+    payload.dropOffLocation.coordinates
+  );
 
   const estimatedArrivalTime = buildEstimatedArrivalTime(departureDateTime, etaSeconds);
 
@@ -97,8 +115,6 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
     payload.pickUpLocation.coordinates,
     payload.dropOffLocation.coordinates
   );
-
-  console.log({ bearing })
 
   const MAX_RETRIES = 3;
 
@@ -145,6 +161,7 @@ const publishRide = async (user: IUser, payload: TCreateTripPayload) => {
   throw new BadRequestError('Failed to generate unique trip ID. Try again later.');
 };
 
+
 // get specific driver published rides
 const getMyPublishedRides = async (user: IUser) => {
   const driver = await driverRepository.findDriverByUserId(user._id, '_id user');
@@ -184,6 +201,7 @@ const getMyPublishedRides = async (user: IUser) => {
   return formattedRides;
 };
 
+
 // modify publish ride
 const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTripPayload) => {
   const driver = await driverRepository.findDriverByUserId(user._id);
@@ -212,19 +230,6 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
     throw new BadRequestError('Minimum passenger cannot exceed total seats');
   }
 
-  const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
-
-  if (payload.departureDate && payload.departureTime) {
-    const selectedDepartureDateTime = buildDepartureDateTime(
-      payload.departureDate,
-      payload.departureTime,
-      ride.timezone,
-    );
-
-    if (selectedDepartureDateTime < oneHourFromNow) {
-      throw new BadRequestError('Departure time must be at least 1 hour before from now');
-    }
-  } 
   const updateData: Record<string, any> = {};
   let isDateTimeChanged = false;
 
@@ -235,17 +240,36 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
 
     const newDepartureDateTime = buildDepartureDateTime(newDate, newTime, ride.timezone);
 
-    if (newDepartureDateTime.getTime() <= Date.now()) {
+    if (newDepartureDateTime <= new Date()) {
       throw new BadRequestError('Departure time must be in the future');
     }
 
-    const timeMoment = moment(newTime, 'hh:mm A');
-    const hours = timeMoment.hours();
-    const minutes = timeMoment.minutes();
+    // ─── Conflict check ──────────────────────────────────────────────
+    const conflictingRide = await RidePublish.findOne({
+      _id: { $ne: rideId },
+      driver: driver._id,
+      status: PUBLISH_STATUS.ACTIVE,
+      tripStatus: { $in: [TRIP_STATUS.PENDING, TRIP_STATUS.UPCOMING, TRIP_STATUS.ONGOING] },
+      departureDateTime: { $lte: newDepartureDateTime },
+      estimatedArrivalTime: { $gt: newDepartureDateTime },
+    }).select('estimatedArrivalTime departureTimeString');
 
+    if (conflictingRide) {
+      const formatted = conflictingRide.estimatedArrivalTime.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        timeZone: ride.timezone,
+      });
+
+      throw new BadRequestError(
+        `You have a ride ending around ${formatted}. Please schedule your new time after that.`
+      );
+    }
+
+    const timeMoment = moment(newTime, 'hh:mm A');
     updateData.departureDate = sanitizeDepartureDate(newDate);
     updateData.departureTimeString = newTime;
-    updateData.departureTimeMinutes = hours * 60 + minutes;
+    updateData.departureTimeMinutes = timeMoment.hours() * 60 + timeMoment.minutes();
     updateData.departureDateTime = newDepartureDateTime;
 
     isDateTimeChanged = true;
@@ -292,7 +316,6 @@ const modifyPublishRide = async (user: IUser, rideId: string, payload: TUpdateTr
     minimumPassenger: updatedRide?.minimumPassenger,
   };
 };
-
 // search avaiable rides
 const searchAvailableRides = async (user: IUser, payload: TSearchTripPayload) => {
   console.log({ payload })
@@ -662,7 +685,7 @@ const cancelRide = async (user: IUser, rideId: string, cancellationReason: strin
 
     await RidePublish.findByIdAndDelete(rideId, { session });
     driver.totalCancelledTrips = (driver.totalCancelledTrips || 0) + 1;
-    await driver.save({session})
+    await driver.save({ session })
     await session.commitTransaction();
 
   } catch (error) {

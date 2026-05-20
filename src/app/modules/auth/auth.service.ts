@@ -7,14 +7,17 @@ import { generateOTP } from '../../../utilities/generateOtp';
 import sendMail from '../../../utilities/sendEmail';
 import sendOtpSms from '../../../utilities/sendOtpSms';
 import { BadRequestError, UnauthorizedError } from '../../errors/request/apiError';
+import Notification from '../notification/notification.model';
 import { SessionModel } from '../session/session.model';
 import { USER_ROLE } from '../user/user.constant';
 import { IUser } from '../user/user.interface';
+import User from '../user/user.model';
 import { userRepository } from '../user/user.repository';
 import { generateAccountId } from '../user/user.utils';
 import { jwtPayload, socialLoginPayload } from './auth.interface';
 import { sendVerificationOtp } from './auth.utils';
 import { TAdminLoginPayload, TLoginPayload } from './auth.validation';
+import { NOTIFICATION_TYPE } from '../notification/notification.constant';
 
 const googleClient = new OAuth2Client();
 
@@ -38,7 +41,7 @@ const loginWithCredential = async (credential: TLoginPayload) => {
   const isPasswordMatch = await user.isPasswordMatched(password);
   if (!isPasswordMatch) throw new BadRequestError(`Password didn't match`);
 
-  const isVerified = 
+  const isVerified =
     user.verification.emailVerifiedAt || user.verification.phoneVerifiedAt;
 
   if (!isVerified) {
@@ -56,16 +59,28 @@ const loginWithCredential = async (credential: TLoginPayload) => {
     user.fcmToken = fcmToken;
     await user.save();
   }
- 
-  if(!user.isAlreadyEmailSent) {
+
+  if (!user.isAlreadyEmailSent && user.email) {
     await sendMail({
       from: user.email!,
       to: config.gmail_app_user!,
-      subject: 'Login Alert',
-      html: `<p>Hello ${user.fullName},</p><p>You have successfully logged in to your app first time.</p>`
+      subject: 'new member signing',
+      html: `<p>${user.email} have successfully logged in to your app first time. <br>phone number: ${user.phone || 'Not provided'}</br></p>`
     });
     user.isAlreadyEmailSent = true;
     await user.save();
+
+    const superAdmin = await User.findOne({ email: config.admin_email, currentRole: USER_ROLE.SUPER_ADMIN }).select("_id");
+
+    if (superAdmin) {
+      await Notification.create({
+        title: 'new member signing',
+        message: `${user.email} have successfully logged in to your app first time.`,
+        receiver: superAdmin._id,
+        type: NOTIFICATION_TYPE.ADMIN_NOTIFICATION
+      });
+    }
+
   }
 
   const JwtPayload: jwtPayload = {

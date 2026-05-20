@@ -58,7 +58,7 @@ const handleChatEvents = async (
   socket.on(SOCKET_EVENTS.LEAVE_CONVERSATION, (conversationId?: string) => {
     const targetConversationId =
       conversationId ?? socket.data.currentConversationId;
-
+     console.log(`User ${currentUserId} requested to leave conversation: ${targetConversationId}`);
     if (targetConversationId) {
       const rooms = Array.from(socket.rooms);
       if (rooms.includes(targetConversationId)) {
@@ -71,7 +71,7 @@ const handleChatEvents = async (
 
   socket.on(SOCKET_EVENTS.GET_CONVERSATIONS, async (query) => {
     try {
-      const conversations = await getConversationList(currentUserId, query);
+      const conversations = await getConversationList(io,currentUserId, query);
       socket.emit('conversation-list', conversations);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
